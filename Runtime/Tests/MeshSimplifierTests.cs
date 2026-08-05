@@ -123,6 +123,57 @@ namespace Meshia.MeshSimplification.Tests
             Object.Destroy(mesh);
             Object.Destroy(simplifiedMesh);
         }
+
+        [Test]
+        public async Task ShouldSimplifyWithBlenderDecimateRatio()
+        {
+            var source = Object.Instantiate(GetPrimitiveMesh(PrimitiveType.Sphere));
+            var sourceTriangleCount = source.triangles.Length / 3;
+            Mesh destination = new();
+
+            await MeshSimplifier.SimplifyAsync(source, new MeshSimplificationTarget
+            {
+                Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
+                Value = 0.5f,
+            }, MeshSimplifierOptions.Default, destination);
+
+            Assert.LessOrEqual(destination.triangles.Length / 3, sourceTriangleCount * 0.5f);
+            Assert.AreEqual(destination.vertexCount, destination.uv.Length);
+            AssertMeshHasNoDegenerateTriangles(destination);
+
+            Object.Destroy(source);
+            Object.Destroy(destination);
+        }
+
+        [Test]
+        public async Task ShouldKeepMeshForFullBlenderDecimateRatio()
+        {
+            var source = GetPrimitiveMesh(PrimitiveType.Cube);
+            Mesh destination = new();
+
+            await MeshSimplifier.SimplifyAsync(source, new MeshSimplificationTarget
+            {
+                Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
+                Value = 1f,
+            }, MeshSimplifierOptions.Default, destination);
+
+            Assert.AreEqual(source.vertexCount, destination.vertexCount);
+            Assert.AreEqual(source.triangles.Length, destination.triangles.Length);
+            Object.Destroy(destination);
+        }
+
+        static void AssertMeshHasNoDegenerateTriangles(Mesh mesh)
+        {
+            var vertices = mesh.vertices;
+            var triangles = mesh.triangles;
+            for (var i = 0; i < triangles.Length; i += 3)
+            {
+                var a = vertices[triangles[i]];
+                var b = vertices[triangles[i + 1]];
+                var c = vertices[triangles[i + 2]];
+                Assert.Greater(Vector3.Cross(b - a, c - a).sqrMagnitude, 1e-12f, $"Triangle {i / 3} is degenerate.");
+            }
+        }
     }
 
 }

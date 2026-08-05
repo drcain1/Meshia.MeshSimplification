@@ -61,6 +61,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
         public override VisualElement CreateInspectorGUI()
         {
+            editorVisualTreeAsset ??= AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                AssetDatabase.GUIDToAssetPath("3152adf210475e149955bf3e826b403d"));
+            entryEditorVisualTreeAsset ??= AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                AssetDatabase.GUIDToAssetPath("89f639b7d364db64283afa25c01d1ae3"));
+            if (editorVisualTreeAsset == null || entryEditorVisualTreeAsset == null)
+            {
+                return new HelpBox("Meshia cascading inspector UI assets could not be loaded.", HelpBoxMessageType.Error);
+            }
+
             VisualElement root = new();
             editorVisualTreeAsset.CloneTree(root);
 
@@ -247,6 +256,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var targetTriangleCountField = itemRoot.Q<IntegerField>("TargetTriangleCountField");
                 var triangleCountDivider = itemRoot.Q<Label>("TriangleCountDivider");
                 var optionsToggle = itemRoot.Q<Toggle>("OptionsToggle");
+                var algorithmField = itemRoot.Q<PropertyField>("AlgorithmField");
                 var optionsField = itemRoot.Q<PropertyField>("OptionsField");
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
                 enabledToggle.RegisterValueChangedCallback(changeEvent =>
@@ -278,7 +288,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                 optionsToggle.RegisterValueChangedCallback(changeEvent =>
                 {
-                    optionsField.style.display = preserveBorderEdgesBonesFoldout.style.display = changeEvent.newValue ? DisplayStyle.Flex : DisplayStyle.None;
+                    algorithmField.style.display = optionsField.style.display = preserveBorderEdgesBonesFoldout.style.display =
+                        changeEvent.newValue ? DisplayStyle.Flex : DisplayStyle.None;
                 });
 
 

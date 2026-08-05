@@ -8,6 +8,7 @@ using Unity.Mathematics;
 using Unity.Mathematics.Geometry;
 using Unity.Profiling;
 using UnityEngine;
+using Plane = Unity.Mathematics.Geometry.Plane;
 namespace Meshia.MeshSimplification
 {
     [BurstCompile(DisableSafetyChecks = true, OptimizeFor = OptimizeFor.Performance)]
@@ -67,9 +68,11 @@ namespace Meshia.MeshSimplification
         public MeshSimplificationTarget SimplificationTarget;
         private int VertexCount;
         private int TriangleCount;
+        readonly bool UseBlenderDecimate => SimplificationTarget.Kind == MeshSimplificationTargetKind.BlenderDecimateRatio;
         MergeFactory MergeFactory => new()
         {
             VertexPositionBuffer = VertexPositionBuffer,
+            VertexNormalBuffer = VertexNormalBuffer,
             VertexBlendIndicesBuffer = VertexBlendIndicesBuffer,
             VertexErrorQuadrics = VertexErrorQuadrics,
             TriangleNormals = TriangleNormals,
@@ -79,6 +82,7 @@ namespace Meshia.MeshSimplification
             PreserveBorderEdgesBoneIndices = PreserveBorderEdgesBoneIndices,
             PreserveBorderEdges = Options.PreserveBorderEdges,
             PreserveSurfaceCurvature = Options.PreserveSurfaceCurvature,
+            UseBlenderDecimate = UseBlenderDecimate,
 
         };
 
@@ -203,7 +207,291 @@ namespace Meshia.MeshSimplification
                         }
                     }
                     break;
+                case MeshSimplificationTargetKind.BlenderDecimateRatio:
+                    {
+                        var ratio = math.saturate(SimplificationTarget.Value);
+                        if (ratio >= 1f)
+                        {
+                            break;
+                        }
+
+                        PrepareBlenderDecimate();
+                        var targetTriangleCount = (int)(TriangleCount * ratio);
+                        while (targetTriangleCount < TriangleCount && VertexMerges.TryDequeue(out var merge))
+                        {
+                            if (IsValidMerge(merge))
+                            {
+                                ApplyMerge(merge);
+                            }
+                        }
+                    }
+                    break;
             }
+        }
+
+        /*
+         * Blender-compatible collapse policy.
+         *
+         * Derived from Blender 5.2's bmesh_decimate_collapse.cc and its
+         * BM_mesh_decimate_collapse entry point. Blender is licensed under
+         * GPL-2.0-or-later; this private port of that policy carries the same terms.
+         */
+        void PrepareBlenderDecimate()
+        {
+            RebuildBlenderQuadrics();
+            VertexMerges.Clear();
+
+            using var queuedEdges = new UnsafeHashSet<int2>(math.max(VertexCount * 3, 1), Allocator.Temp);
+            for (var vertex = 0; vertex < VertexPositionBuffer.Length; vertex++)
+            {
+                if (IsDiscardedVertex(vertex))
+                {
+                    continue;
+                }
+
+                foreach (var opponent in VertexMergeOpponentVertices.GetValuesForKey(vertex))
+                {
+                    if (vertex == opponent || IsDiscardedVertex(opponent))
+                    {
+                        continue;
+                    }
+
+                    var edge = new int2(math.min(vertex, opponent), math.max(vertex, opponent));
+                    if (!queuedEdges.Add(edge) || !IsTopologicalEdge(edge.x, edge.y))
+                    {
+                        continue;
+                    }
+
+                    if (MergeFactory.TryComputeMerge(edge, out var position, out var cost))
+                    {
+                        VertexMerges.Enqueue(new VertexMerge
+                        {
+                            VertexAIndex = edge.x,
+                            VertexBIndex = edge.y,
+                            VertexAVersion = VertexVersions[edge.x],
+                            VertexBVersion = VertexVersions[edge.y],
+                            Position = position,
+                            Cost = cost,
+                        });
+                    }
+                }
+            }
+        }
+
+        void RebuildBlenderQuadrics()
+        {
+            for (var vertex = 0; vertex < VertexErrorQuadrics.Length; vertex++)
+            {
+                VertexErrorQuadrics[vertex] = default;
+            }
+
+            for (var triangleIndex = 0; triangleIndex < Triangles.Length; triangleIndex++)
+            {
+                if (IsDiscardedTriangle(triangleIndex))
+                {
+                    continue;
+                }
+
+                var triangle = Triangles[triangleIndex];
+                var a = VertexPositionBuffer[triangle.x];
+                var b = VertexPositionBuffer[triangle.y];
+                var c = VertexPositionBuffer[triangle.z];
+                var normal = math.normalizesafe(math.cross(b - a, c - a));
+                TriangleNormals[triangleIndex] = normal;
+                if (math.lengthsq(normal) == 0f)
+                {
+                    continue;
+                }
+
+                var quadric = new ErrorQuadric(new Plane(normal, (a + b + c) / 3f));
+                VertexErrorQuadrics.ElementAt(triangle.x) += quadric;
+                VertexErrorQuadrics.ElementAt(triangle.y) += quadric;
+                VertexErrorQuadrics.ElementAt(triangle.z) += quadric;
+            }
+
+            using var visitedEdges = new UnsafeHashSet<int2>(math.max(TriangleCount * 3, 1), Allocator.Temp);
+            for (var triangleIndex = 0; triangleIndex < Triangles.Length; triangleIndex++)
+            {
+                if (IsDiscardedTriangle(triangleIndex))
+                {
+                    continue;
+                }
+
+                var triangle = Triangles[triangleIndex];
+                AddBlenderBoundaryQuadric(visitedEdges, triangle.x, triangle.y, triangleIndex);
+                AddBlenderBoundaryQuadric(visitedEdges, triangle.y, triangle.z, triangleIndex);
+                AddBlenderBoundaryQuadric(visitedEdges, triangle.z, triangle.x, triangleIndex);
+            }
+        }
+
+        void AddBlenderBoundaryQuadric(UnsafeHashSet<int2> visitedEdges, int vertexA, int vertexB, int triangleIndex)
+        {
+            var edge = new int2(math.min(vertexA, vertexB), math.max(vertexA, vertexB));
+            if (!visitedEdges.Add(edge) || CountSharedActiveTriangles(edge.x, edge.y) != 1)
+            {
+                return;
+            }
+
+            var a = VertexPositionBuffer[edge.x];
+            var b = VertexPositionBuffer[edge.y];
+            var edgePlaneNormal = math.normalizesafe(math.cross(b - a, TriangleNormals[triangleIndex]));
+            if (math.lengthsq(edgePlaneNormal) == 0f)
+            {
+                return;
+            }
+
+            const float boundaryPreserveWeight = 100f;
+            var boundaryQuadric = new ErrorQuadric(new Plane(edgePlaneNormal, (a + b) * 0.5f)) * boundaryPreserveWeight;
+            VertexErrorQuadrics.ElementAt(edge.x) += boundaryQuadric;
+            VertexErrorQuadrics.ElementAt(edge.y) += boundaryQuadric;
+        }
+
+        readonly bool IsTopologicalEdge(int vertexA, int vertexB)
+        {
+            return CountSharedActiveTriangles(vertexA, vertexB) != 0;
+        }
+
+        readonly int CountSharedActiveTriangles(int vertexA, int vertexB)
+        {
+            var count = 0;
+            foreach (var triangleIndex in VertexContainingTriangles.GetValuesForKey(vertexA))
+            {
+                if (!IsDiscardedTriangle(triangleIndex) && math.any(Triangles[triangleIndex] == vertexB))
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        readonly bool IsBlenderTopologicallyValid(int vertexA, int vertexB)
+        {
+            var sharedFaceCount = CountSharedActiveTriangles(vertexA, vertexB);
+            if (sharedFaceCount is < 1 or > 2 || HasNonManifoldIncidentEdge(vertexA) || HasNonManifoldIncidentEdge(vertexB))
+            {
+                return false;
+            }
+
+            using var validCommonNeighbors = new UnsafeHashSet<int>(2, Allocator.Temp);
+            using var vertexANeighbors = new UnsafeHashSet<int>(16, Allocator.Temp);
+
+            foreach (var triangleIndex in VertexContainingTriangles.GetValuesForKey(vertexA))
+            {
+                if (IsDiscardedTriangle(triangleIndex))
+                {
+                    continue;
+                }
+
+                var triangle = Triangles[triangleIndex];
+                for (var i = 0; i < 3; i++)
+                {
+                    var neighbor = triangle[i];
+                    if (neighbor != vertexA)
+                    {
+                        vertexANeighbors.Add(neighbor);
+                    }
+                    if (neighbor != vertexA && neighbor != vertexB && math.any(triangle == vertexB))
+                    {
+                        validCommonNeighbors.Add(neighbor);
+                    }
+                }
+            }
+
+            foreach (var triangleIndex in VertexContainingTriangles.GetValuesForKey(vertexB))
+            {
+                if (IsDiscardedTriangle(triangleIndex))
+                {
+                    continue;
+                }
+
+                var triangle = Triangles[triangleIndex];
+                for (var i = 0; i < 3; i++)
+                {
+                    var neighbor = triangle[i];
+                    if (neighbor != vertexB && vertexANeighbors.Contains(neighbor) && !validCommonNeighbors.Contains(neighbor))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        readonly bool HasNonManifoldIncidentEdge(int vertex)
+        {
+            using var neighbors = new UnsafeHashSet<int>(16, Allocator.Temp);
+            foreach (var triangleIndex in VertexContainingTriangles.GetValuesForKey(vertex))
+            {
+                if (IsDiscardedTriangle(triangleIndex))
+                {
+                    continue;
+                }
+
+                var triangle = Triangles[triangleIndex];
+                for (var i = 0; i < 3; i++)
+                {
+                    if (triangle[i] != vertex)
+                    {
+                        neighbors.Add(triangle[i]);
+                    }
+                }
+            }
+
+            foreach (var neighbor in neighbors)
+            {
+                if (CountSharedActiveTriangles(vertex, neighbor) > 2)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        readonly bool WillBlenderCollapseFlip(VertexMerge merge, int vertex, int opponentVertex)
+        {
+            foreach (var triangleIndex in VertexContainingTriangles.GetValuesForKey(vertex))
+            {
+                if (IsDiscardedTriangle(triangleIndex))
+                {
+                    continue;
+                }
+
+                var triangle = Triangles[triangleIndex];
+                if (math.any(triangle == opponentVertex))
+                {
+                    continue;
+                }
+
+                int previousVertex;
+                int nextVertex;
+                if (triangle.x == vertex)
+                {
+                    previousVertex = triangle.z;
+                    nextVertex = triangle.y;
+                }
+                else if (triangle.y == vertex)
+                {
+                    previousVertex = triangle.x;
+                    nextVertex = triangle.z;
+                }
+                else
+                {
+                    previousVertex = triangle.y;
+                    nextVertex = triangle.x;
+                }
+
+                var previous = VertexPositionBuffer[previousVertex];
+                var next = VertexPositionBuffer[nextVertex];
+                var other = previous - next;
+                var existing = math.cross(other, previous - VertexPositionBuffer[vertex]);
+                var optimized = math.cross(other, previous - merge.Position);
+                if (math.dot(existing, optimized) <= (math.lengthsq(existing) + math.lengthsq(optimized)) * 0.01f)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         readonly bool IsValidMerge(VertexMerge merge)
@@ -214,6 +502,12 @@ namespace Meshia.MeshSimplification
             if (!versionCheck)
             {
                 return false;
+            }
+            if (UseBlenderDecimate)
+            {
+                return IsBlenderTopologicallyValid(vertexA, vertexB) &&
+                       !WillBlenderCollapseFlip(merge, vertexA, vertexB) &&
+                       !WillBlenderCollapseFlip(merge, vertexB, vertexA);
             }
             if (WillMakeContainingTriangleFlipped(merge, vertexA, vertexB))
             {
@@ -319,9 +613,9 @@ namespace Meshia.MeshSimplification
 
                 var preservedVertexPredicator = PreservedVertexPredicator;
 
-                var shouldPreserveVertexA = preservedVertexPredicator.IsPreserved(vertexA);
+                var shouldPreserveVertexA = !UseBlenderDecimate && preservedVertexPredicator.IsPreserved(vertexA);
 
-                var shouldPreserveVertexB = preservedVertexPredicator.IsPreserved(vertexB);
+                var shouldPreserveVertexB = !UseBlenderDecimate && preservedVertexPredicator.IsPreserved(vertexB);
 
                 if (shouldPreserveVertexB)
                 {
@@ -417,7 +711,8 @@ namespace Meshia.MeshSimplification
                     {
                         foreach (var vertexAOpponentVertex in VertexMergeOpponentVertices.GetValuesForKey(vertexA))
                         {
-                            if (MergeFactory.TryComputeMerge(new(vertexA, vertexAOpponentVertex), out var position, out var cost))
+                            if ((!UseBlenderDecimate || IsTopologicalEdge(vertexA, vertexAOpponentVertex)) &&
+                                MergeFactory.TryComputeMerge(new(vertexA, vertexAOpponentVertex), out var position, out var cost))
                             {
                                 VertexMerges.Enqueue(new VertexMerge
                                 {
@@ -454,7 +749,8 @@ namespace Meshia.MeshSimplification
                                     }
                                 }
 
-                                if (MergeFactory.TryComputeMerge(new(vertexA, vertexBOpponentVertex), out var position, out var cost))
+                                if ((!UseBlenderDecimate || IsTopologicalEdge(vertexA, vertexBOpponentVertex)) &&
+                                    MergeFactory.TryComputeMerge(new(vertexA, vertexBOpponentVertex), out var position, out var cost))
                                 {
                                     VertexMerges.Enqueue(new VertexMerge
                                     {
@@ -507,7 +803,7 @@ namespace Meshia.MeshSimplification
         {
             using (ProfilerMarkers.MergeVertexAttributeData.Auto())
             {
-                if (Options.UseBarycentricCoordinateInterpolation)
+                if (!UseBlenderDecimate && Options.UseBarycentricCoordinateInterpolation)
                 {
 
                     foreach (var vertexAContainingTriangleIndex in VertexContainingTriangles.GetValuesForKey(vertexA))
@@ -584,7 +880,8 @@ namespace Meshia.MeshSimplification
             var c = mergePosition;
             var ab = b - a;
             var ac = c - a;
-            return math.saturate(math.dot(ab, ac) / math.lengthsq(ab));
+            var factor = math.lengthsq(ab) > 1.192092896e-07f ? math.dot(ab, ac) / math.lengthsq(ab) : 0.5f;
+            return UseBlenderDecimate ? factor : math.saturate(factor);
         }
 
         readonly float3 ComputeBarycentricCoordinate(float3x3 triangleVertexPositions, float3 position)

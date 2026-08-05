@@ -50,6 +50,20 @@ namespace Meshia.MeshSimplification
             m9 = left.m9 + right.m9
         };
 
+        public static ErrorQuadric operator *(ErrorQuadric value, float factor) => new()
+        {
+            m0 = value.m0 * factor,
+            m1 = value.m1 * factor,
+            m2 = value.m2 * factor,
+            m3 = value.m3 * factor,
+            m4 = value.m4 * factor,
+            m5 = value.m5 * factor,
+            m6 = value.m6 * factor,
+            m7 = value.m7 * factor,
+            m8 = value.m8 * factor,
+            m9 = value.m9 * factor,
+        };
+
 
         /// <summary>
         /// Determinant(0, 1, 2, 1, 4, 5, 2, 5, 7)

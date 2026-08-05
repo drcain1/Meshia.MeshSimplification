@@ -1016,6 +1016,7 @@ namespace Meshia.MeshSimplification
             var computeMergesJob = new ComputeMergesJob
             {
                 VertexPositionBuffer = VertexPositionBuffer.AsDeferredJobArray(),
+                VertexNormalBuffer = VertexNormalBuffer.AsDeferredJobArray(),
                 VertexErrorQuadrics = VertexErrorQuadrics.AsDeferredJobArray(),
                 TriangleNormals = TriangleNormals.AsDeferredJobArray(),
                 VertexContainingTriangles = VertexContainingTriangles,

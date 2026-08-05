@@ -10,6 +10,8 @@ namespace Meshia.MeshSimplification
         [ReadOnly]
         public NativeArray<float3> VertexPositionBuffer;
         [ReadOnly]
+        public NativeArray<float4> VertexNormalBuffer;
+        [ReadOnly]
         public NativeArray<ErrorQuadric> VertexErrorQuadrics;
         [ReadOnly]
         public NativeArray<float3> TriangleNormals;
@@ -33,6 +35,7 @@ namespace Meshia.MeshSimplification
             var mergeFactory = new MergeFactory
             {
                 VertexPositionBuffer = VertexPositionBuffer,
+                VertexNormalBuffer = VertexNormalBuffer,
                 VertexErrorQuadrics = VertexErrorQuadrics,
                 VertexContainingTriangles = VertexContainingTriangles,
                 VertexIsBorderEdgeBits = VertexIsBorderEdgeBits,
@@ -41,6 +44,7 @@ namespace Meshia.MeshSimplification
                 PreserveSurfaceCurvature = PreserveSurfaceCurvature,
                 PreserveBorderEdgesBoneIndices = PreserveBorderEdgesBoneIndices,
                 VertexBlendIndicesBuffer = VertexBlendIndicesBuffer,
+                UseBlenderDecimate = false,
             };
             var edge = Edges[index];
             VertexMerge merge;

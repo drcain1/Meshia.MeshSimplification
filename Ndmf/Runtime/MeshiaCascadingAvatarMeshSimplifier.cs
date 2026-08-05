@@ -14,6 +14,17 @@ using Unity.Mathematics;
 
 namespace Meshia.MeshSimplification.Ndmf
 {
+    /// <summary>
+    /// Selects the collapse policy used by the cascading avatar simplifier.
+    /// </summary>
+    public enum MeshiaCascadingSimplificationAlgorithm
+    {
+        /// <summary>Use Blender's decimate collapse policy while retaining the allocated triangle count.</summary>
+        BlenderDecimate,
+        /// <summary>Use Meshia's standard absolute-triangle-count simplifier.</summary>
+        Meshia,
+    }
+
     [AddComponentMenu("Meshia Mesh Simplification/Meshia Cascading Avatar Mesh Simplifier")]
     public class MeshiaCascadingAvatarMeshSimplifier : MonoBehaviour
 #if ENABLE_VRCHAT_BASE
@@ -164,6 +175,7 @@ namespace Meshia.MeshSimplification.Ndmf
     {
         public AvatarObjectReference RendererObjectReference;
         public int TargetTriangleCount;
+        public MeshiaCascadingSimplificationAlgorithm Algorithm = MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;
         public MeshSimplifierOptions Options = MeshSimplifierOptions.Default;
         public ulong PreserveBorderEdgesBones =
             (1ul << (int)HumanBodyBones.LeftHand) |
@@ -213,6 +225,28 @@ namespace Meshia.MeshSimplification.Ndmf
             RendererObjectReference = new AvatarObjectReference();
             RendererObjectReference.Set(renderer.gameObject);
             TargetTriangleCount = RendererUtility.GetMesh(renderer)?.GetTriangleCount() ?? 0;
+        }
+
+        /// <summary>
+        /// Converts this entry's allocated triangle count to its selected simplification target.
+        /// </summary>
+        public MeshSimplificationTarget CreateTarget(int sourceTriangleCount)
+        {
+            if (Algorithm == MeshiaCascadingSimplificationAlgorithm.BlenderDecimate)
+            {
+                var ratio = sourceTriangleCount > 0 ? TargetTriangleCount / (float)sourceTriangleCount : 1f;
+                return new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
+                    Value = math.saturate(ratio),
+                };
+            }
+
+            return new MeshSimplificationTarget
+            {
+                Kind = MeshSimplificationTargetKind.AbsoluteTriangleCount,
+                Value = TargetTriangleCount,
+            };
         }
 
         internal static bool IsValidTarget([NotNullWhen(true)] Renderer? renderer)

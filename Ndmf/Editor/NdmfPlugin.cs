@@ -66,7 +66,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                             {
                                 if (!entry.IsValid(meshiaCascadingMeshSimplifier) || !entry.Enabled) continue;
                                 var mesh = RendererUtility.GetRequiredMesh(entry.GetTargetRenderer(meshiaCascadingMeshSimplifier)!);
-                                var target = new MeshSimplificationTarget() { Kind = MeshSimplificationTargetKind.AbsoluteTriangleCount, Value = entry.TargetTriangleCount };
+                                var target = entry.CreateTarget(mesh.GetTriangleCount());
                                 Mesh simplifiedMesh = new();
 
                                 var preserveBorderEdgesBoneIndices = MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(context.AvatarRootObject, meshiaCascadingMeshSimplifier, entry);

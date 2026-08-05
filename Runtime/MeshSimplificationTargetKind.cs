@@ -33,6 +33,12 @@ namespace Meshia.MeshSimplification
         /// The value is the target triangle count as an absolute number.
         /// </summary>
         AbsoluteTriangleCount,
+        /// <summary>
+        /// The value is the target triangle-count ratio, using Blender 5.2's
+        /// Mesh &gt; Clean Up &gt; Decimate Geometry edge-collapse policy.
+        /// A value of 1 keeps the current triangle count and 0 decimates as far as topology allows.
+        /// </summary>
+        BlenderDecimateRatio,
     }
 }
 

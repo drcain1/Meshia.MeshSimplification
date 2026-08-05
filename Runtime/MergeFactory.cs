@@ -8,6 +8,7 @@ namespace Meshia.MeshSimplification
     struct MergeFactory
     {
         public NativeArray<float3> VertexPositionBuffer;
+        public NativeArray<float4> VertexNormalBuffer;
         public NativeArray<uint> VertexBlendIndicesBuffer;
         public NativeArray<ErrorQuadric> VertexErrorQuadrics;
         public NativeParallelMultiHashMap<int, int> VertexContainingTriangles;
@@ -16,6 +17,7 @@ namespace Meshia.MeshSimplification
         public NativeArray<float3> TriangleNormals;
         public bool PreserveBorderEdges;
         public bool PreserveSurfaceCurvature;
+        public bool UseBlenderDecimate;
 
         PreservedVertexPredicator PreservedVertexPredicator => new()
         {
@@ -41,6 +43,37 @@ namespace Meshia.MeshSimplification
 
                 var positionX = VertexPositionBuffer[vertices.x];
                 var positionY = VertexPositionBuffer[vertices.y];
+
+                if (UseBlenderDecimate)
+                {
+                    // Derived from Blender 5.2's bmesh_decimate_collapse.cc.
+                    // Blender is GPL-2.0-or-later; this private port carries the same terms.
+                    var blenderDeterminant = q.Determinant1();
+                    if (math.abs(blenderDeterminant) > 1e-8f)
+                    {
+                        position = new float3
+                        {
+                            x = -q.Determinant2() / blenderDeterminant,
+                            y = q.Determinant3() / blenderDeterminant,
+                            z = -q.Determinant4() / blenderDeterminant,
+                        };
+                    }
+                    else
+                    {
+                        position = (positionX + positionY) * 0.5f;
+                    }
+
+                    cost = math.abs(q.ComputeError(position));
+                    if (cost < 1e-12f)
+                    {
+                        var lengthSquared = math.distancesq(positionX, positionY);
+                        var normalDot = VertexNormalBuffer.Length == 0
+                            ? 1f
+                            : math.abs(math.dot(VertexNormalBuffer[vertices.x].xyz, VertexNormalBuffer[vertices.y].xyz));
+                        cost = normalDot / math.min(-lengthSquared, -1.192092896e-07f) - cost;
+                    }
+                    return math.all(math.isfinite(position)) && math.isfinite(cost);
+                }
 
                 float vertexError;
 
