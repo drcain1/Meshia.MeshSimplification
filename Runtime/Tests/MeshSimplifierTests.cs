@@ -5,6 +5,7 @@ using Meshia.MeshSimplification;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -159,6 +160,83 @@ namespace Meshia.MeshSimplification.Tests
 
             Assert.AreEqual(source.vertexCount, destination.vertexCount);
             Assert.AreEqual(source.triangles.Length, destination.triangles.Length);
+            Object.Destroy(destination);
+        }
+
+        [Test]
+        public void ShouldMatchBlenderTopologyFallbackCost()
+        {
+            var cost = SimplifyJob.ComputeBlenderTopologyFallbackCost(2f, 0.5f, 0f);
+
+            Assert.That(cost, Is.EqualTo(-0.75f).Within(1e-6f));
+        }
+
+        [Test]
+        public void ShouldOptimizeBlenderQuadricsInDoublePrecision()
+        {
+            var quadric =
+                new BlenderErrorQuadric(new double3(1, 0, 0), new double3(1, 0, 0)) +
+                new BlenderErrorQuadric(new double3(0, 1, 0), new double3(0, 2, 0)) +
+                new BlenderErrorQuadric(new double3(0, 0, 1), new double3(0, 0, 3));
+
+            Assert.IsTrue(quadric.TryOptimize(out var position));
+            Assert.That(position.x, Is.EqualTo(1.0).Within(1e-12));
+            Assert.That(position.y, Is.EqualTo(2.0).Within(1e-12));
+            Assert.That(position.z, Is.EqualTo(3.0).Within(1e-12));
+            Assert.That(quadric.Evaluate(position), Is.EqualTo(0.0).Within(1e-12));
+        }
+
+        [Test]
+        public async Task ShouldSimplifyFlatGridWithBlenderTopologyFallback()
+        {
+            const int side = 5;
+            Mesh source = new();
+            var vertices = new Vector3[side * side];
+            var normals = new Vector3[vertices.Length];
+            var uvs = new Vector2[vertices.Length];
+            var triangles = new int[(side - 1) * (side - 1) * 6];
+
+            for (var y = 0; y < side; y++)
+            {
+                for (var x = 0; x < side; x++)
+                {
+                    var index = y * side + x;
+                    vertices[index] = new Vector3(x, y, 0);
+                    normals[index] = Vector3.forward;
+                    uvs[index] = new Vector2(x / (side - 1f), y / (side - 1f));
+                }
+            }
+
+            var triangleIndex = 0;
+            for (var y = 0; y < side - 1; y++)
+            {
+                for (var x = 0; x < side - 1; x++)
+                {
+                    var lowerLeft = y * side + x;
+                    triangles[triangleIndex++] = lowerLeft;
+                    triangles[triangleIndex++] = lowerLeft + 1;
+                    triangles[triangleIndex++] = lowerLeft + side + 1;
+                    triangles[triangleIndex++] = lowerLeft;
+                    triangles[triangleIndex++] = lowerLeft + side + 1;
+                    triangles[triangleIndex++] = lowerLeft + side;
+                }
+            }
+
+            source.vertices = vertices;
+            source.normals = normals;
+            source.uv = uvs;
+            source.triangles = triangles;
+            Mesh destination = new();
+
+            await MeshSimplifier.SimplifyAsync(source, new MeshSimplificationTarget
+            {
+                Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
+                Value = 0.5f,
+            }, MeshSimplifierOptions.Default, destination);
+
+            Assert.LessOrEqual(destination.triangles.Length, triangles.Length / 2);
+            AssertMeshHasNoDegenerateTriangles(destination);
+            Object.Destroy(source);
             Object.Destroy(destination);
         }
 

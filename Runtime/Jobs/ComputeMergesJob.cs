@@ -44,7 +44,6 @@ namespace Meshia.MeshSimplification
                 PreserveSurfaceCurvature = PreserveSurfaceCurvature,
                 PreserveBorderEdgesBoneIndices = PreserveBorderEdgesBoneIndices,
                 VertexBlendIndicesBuffer = VertexBlendIndicesBuffer,
-                UseBlenderDecimate = false,
             };
             var edge = Edges[index];
             VertexMerge merge;
