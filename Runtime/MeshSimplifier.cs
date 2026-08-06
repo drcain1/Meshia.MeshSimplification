@@ -1028,7 +1028,10 @@ namespace Meshia.MeshSimplification
                 PreserveSurfaceCurvature = Options.PreserveSurfaceCurvature,
                 VertexBlendIndicesBuffer = VertexBlendIndicesBuffer.AsDeferredJobArray(),
                 PreserveBorderEdgesBoneIndices = preserveBorderEdgesBoneIndices,
-            }.Schedule(edges, JobsUtility.CacheLineSize,
+            // This output list is resized by initializeVertexMergesJob. Using it as the
+            // deferred iteration source also patches the output array's length before
+            // ComputeMergesJob starts; scheduling from edges could leave that length at 0.
+            }.Schedule(unorderedDirtyVertexMerges, JobsUtility.CacheLineSize,
             stackalloc[]
             {
                 vertexPositionBufferDependency,

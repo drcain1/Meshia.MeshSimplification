@@ -198,6 +198,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
                 itemRoot.BindProperty(entryProperty);
                 itemRoot.userData = index;
+                UpdateAlgorithmOptionAvailability(itemRoot);
                 var targetRenderer = entry.GetTargetRenderer(Target);
                 if (targetRenderer != null)
                 {
@@ -259,6 +260,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var algorithmField = itemRoot.Q<PropertyField>("AlgorithmField");
                 var optionsField = itemRoot.Q<PropertyField>("OptionsField");
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
+                HelpBox blenderOptionsHelpBox = new(
+                    "Meshia options are not used by the Blender Decimate algorithm.",
+                    HelpBoxMessageType.Info)
+                {
+                    name = "BlenderOptionsHelpBox",
+                };
+                blenderOptionsHelpBox.style.display = DisplayStyle.None;
+                optionsField.parent.Insert(optionsField.parent.IndexOf(optionsField), blenderOptionsHelpBox);
                 enabledToggle.RegisterValueChangedCallback(changeEvent =>
                 {
                     var enabled = changeEvent.newValue;
@@ -290,6 +299,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 {
                     algorithmField.style.display = optionsField.style.display = preserveBorderEdgesBonesFoldout.style.display =
                         changeEvent.newValue ? DisplayStyle.Flex : DisplayStyle.None;
+                    UpdateAlgorithmOptionAvailability(itemRoot);
+                });
+
+                algorithmField.RegisterCallback<SerializedPropertyChangeEvent>(_ =>
+                {
+                    itemRoot.schedule.Execute(() => UpdateAlgorithmOptionAvailability(itemRoot));
                 });
 
 
@@ -343,6 +358,33 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
 
             return root;
+        }
+
+        private void UpdateAlgorithmOptionAvailability(VisualElement itemRoot)
+        {
+            if (itemRoot.userData is not int itemIndex || itemIndex < 0 || itemIndex >= EntriesProperty.arraySize)
+            {
+                return;
+            }
+
+            var entryProperty = EntriesProperty.GetArrayElementAtIndex(itemIndex);
+            var algorithmProperty = entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Algorithm));
+            var usesBlenderDecimate = algorithmProperty.enumValueIndex ==
+                (int)MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;
+
+            var optionsField = itemRoot.Q<PropertyField>("OptionsField");
+            var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
+            var blenderOptionsHelpBox = itemRoot.Q<HelpBox>("BlenderOptionsHelpBox");
+            var optionsToggle = itemRoot.Q<Toggle>("OptionsToggle");
+
+            optionsField.SetEnabled(!usesBlenderDecimate);
+            preserveBorderEdgesBonesFoldout.SetEnabled(!usesBlenderDecimate);
+            optionsField.tooltip = preserveBorderEdgesBonesFoldout.tooltip = usesBlenderDecimate
+                ? "Not supported by Blender Decimate. Select Meshia to use these options."
+                : string.Empty;
+            blenderOptionsHelpBox.style.display = usesBlenderDecimate && optionsToggle.value
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
         }
 
         static Dictionary<string, int> TargetTriangleCountPresetNameToValue { get; } = new()
