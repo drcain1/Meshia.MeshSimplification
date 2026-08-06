@@ -164,6 +164,52 @@ namespace Meshia.MeshSimplification.Tests
         }
 
         [Test]
+        public void ShouldSimplifyBlenderBatchWithDeferredMergeBuffers()
+        {
+            var sources = new[]
+            {
+                Object.Instantiate(GetPrimitiveMesh(PrimitiveType.Sphere)),
+                Object.Instantiate(GetPrimitiveMesh(PrimitiveType.Capsule)),
+                Object.Instantiate(GetPrimitiveMesh(PrimitiveType.Cylinder)),
+            };
+            var destinations = new[] { new Mesh(), new Mesh(), new Mesh() };
+            var target = new MeshSimplificationTarget
+            {
+                Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
+                Value = 0.5f,
+            };
+            var parameters = new List<(Mesh Mesh, MeshSimplificationTarget Target, MeshSimplifierOptions Options, Mesh Destination)>();
+
+            try
+            {
+                for (var i = 0; i < sources.Length; i++)
+                {
+                    parameters.Add((sources[i], target, MeshSimplifierOptions.Default, destinations[i]));
+                }
+
+                MeshSimplifier.SimplifyBatch(parameters);
+
+                for (var i = 0; i < sources.Length; i++)
+                {
+                    Assert.Greater(destinations[i].vertexCount, 0);
+                    Assert.LessOrEqual(destinations[i].triangles.Length, sources[i].triangles.Length / 2);
+                    AssertMeshHasNoDegenerateTriangles(destinations[i]);
+                }
+            }
+            finally
+            {
+                foreach (var source in sources)
+                {
+                    Object.DestroyImmediate(source);
+                }
+                foreach (var destination in destinations)
+                {
+                    Object.DestroyImmediate(destination);
+                }
+            }
+        }
+
+        [Test]
         public void ShouldMatchBlenderTopologyFallbackCost()
         {
             var cost = SimplifyJob.ComputeBlenderTopologyFallbackCost(2f, 0.5f, 0f);
