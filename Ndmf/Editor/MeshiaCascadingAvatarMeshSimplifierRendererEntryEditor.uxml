@@ -13,6 +13,7 @@
         <ui:Toggle name="OptionsToggle" style="align-self: center;" />
     </ui:VisualElement>
     <uie:PropertyField label="Algorithm" binding-path="Algorithm" name="AlgorithmField" style="display: none;" />
+    <ui:Button text="Preview UVs" name="PreviewUvsButton" tooltip="Compare this renderer's original and simplified UV layout." style="display: none;" />
     <uie:PropertyField binding-path="Options" name="OptionsField" style="display: none;" />
     <ui:Foldout text="Preserve Border Edges Bones" name="PreserveBorderEdgesBonesFoldout" value="false" style="display: none;" />
 </ui:UXML>

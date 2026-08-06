@@ -6,6 +6,7 @@ using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using Meshia.MeshSimplification.Editor;
 using Meshia.MeshSimplification.Ndmf.Editor.Preview;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
@@ -196,6 +197,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var originalTriangleCountField = itemRoot.Q<IntegerField>("OriginalTriangleCountField");
                 var unknownOriginalTriangleCountField = itemRoot.Q<TextField>("UnknownOriginalTriangleCountField");
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
+                var previewUvsButton = itemRoot.Q<Button>("PreviewUvsButton");
                 itemRoot.BindProperty(entryProperty);
                 itemRoot.userData = index;
                 UpdateAlgorithmOptionAvailability(itemRoot);
@@ -207,12 +209,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     targetObjectField.EnableInClassList("editor-only", MeshiaCascadingAvatarMeshSimplifierRendererEntry.IsEditorOnlyInHierarchy(targetRenderer.gameObject));
 
                     targetPathField.style.display = DisplayStyle.None;
+                    previewUvsButton.SetEnabled(entry.Enabled && RendererUtility.GetMesh(targetRenderer) != null);
                 }
                 else
                 {
                     targetPathField.style.display = DisplayStyle.Flex;
                     targetPathField.value = entry.RendererObjectReference.referencePath;
                     targetObjectField.style.display = DisplayStyle.None;
+                    previewUvsButton.SetEnabled(false);
                 }
                 
 
@@ -260,6 +264,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var algorithmField = itemRoot.Q<PropertyField>("AlgorithmField");
                 var optionsField = itemRoot.Q<PropertyField>("OptionsField");
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
+                var previewUvsButton = itemRoot.Q<Button>("PreviewUvsButton");
                 HelpBox blenderOptionsHelpBox = new(
                     "Meshia options are not used by the Blender Decimate algorithm.",
                     HelpBoxMessageType.Info)
@@ -275,6 +280,11 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     targetTriangleCountSlider.visible = enabled;
                     targetTriangleCountField.visible = enabled;
                     triangleCountDivider.visible = enabled;
+                    var canPreviewUvs = enabled && itemRoot.userData is int itemIndex &&
+                        itemIndex >= 0 && itemIndex < Target.Entries.Count &&
+                        Target.Entries[itemIndex].GetTargetRenderer(Target) is { } renderer &&
+                        RendererUtility.GetMesh(renderer) != null;
+                    previewUvsButton.SetEnabled(canPreviewUvs);
 
 
                     if (AutoAdjustEnabledProperty.boolValue)
@@ -297,10 +307,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                 optionsToggle.RegisterValueChangedCallback(changeEvent =>
                 {
-                    algorithmField.style.display = optionsField.style.display = preserveBorderEdgesBonesFoldout.style.display =
+                    algorithmField.style.display = previewUvsButton.style.display = optionsField.style.display = preserveBorderEdgesBonesFoldout.style.display =
                         changeEvent.newValue ? DisplayStyle.Flex : DisplayStyle.None;
                     UpdateAlgorithmOptionAvailability(itemRoot);
                 });
+
+                previewUvsButton.clicked += () => PreviewUvs(itemRoot);
 
                 algorithmField.RegisterCallback<SerializedPropertyChangeEvent>(_ =>
                 {
@@ -358,6 +370,45 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
 
             return root;
+        }
+
+        private void PreviewUvs(VisualElement itemRoot)
+        {
+            if (itemRoot.userData is not int itemIndex || itemIndex < 0 || itemIndex >= EntriesProperty.arraySize)
+            {
+                return;
+            }
+
+            serializedObject.ApplyModifiedProperties();
+            var entry = Target.Entries[itemIndex];
+            if (!entry.Enabled || entry.GetTargetRenderer(Target) is not { } targetRenderer ||
+                RendererUtility.GetMesh(targetRenderer) is not { } sourceMesh)
+            {
+                return;
+            }
+
+            var simplifiedMesh = new Mesh { name = $"{sourceMesh.name}-UV-Preview" };
+            try
+            {
+                var simplificationTarget = entry.CreateTarget(sourceMesh.GetTriangleCount());
+                var avatarRoot = Target.transform.parent != null ? Target.transform.parent.gameObject : Target.gameObject;
+                var preserveBorderEdgesBoneIndices = MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(
+                    avatarRoot,
+                    Target,
+                    entry);
+                MeshSimplifier.Simplify(
+                    sourceMesh,
+                    simplificationTarget,
+                    entry.Options,
+                    preserveBorderEdgesBoneIndices,
+                    simplifiedMesh);
+                MeshUvPreviewWindow.ShowComparison(sourceMesh, simplifiedMesh);
+            }
+            catch
+            {
+                DestroyImmediate(simplifiedMesh);
+                throw;
+            }
         }
 
         private void UpdateAlgorithmOptionAvailability(VisualElement itemRoot)
