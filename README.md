@@ -18,8 +18,9 @@ Can be executed at runtime or in the editor.
 
 ### VPM
 
-Add [my VPM repository](https://ramtype0.github.io/VpmRepository/) to VCC, then add Meshia Mesh Simplification package to your projects.
+~~Add [my VPM repository](https://ramtype0.github.io/VpmRepository/) to VCC, then add Meshia Mesh Simplification package to your projects.~~
 
+NOTE: This [fork](https://github.com/drcain1/Meshia.MeshSimplification.git) needs to be installed through the Unity package manager from git URL.
 
 ### How to use
 
