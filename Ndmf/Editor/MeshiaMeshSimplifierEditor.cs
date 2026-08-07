@@ -58,8 +58,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var simplifiedMesh = new Mesh { name = $"{sourceMesh.name}-UV-Preview" };
                 try
                 {
-                    MeshSimplifier.Simplify(sourceMesh, component.target, component.options, simplifiedMesh);
+                    var report = MeshSimplifier.SimplifyWithReport(
+                        sourceMesh,
+                        component.target,
+                        component.options,
+                        simplifiedMesh);
                     MeshUvPreviewWindow.ShowComparison(sourceMesh, simplifiedMesh);
+                    MeshUvPreviewWindow.ShowFallbackNotification(sourceMesh, report);
                 }
                 catch
                 {

@@ -62,6 +62,8 @@ namespace Meshia.MeshSimplification
         public NativeHashSet<int2> SmartLinks;
         [ReadOnly]
         public NativeArray<int> UvLoopSourceToTarget;
+        public NativeArray<int> UvLoopDiagnostics;
+        public bool AllowUvLoopFallback;
         [ReadOnly]
 
         public Mesh.MeshData Mesh;
@@ -228,13 +230,15 @@ namespace Meshia.MeshSimplification
                             break;
                         }
 
-                        if (UvLoopSourceToTarget.Length == VertexPositionBuffer.Length)
+                        if (UvLoopDiagnostics[UvLoopDissolveDiagnostics.LoopPhaseStopped] == 0 &&
+                            UvLoopSourceToTarget.Length == VertexPositionBuffer.Length)
                         {
                             ApplyUvLoopDissolveMappings();
                         }
 
-                        if (targetTriangleCount < TriangleCount)
+                        if (AllowUvLoopFallback && targetTriangleCount < TriangleCount)
                         {
+                            UvLoopDiagnostics[UvLoopDissolveDiagnostics.UsedBlenderFallback] = 1;
                             RunBlenderDecimate(targetTriangleCount);
                         }
                     }

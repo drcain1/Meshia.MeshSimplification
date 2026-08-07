@@ -327,7 +327,7 @@ namespace Meshia.MeshSimplification.Tests
 
             try
             {
-                await MeshSimplifier.SimplifyAsync(source, new MeshSimplificationTarget
+                var report = MeshSimplifier.SimplifyWithReport(source, new MeshSimplificationTarget
                 {
                     Kind = MeshSimplificationTargetKind.UvLoopDissolveTriangleCount,
                     Value = 16,
@@ -341,6 +341,8 @@ namespace Meshia.MeshSimplification.Tests
                 Assert.AreEqual(blenderDestination.triangles.Length, uvLoopDestination.triangles.Length);
                 CollectionAssert.AreEqual(blenderDestination.triangles, uvLoopDestination.triangles);
                 CollectionAssert.AreEqual(blenderDestination.vertices, uvLoopDestination.vertices);
+                Assert.AreEqual(0, report.UvLoopDissolvePassCount);
+                Assert.IsTrue(report.UsedBlenderFallback);
                 AssertMeshHasNoDegenerateTriangles(uvLoopDestination);
             }
             finally
@@ -385,33 +387,101 @@ namespace Meshia.MeshSimplification.Tests
         }
 
         [Test]
-        public void ShouldNotApplyUvLoopBatchBelowTarget()
+        public void ShouldStopUvLoopPassAtExactTargetWithoutFallback()
         {
-            var source = CreateUvGridMesh(7, 7);
-            var uvLoopDestination = new Mesh();
-            var blenderDestination = new Mesh();
+            var source = CreateUvGridMesh(9, 9);
+            var destination = new Mesh();
 
             try
             {
-                MeshSimplifier.Simplify(source, new MeshSimplificationTarget
+                var report = MeshSimplifier.SimplifyWithReport(source, new MeshSimplificationTarget
                 {
                     Kind = MeshSimplificationTargetKind.UvLoopDissolveTriangleCount,
-                    Value = 60,
-                }, MeshSimplifierOptions.Default, uvLoopDestination);
-                MeshSimplifier.Simplify(source, new MeshSimplificationTarget
-                {
-                    Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
-                    Value = 60f / 72f,
-                }, MeshSimplifierOptions.Default, blenderDestination);
+                    Value = 80,
+                }, MeshSimplifierOptions.Default, destination);
 
-                CollectionAssert.AreEqual(blenderDestination.triangles, uvLoopDestination.triangles);
-                CollectionAssert.AreEqual(blenderDestination.vertices, uvLoopDestination.vertices);
+                Assert.AreEqual(80, destination.triangles.Length / 3);
+                Assert.GreaterOrEqual(report.UvLoopDissolvePassCount, 1);
+                Assert.Greater(report.UvLoopDissolvedTriangleCount, 0);
+                Assert.IsFalse(report.UsedBlenderFallback);
+                AssertMeshHasNoDegenerateTriangles(destination);
             }
             finally
             {
                 Object.DestroyImmediate(source);
-                Object.DestroyImmediate(uvLoopDestination);
-                Object.DestroyImmediate(blenderDestination);
+                Object.DestroyImmediate(destination);
+            }
+        }
+
+        [Test]
+        public void ShouldApplyMultipleUvLoopPassesBeforeFallback()
+        {
+            var source = CreateUvGridMesh(9, 9);
+            var destination = new Mesh();
+
+            try
+            {
+                var report = MeshSimplifier.SimplifyWithReport(source, new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.UvLoopDissolveTriangleCount,
+                    Value = 60,
+                }, MeshSimplifierOptions.Default, destination);
+
+                Assert.LessOrEqual(destination.triangles.Length / 3, 60);
+                Assert.GreaterOrEqual(report.UvLoopDissolvePassCount, 2);
+                Assert.Greater(report.UvLoopDissolvedTriangleCount, 0);
+                Assert.IsTrue(report.UsedBlenderFallback);
+                AssertMeshHasNoDegenerateTriangles(destination);
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+                Object.DestroyImmediate(destination);
+            }
+        }
+
+        [Test]
+        public void ShouldIgnoreUntouchedDegenerateTrianglesDuringUvLoopValidation()
+        {
+            var source = CreateUvGridMesh(9, 9);
+            var destination = new Mesh();
+            var vertices = source.vertices;
+            var normals = source.normals;
+            var uvs = source.uv;
+            var triangles = source.triangles;
+            var originalVertexCount = vertices.Length;
+            System.Array.Resize(ref vertices, originalVertexCount + 3);
+            System.Array.Resize(ref normals, originalVertexCount + 3);
+            System.Array.Resize(ref uvs, originalVertexCount + 3);
+            System.Array.Resize(ref triangles, triangles.Length + 3);
+            for (var vertexOffset = 0; vertexOffset < 3; vertexOffset++)
+            {
+                vertices[originalVertexCount + vertexOffset] = new Vector3(vertexOffset, 20, 0);
+                normals[originalVertexCount + vertexOffset] = Vector3.forward;
+                uvs[originalVertexCount + vertexOffset] = new Vector2(vertexOffset * 0.1f, 2);
+                triangles[triangles.Length - 3 + vertexOffset] = originalVertexCount + vertexOffset;
+            }
+            source.vertices = vertices;
+            source.normals = normals;
+            source.uv = uvs;
+            source.triangles = triangles;
+
+            try
+            {
+                var report = MeshSimplifier.SimplifyWithReport(source, new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.UvLoopDissolveTriangleCount,
+                    Value = 81,
+                }, MeshSimplifierOptions.Default, destination);
+
+                Assert.AreEqual(1, CountDegenerateTriangles(source));
+                Assert.GreaterOrEqual(report.UvLoopDissolvePassCount, 1);
+                Assert.LessOrEqual(CountDegenerateTriangles(destination), 1);
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+                Object.DestroyImmediate(destination);
             }
         }
 
@@ -562,6 +632,24 @@ namespace Meshia.MeshSimplification.Tests
                 var c = vertices[triangles[i + 2]];
                 Assert.Greater(Vector3.Cross(b - a, c - a).sqrMagnitude, 1e-12f, $"Triangle {i / 3} is degenerate.");
             }
+        }
+
+        static int CountDegenerateTriangles(Mesh mesh)
+        {
+            var count = 0;
+            var vertices = mesh.vertices;
+            var triangles = mesh.triangles;
+            for (var i = 0; i < triangles.Length; i += 3)
+            {
+                var a = vertices[triangles[i]];
+                var b = vertices[triangles[i + 1]];
+                var c = vertices[triangles[i + 2]];
+                if (Vector3.Cross(b - a, c - a).sqrMagnitude <= 1e-12f)
+                {
+                    count++;
+                }
+            }
+            return count;
         }
     }
 

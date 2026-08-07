@@ -83,6 +83,21 @@ namespace Meshia.MeshSimplification.Editor
             return true;
         }
 
+        /// <summary>Shows a brief notice when Blender Decimate finished a UV loop result.</summary>
+        public static void ShowFallbackNotification(Mesh original, MeshSimplificationReport report)
+        {
+            if (!report.UsedBlenderFallback || FindOpenWindow(original) is not { } window)
+            {
+                return;
+            }
+
+            var message = report.UvLoopDissolvePassCount > 0
+                ? $"UV loops: {report.UvLoopDissolvePassCount} pass(es), then Blender fallback."
+                : "No safe UV loops found; using Blender fallback.";
+            window.RemoveNotification();
+            window.ShowNotification(new GUIContent(message), 2.5);
+        }
+
         static MeshUvPreviewWindow? FindOpenWindow(Mesh original)
         {
             foreach (var window in Resources.FindObjectsOfTypeAll<MeshUvPreviewWindow>())

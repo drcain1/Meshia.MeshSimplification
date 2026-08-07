@@ -402,8 +402,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 return;
             }
 
-            var simplifiedMesh = CreateUvPreviewMesh(entry, sourceMesh);
+            var simplifiedMesh = CreateUvPreviewMesh(entry, sourceMesh, out var report);
             MeshUvPreviewWindow.ShowComparison(sourceMesh, simplifiedMesh);
+            MeshUvPreviewWindow.ShowFallbackNotification(sourceMesh, report);
         }
 
         private void RefreshOpenUvPreview()
@@ -418,10 +419,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     continue;
                 }
 
-                var simplifiedMesh = CreateUvPreviewMesh(entry, sourceMesh);
+                var simplifiedMesh = CreateUvPreviewMesh(entry, sourceMesh, out var report);
                 if (!MeshUvPreviewWindow.UpdateComparison(sourceMesh, simplifiedMesh))
                 {
                     DestroyImmediate(simplifiedMesh);
+                }
+                else
+                {
+                    MeshUvPreviewWindow.ShowFallbackNotification(sourceMesh, report);
                 }
                 return;
             }
@@ -429,7 +434,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
         private Mesh CreateUvPreviewMesh(
             MeshiaCascadingAvatarMeshSimplifierRendererEntry entry,
-            Mesh sourceMesh)
+            Mesh sourceMesh,
+            out MeshSimplificationReport report)
         {
             var simplifiedMesh = new Mesh { name = $"{sourceMesh.name}-UV-Preview" };
             try
@@ -440,7 +446,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     avatarRoot,
                     Target,
                     entry);
-                MeshSimplifier.Simplify(
+                report = MeshSimplifier.SimplifyWithReport(
                     sourceMesh,
                     simplificationTarget,
                     entry.Options,

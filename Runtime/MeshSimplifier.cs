@@ -60,6 +60,7 @@ namespace Meshia.MeshSimplification
         MeshSimplifierOptions Options;
 
         AllocatorManager.AllocatorHandle Allocator;
+        const int MaxUvLoopDissolvePasses = 16;
         /// <summary>
         /// Simplifies the given <paramref name="mesh"/> and writes the result to <paramref name="destination"/>.
         /// </summary>
@@ -69,7 +70,7 @@ namespace Meshia.MeshSimplification
         /// <param name="destination">The destination to write simplified mesh.</param>
         /// <remarks>To process multiple meshes at once, use <see cref="SimplifyBatch(IReadOnlyList{ValueTuple{Mesh, MeshSimplificationTarget, MeshSimplifierOptions, Mesh}})"/> instead.</remarks>
         public static void Simplify(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options, Mesh destination) 
-            => Simplify(mesh, target, options, null, destination);
+            => _ = SimplifyWithReport(mesh, target, options, null, destination);
         /// <summary>
         /// Simplifies the given <paramref name="mesh"/> and writes the result to <paramref name="destination"/>.
         /// </summary>
@@ -79,6 +80,38 @@ namespace Meshia.MeshSimplification
         /// <param name="destination">The destination to write simplified mesh.</param>
         /// <remarks>To process multiple meshes at once, use <see cref="SimplifyBatch(IReadOnlyList{ValueTuple{Mesh, MeshSimplificationTarget, MeshSimplifierOptions, Mesh}})"/> instead.</remarks>
         public static void Simplify(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination)
+            => _ = SimplifyWithReport(mesh, target, options, preserveBorderEdgesBoneIndices, destination);
+
+        /// <summary>
+        /// Simplifies a mesh and reports which UV loop-dissolve and fallback stages contributed.
+        /// </summary>
+        /// <param name="mesh">The source mesh.</param>
+        /// <param name="target">The requested simplification target.</param>
+        /// <param name="options">The simplification options.</param>
+        /// <param name="destination">The destination mesh.</param>
+        /// <returns>A report describing UV loop and Blender fallback usage.</returns>
+        public static MeshSimplificationReport SimplifyWithReport(
+            Mesh mesh,
+            MeshSimplificationTarget target,
+            MeshSimplifierOptions options,
+            Mesh destination)
+            => SimplifyWithReport(mesh, target, options, null, destination);
+
+        /// <summary>
+        /// Simplifies a mesh and reports which UV loop-dissolve and fallback stages contributed.
+        /// </summary>
+        /// <param name="mesh">The source mesh.</param>
+        /// <param name="target">The requested simplification target.</param>
+        /// <param name="options">The simplification options.</param>
+        /// <param name="preserveBorderEdgesBoneIndices">Bones whose border vertices should be preserved.</param>
+        /// <param name="destination">The destination mesh.</param>
+        /// <returns>A report describing UV loop and Blender fallback usage.</returns>
+        public static MeshSimplificationReport SimplifyWithReport(
+            Mesh mesh,
+            MeshSimplificationTarget target,
+            MeshSimplifierOptions options,
+            BitArray? preserveBorderEdgesBoneIndices,
+            Mesh destination)
         {
             Allocator allocator = Unity.Collections.Allocator.TempJob;
             var originalMeshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
@@ -100,12 +133,28 @@ namespace Meshia.MeshSimplification
 
             var simplifiedMeshDataArray = Mesh.AllocateWritableMeshData(1);
             NativeList<BlendShapeData> simplifiedBlendShapes = new(allocator);
-            var simplify = meshSimplifier.ScheduleSimplify(originalMeshData, blendShapes, target, nativePreserveBorderEdgesBoneIndices, load);
+            NativeArray<int> uvLoopDiagnostics = new(
+                UvLoopDissolveDiagnostics.Length,
+                allocator,
+                NativeArrayOptions.ClearMemory);
+            var simplify = meshSimplifier.ScheduleSimplifyWithDiagnostics(
+                originalMeshData,
+                blendShapes,
+                target,
+                nativePreserveBorderEdgesBoneIndices,
+                uvLoopDiagnostics,
+                load);
             nativePreserveBorderEdgesBoneIndices.Dispose(simplify);
             var write = meshSimplifier.ScheduleWriteMeshData(originalMeshData, blendShapes, simplifiedMeshDataArray[0], simplifiedBlendShapes, simplify);
             meshSimplifier.Dispose(write);
             JobHandle.ScheduleBatchedJobs();
             write.Complete();
+
+            var report = new MeshSimplificationReport(
+                uvLoopDiagnostics[UvLoopDissolveDiagnostics.PassCount],
+                uvLoopDiagnostics[UvLoopDissolveDiagnostics.DissolvedTriangleCount],
+                uvLoopDiagnostics[UvLoopDissolveDiagnostics.UsedBlenderFallback] != 0);
+            uvLoopDiagnostics.Dispose();
 
             originalMeshDataArray.Dispose();
 
@@ -122,6 +171,7 @@ namespace Meshia.MeshSimplification
                 simplifiedBlendShape.Dispose();
             }
             simplifiedBlendShapes.Dispose();
+            return report;
         }
         public static void SimplifyBatch(IReadOnlyList<(Mesh Mesh, MeshSimplificationTarget Target, MeshSimplifierOptions Options, Mesh Destination)> parameters) 
             => SimplifyBatch(parameters.Select<(Mesh Mesh, MeshSimplificationTarget Target, MeshSimplifierOptions Options, Mesh Destination), (Mesh, MeshSimplificationTarget, MeshSimplifierOptions, BitArray?, Mesh)>(p => (p.Mesh, p.Target, p.Options, null, p.Destination)).ToList());
@@ -561,16 +611,50 @@ namespace Meshia.MeshSimplification
          /// </remarks>
         public JobHandle ScheduleSimplify(Mesh.MeshData meshData, NativeList<BlendShapeData> blendShapes, MeshSimplificationTarget target, NativeBitArray preserveBorderEdgesBoneIndices, JobHandle dependency)
         {
-            NativeArray<int> uvLoopSourceToTarget = new(
-                target.Kind == MeshSimplificationTargetKind.UvLoopDissolveTriangleCount
-                    ? meshData.vertexCount
-                    : 0,
-                Unity.Collections.Allocator.TempJob,
-                NativeArrayOptions.UninitializedMemory);
-            var simplifyDependency = dependency;
-            if (target.Kind == MeshSimplificationTargetKind.UvLoopDissolveTriangleCount)
+            NativeArray<int> uvLoopDiagnostics = new(
+                UvLoopDissolveDiagnostics.Length,
+                Unity.Collections.Allocator.Persistent,
+                NativeArrayOptions.ClearMemory);
+            var simplify = ScheduleSimplifyWithDiagnostics(
+                meshData,
+                blendShapes,
+                target,
+                preserveBorderEdgesBoneIndices,
+                uvLoopDiagnostics,
+                dependency);
+            return uvLoopDiagnostics.Dispose(simplify);
+        }
+
+        JobHandle ScheduleSimplifyWithDiagnostics(
+            Mesh.MeshData meshData,
+            NativeList<BlendShapeData> blendShapes,
+            MeshSimplificationTarget target,
+            NativeBitArray preserveBorderEdgesBoneIndices,
+            NativeArray<int> uvLoopDiagnostics,
+            JobHandle dependency)
+        {
+            if (target.Kind != MeshSimplificationTargetKind.UvLoopDissolveTriangleCount)
             {
-                simplifyDependency = new UvLoopDissolveJob
+                NativeArray<int> noMappings = new(0, Unity.Collections.Allocator.Persistent);
+                var simplify = CreateSimplifyJob(
+                    meshData,
+                    blendShapes,
+                    target,
+                    preserveBorderEdgesBoneIndices,
+                    noMappings,
+                    uvLoopDiagnostics,
+                    allowUvLoopFallback: true).Schedule(dependency);
+                return noMappings.Dispose(simplify);
+            }
+
+            var simplifyDependency = dependency;
+            for (var pass = 0; pass < MaxUvLoopDissolvePasses; pass++)
+            {
+                NativeArray<int> uvLoopSourceToTarget = new(
+                    meshData.vertexCount,
+                    Unity.Collections.Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+                var reconstruct = new UvLoopDissolveJob
                 {
                     Mesh = meshData,
                     VertexPositionBuffer = VertexPositionBuffer.AsDeferredJobArray(),
@@ -585,11 +669,43 @@ namespace Meshia.MeshSimplification
                     DiscardedTriangle = TriangleIsDiscardedBits,
                     DiscardedVertex = VertexIsDiscardedBits,
                     SourceToTarget = uvLoopSourceToTarget,
+                    Diagnostics = uvLoopDiagnostics,
                     TargetTriangleCount = math.max(0, (int)target.Value),
-                }.Schedule(dependency);
+                }.Schedule(simplifyDependency);
+
+                var applyLoopDissolve = CreateSimplifyJob(
+                    meshData,
+                    blendShapes,
+                    target,
+                    preserveBorderEdgesBoneIndices,
+                    uvLoopSourceToTarget,
+                    uvLoopDiagnostics,
+                    allowUvLoopFallback: false).Schedule(reconstruct);
+                simplifyDependency = uvLoopSourceToTarget.Dispose(applyLoopDissolve);
             }
 
-            var simplify = new SimplifyJob
+            NativeArray<int> finalMappings = new(0, Unity.Collections.Allocator.Persistent);
+            var applyFallback = CreateSimplifyJob(
+                meshData,
+                blendShapes,
+                target,
+                preserveBorderEdgesBoneIndices,
+                finalMappings,
+                uvLoopDiagnostics,
+                allowUvLoopFallback: true).Schedule(simplifyDependency);
+            return finalMappings.Dispose(applyFallback);
+        }
+
+        SimplifyJob CreateSimplifyJob(
+            Mesh.MeshData meshData,
+            NativeList<BlendShapeData> blendShapes,
+            MeshSimplificationTarget target,
+            NativeBitArray preserveBorderEdgesBoneIndices,
+            NativeArray<int> uvLoopSourceToTarget,
+            NativeArray<int> uvLoopDiagnostics,
+            bool allowUvLoopFallback)
+        {
+            return new SimplifyJob
             {
                 Mesh = meshData,
                 SimplificationTarget = target,
@@ -623,11 +739,9 @@ namespace Meshia.MeshSimplification
                 PreserveBorderEdgesBoneIndices = preserveBorderEdgesBoneIndices,
                 SmartLinks = SmartLinks,
                 UvLoopSourceToTarget = uvLoopSourceToTarget,
-            }.Schedule(simplifyDependency);
-
-            return uvLoopSourceToTarget.IsCreated
-                ? uvLoopSourceToTarget.Dispose(simplify)
-                : simplify;
+                UvLoopDiagnostics = uvLoopDiagnostics,
+                AllowUvLoopFallback = allowUvLoopFallback,
+            };
         }
 
 

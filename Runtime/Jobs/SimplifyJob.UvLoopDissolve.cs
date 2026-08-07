@@ -26,6 +26,7 @@ namespace Meshia.MeshSimplification
         [ReadOnly] public NativeBitArray DiscardedTriangle;
         [ReadOnly] public NativeBitArray DiscardedVertex;
         public NativeArray<int> SourceToTarget;
+        public NativeArray<int> Diagnostics;
         public int TargetTriangleCount;
 
         int TriangleCount;
@@ -46,6 +47,11 @@ namespace Meshia.MeshSimplification
 
         public void Execute()
         {
+            if (Diagnostics[UvLoopDissolveDiagnostics.LoopPhaseStopped] != 0)
+            {
+                return;
+            }
+
             for (var vertex = 0; vertex < SourceToTarget.Length; vertex++)
             {
                 SourceToTarget[vertex] = -1;
@@ -56,8 +62,13 @@ namespace Meshia.MeshSimplification
             if (TargetTriangleCount < TriangleCount &&
                 VertexTexCoord0Buffer.Length == VertexPositionBuffer.Length)
             {
-                TryApplyUvLoopBatch(TargetTriangleCount);
+                if (TryApplyUvLoopBatch(TargetTriangleCount))
+                {
+                    return;
+                }
             }
+
+            Diagnostics[UvLoopDissolveDiagnostics.LoopPhaseStopped] = 1;
         }
 
         bool TryApplyUvLoopBatch(int targetTriangleCount)
@@ -145,23 +156,44 @@ namespace Meshia.MeshSimplification
                     }
                 }
 
-                if (bestComponent < 0 || !TryBuildUvLoopBatchMapping(
-                        bestComponent,
-                        bestParity,
-                        quads,
-                        chainEdges,
-                        chains,
-                        edgeToChain,
-                        chainNeighbors,
-                        colors,
-                        components,
-                        sourceToTarget,
-                        out _))
+                var hasMapping = bestComponent >= 0 && TryBuildUvLoopBatchMapping(
+                    bestComponent,
+                    bestParity,
+                    quads,
+                    chainEdges,
+                    chains,
+                    edgeToChain,
+                    chainNeighbors,
+                    colors,
+                    components,
+                    sourceToTarget,
+                    out _);
+                if (hasMapping)
                 {
-                    return false;
+                    ExpandUvSeamMappings(sourceToTarget);
+                    hasMapping = IsUvLoopBatchValid(
+                        sourceToTarget,
+                        targetTriangleCount,
+                        out var batchDiscardedTriangleCount) &&
+                        batchDiscardedTriangleCount > 0;
                 }
 
-                ExpandUvSeamMappings(sourceToTarget);
+                if (!hasMapping)
+                {
+                    sourceToTarget.Clear();
+                    if (!TryBuildBestSingleUvLoopMapping(
+                            targetTriangleCount,
+                            quads,
+                            chainEdges,
+                            chains,
+                            edgeToChain,
+                            chainNeighbors,
+                            sourceToTarget))
+                    {
+                        return false;
+                    }
+                }
+
                 if (!IsUvLoopBatchValid(sourceToTarget, targetTriangleCount, out var discardedTriangleCount) ||
                     discardedTriangleCount == 0)
                 {
@@ -175,6 +207,9 @@ namespace Meshia.MeshSimplification
                         SourceToTarget[source] = target;
                     }
                 }
+
+                Diagnostics[UvLoopDissolveDiagnostics.PassCount]++;
+                Diagnostics[UvLoopDissolveDiagnostics.DissolvedTriangleCount] += discardedTriangleCount;
 
                 return true;
             }
@@ -726,6 +761,282 @@ namespace Meshia.MeshSimplification
             return IsUvLoopBatchValid(mapping, targetTriangleCount, out _);
         }
 
+        bool TryBuildBestSingleUvLoopMapping(
+            int targetTriangleCount,
+            UnsafeList<UvQuad> quads,
+            UnsafeList<int2> chainEdges,
+            UnsafeList<UvLoopChain> chains,
+            NativeHashMap<int2, int> edgeToChain,
+            NativeParallelMultiHashMap<int, int> chainNeighbors,
+            NativeHashMap<int, int> sourceToTarget)
+        {
+            var bestSourceChain = -1;
+            var bestTargetChain = -1;
+            var bestIsPartialSegment = false;
+            var bestCost = float.PositiveInfinity;
+            using var candidateMapping = new NativeHashMap<int, int>(math.max(VertexCount, 1), Allocator.Temp);
+            for (var sourceChain = 0; sourceChain < chains.Length; sourceChain++)
+            {
+                if (chains[sourceChain].IsProtected)
+                {
+                    continue;
+                }
+
+                foreach (var targetChain in chainNeighbors.GetValuesForKey(sourceChain))
+                {
+                    candidateMapping.Clear();
+                    var isPartialSegment = false;
+                    var hasCandidate = TryEvaluateUvLoopChainTarget(
+                            sourceChain,
+                            targetChain,
+                            quads,
+                            chainEdges,
+                            chains,
+                            edgeToChain,
+                            out var cost) &&
+                        TryAddUvLoopChainMapping(
+                            sourceChain,
+                            targetChain,
+                            quads,
+                            chainEdges,
+                            chains,
+                            edgeToChain,
+                            candidateMapping);
+                    if (hasCandidate)
+                    {
+                        ExpandUvSeamMappings(candidateMapping);
+                        hasCandidate = IsUvLoopBatchValid(
+                            candidateMapping,
+                            targetTriangleCount,
+                            out var discardedTriangleCount) &&
+                            discardedTriangleCount > 0;
+                    }
+
+                    if (!hasCandidate)
+                    {
+                        candidateMapping.Clear();
+                        hasCandidate = TryBuildBestPartialUvLoopSegmentMapping(
+                            sourceChain,
+                            targetChain,
+                            targetTriangleCount,
+                            quads,
+                            chainEdges,
+                            chains,
+                            edgeToChain,
+                            candidateMapping,
+                            out cost);
+                        isPartialSegment = hasCandidate;
+                    }
+
+                    if (!hasCandidate)
+                    {
+                        continue;
+                    }
+
+                    if (cost < bestCost || cost == bestCost &&
+                        (sourceChain < bestSourceChain ||
+                            sourceChain == bestSourceChain && targetChain < bestTargetChain))
+                    {
+                        bestSourceChain = sourceChain;
+                        bestTargetChain = targetChain;
+                        bestIsPartialSegment = isPartialSegment;
+                        bestCost = cost;
+                    }
+                }
+            }
+
+            if (bestSourceChain < 0)
+            {
+                return false;
+            }
+
+            if (bestIsPartialSegment)
+            {
+                return TryBuildBestPartialUvLoopSegmentMapping(
+                    bestSourceChain,
+                    bestTargetChain,
+                    targetTriangleCount,
+                    quads,
+                    chainEdges,
+                    chains,
+                    edgeToChain,
+                    sourceToTarget,
+                    out _);
+            }
+
+            if (!TryAddUvLoopChainMapping(
+                    bestSourceChain,
+                    bestTargetChain,
+                    quads,
+                    chainEdges,
+                    chains,
+                    edgeToChain,
+                    sourceToTarget))
+            {
+                return false;
+            }
+
+            ExpandUvSeamMappings(sourceToTarget);
+            return true;
+        }
+
+        bool TryBuildBestPartialUvLoopSegmentMapping(
+            int sourceChain,
+            int targetChain,
+            int targetTriangleCount,
+            UnsafeList<UvQuad> quads,
+            UnsafeList<int2> chainEdges,
+            UnsafeList<UvLoopChain> chains,
+            NativeHashMap<int2, int> edgeToChain,
+            NativeHashMap<int, int> sourceToTarget,
+            out float cost)
+        {
+            cost = float.PositiveInfinity;
+            using var localMapping = new NativeHashMap<int, int>(
+                math.max(chains[sourceChain].EdgeCount * 2, 1),
+                Allocator.Temp);
+            if (!TryBuildUvLoopLocalMapping(
+                    sourceChain,
+                    targetChain,
+                    quads,
+                    chainEdges,
+                    chains,
+                    edgeToChain,
+                    localMapping))
+            {
+                return false;
+            }
+
+            var sourceData = chains[sourceChain];
+            var bestEdgeAOffset = -1;
+            var bestEdgeBOffset = -1;
+            using var candidateMapping = new NativeHashMap<int, int>(math.max(VertexCount, 1), Allocator.Temp);
+            for (var edgeAOffset = 0; edgeAOffset < sourceData.EdgeCount; edgeAOffset++)
+            {
+                var edgeA = chainEdges[sourceData.EdgeStart + edgeAOffset];
+                if (!localMapping.ContainsKey(edgeA.x) || !localMapping.ContainsKey(edgeA.y))
+                {
+                    continue;
+                }
+
+                for (var edgeBOffset = edgeAOffset + 1; edgeBOffset < sourceData.EdgeCount; edgeBOffset++)
+                {
+                    var edgeB = chainEdges[sourceData.EdgeStart + edgeBOffset];
+                    if (!SharesUvLoopVertex(edgeA, edgeB) ||
+                        !localMapping.ContainsKey(edgeB.x) || !localMapping.ContainsKey(edgeB.y))
+                    {
+                        continue;
+                    }
+
+                    candidateMapping.Clear();
+                    if (!TryAddPartialUvLoopEdgeMapping(edgeA, localMapping, candidateMapping) ||
+                        !TryAddPartialUvLoopEdgeMapping(edgeB, localMapping, candidateMapping))
+                    {
+                        continue;
+                    }
+
+                    ExpandUvSeamMappings(candidateMapping);
+                    if (!IsUvLoopBatchValid(candidateMapping, targetTriangleCount, out var discardedTriangleCount) ||
+                        discardedTriangleCount == 0)
+                    {
+                        continue;
+                    }
+
+                    var candidateCost = GetUvLoopMappingCost(candidateMapping);
+                    if (candidateCost < cost || candidateCost == cost &&
+                        (edgeAOffset < bestEdgeAOffset ||
+                            edgeAOffset == bestEdgeAOffset && edgeBOffset < bestEdgeBOffset))
+                    {
+                        bestEdgeAOffset = edgeAOffset;
+                        bestEdgeBOffset = edgeBOffset;
+                        cost = candidateCost;
+                    }
+                }
+            }
+
+            if (bestEdgeAOffset < 0)
+            {
+                for (var edgeOffset = 0; edgeOffset < sourceData.EdgeCount; edgeOffset++)
+                {
+                    var edge = chainEdges[sourceData.EdgeStart + edgeOffset];
+                    candidateMapping.Clear();
+                    if (!TryAddPartialUvLoopEdgeMapping(edge, localMapping, candidateMapping))
+                    {
+                        continue;
+                    }
+
+                    ExpandUvSeamMappings(candidateMapping);
+                    if (!IsUvLoopBatchValid(candidateMapping, targetTriangleCount, out var discardedTriangleCount) ||
+                        discardedTriangleCount == 0)
+                    {
+                        continue;
+                    }
+
+                    var candidateCost = GetUvLoopMappingCost(candidateMapping);
+                    if (candidateCost < cost || candidateCost == cost && edgeOffset < bestEdgeAOffset)
+                    {
+                        bestEdgeAOffset = edgeOffset;
+                        bestEdgeBOffset = -1;
+                        cost = candidateCost;
+                    }
+                }
+                if (bestEdgeAOffset < 0)
+                {
+                    return false;
+                }
+            }
+
+            var bestEdgeA = chainEdges[sourceData.EdgeStart + bestEdgeAOffset];
+            if (!TryAddPartialUvLoopEdgeMapping(bestEdgeA, localMapping, sourceToTarget))
+            {
+                return false;
+            }
+            if (bestEdgeBOffset >= 0)
+            {
+                var bestEdgeB = chainEdges[sourceData.EdgeStart + bestEdgeBOffset];
+                if (!TryAddPartialUvLoopEdgeMapping(bestEdgeB, localMapping, sourceToTarget))
+                {
+                    return false;
+                }
+            }
+
+            ExpandUvSeamMappings(sourceToTarget);
+            return true;
+        }
+
+        static bool SharesUvLoopVertex(int2 edgeA, int2 edgeB)
+        {
+            return edgeA.x == edgeB.x || edgeA.x == edgeB.y ||
+                edgeA.y == edgeB.x || edgeA.y == edgeB.y;
+        }
+
+        static bool TryAddPartialUvLoopEdgeMapping(
+            int2 edge,
+            NativeHashMap<int, int> localMapping,
+            NativeHashMap<int, int> sourceToTarget)
+        {
+            return localMapping.TryGetValue(edge.x, out var targetA) &&
+                localMapping.TryGetValue(edge.y, out var targetB) &&
+                TryAddUvLoopVertexMapping(edge.x, targetA, sourceToTarget) &&
+                TryAddUvLoopVertexMapping(edge.y, targetB, sourceToTarget);
+        }
+
+        float GetUvLoopMappingCost(NativeHashMap<int, int> mapping)
+        {
+            var cost = 0f;
+            var count = 0;
+            foreach (var pair in mapping)
+            {
+                var positionDistance = math.lengthsq(
+                    VertexPositionBuffer[pair.Key] - VertexPositionBuffer[pair.Value]);
+                var uvDistance = math.lengthsq(
+                    VertexTexCoord0Buffer[pair.Key].xy - VertexTexCoord0Buffer[pair.Value].xy);
+                cost += positionDistance + uvDistance * 0.01f;
+                count++;
+            }
+            return count > 0 ? cost / count : float.PositiveInfinity;
+        }
+
         bool TryBuildUvLoopBatchMapping(
             int component,
             int parity,
@@ -872,6 +1183,47 @@ namespace Meshia.MeshSimplification
             }
 
             using var localMapping = new NativeHashMap<int, int>(math.max(sourceData.EdgeCount * 2, 1), Allocator.Temp);
+            if (!TryBuildUvLoopLocalMapping(
+                    sourceChain,
+                    targetChain,
+                    quads,
+                    chainEdges,
+                    chains,
+                    edgeToChain,
+                    localMapping))
+            {
+                return false;
+            }
+
+            var mappedVertexCount = 0;
+            foreach (var source in sourceVertices)
+            {
+                if (!localMapping.TryGetValue(source, out var target))
+                {
+                    return false;
+                }
+                if (source == target || sourceToTarget.ContainsKey(target) ||
+                    sourceToTarget.TryGetValue(source, out var existingTarget) && existingTarget != target)
+                {
+                    return false;
+                }
+
+                sourceToTarget.TryAdd(source, target);
+                mappedVertexCount++;
+            }
+
+            return mappedVertexCount == sourceVertices.Count;
+        }
+
+        bool TryBuildUvLoopLocalMapping(
+            int sourceChain,
+            int targetChain,
+            UnsafeList<UvQuad> quads,
+            UnsafeList<int2> chainEdges,
+            UnsafeList<UvLoopChain> chains,
+            NativeHashMap<int2, int> edgeToChain,
+            NativeHashMap<int, int> localMapping)
+        {
             for (var quadIndex = 0; quadIndex < quads.Length; quadIndex++)
             {
                 var vertices = quads[quadIndex].Vertices;
@@ -903,22 +1255,7 @@ namespace Meshia.MeshSimplification
                 }
             }
 
-            foreach (var source in sourceVertices)
-            {
-                if (!localMapping.TryGetValue(source, out var target))
-                {
-                    return false;
-                }
-                if (source == target || sourceToTarget.ContainsKey(target) ||
-                    sourceToTarget.TryGetValue(source, out var existingTarget) && existingTarget != target)
-                {
-                    return false;
-                }
-
-                sourceToTarget.TryAdd(source, target);
-            }
-
-            return true;
+            return localMapping.Count >= 2;
         }
 
         static int GetUvLoopChainIndex(
@@ -1111,6 +1448,11 @@ namespace Meshia.MeshSimplification
                     remappedTriangle.z == remappedTriangle.x)
                 {
                     discardedTriangleCount++;
+                    continue;
+                }
+
+                if (math.all(remappedTriangle == originalTriangle))
+                {
                     continue;
                 }
 
