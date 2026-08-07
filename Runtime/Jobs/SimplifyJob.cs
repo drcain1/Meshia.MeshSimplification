@@ -61,6 +61,8 @@ namespace Meshia.MeshSimplification
         public NativeArray<float3> TriangleNormals;
         public NativeHashSet<int2> SmartLinks;
         [ReadOnly]
+        public NativeArray<int> UvLoopSourceToTarget;
+        [ReadOnly]
 
         public Mesh.MeshData Mesh;
 
@@ -68,7 +70,7 @@ namespace Meshia.MeshSimplification
         private int VertexCount;
         private int TriangleCount;
         private UnsafeList<BlenderErrorQuadric> BlenderErrorQuadrics;
-        readonly bool UseBlenderDecimate => SimplificationTarget.Kind == MeshSimplificationTargetKind.BlenderDecimateRatio;
+        bool UseBlenderDecimate;
         MergeFactory MergeFactory => new()
         {
             VertexPositionBuffer = VertexPositionBuffer,
@@ -95,6 +97,7 @@ namespace Meshia.MeshSimplification
 
         public void Execute()
         {
+            UseBlenderDecimate = false;
             VertexCount = DiscardedVertex.Length - DiscardedVertex.CountBits(0, DiscardedVertex.Length);
             TriangleCount = DiscardedTriangle.Length - DiscardedTriangle.CountBits(0, DiscardedTriangle.Length);
             switch (SimplificationTarget.Kind)
@@ -213,36 +216,84 @@ namespace Meshia.MeshSimplification
                             break;
                         }
 
-                        using var blenderErrorQuadrics = new UnsafeList<BlenderErrorQuadric>(
-                            VertexPositionBuffer.Length,
-                            Allocator.Temp,
-                            NativeArrayOptions.ClearMemory);
-                        blenderErrorQuadrics.Resize(VertexPositionBuffer.Length, NativeArrayOptions.ClearMemory);
-                        BlenderErrorQuadrics = blenderErrorQuadrics;
-                        PrepareBlenderDecimate();
                         var targetTriangleCount = (int)(TriangleCount * ratio);
-                        while (targetTriangleCount < TriangleCount && VertexMerges.TryDequeue(out var merge))
+                        RunBlenderDecimate(targetTriangleCount);
+                    }
+                    break;
+                case MeshSimplificationTargetKind.UvLoopDissolveTriangleCount:
+                    {
+                        var targetTriangleCount = math.max(0, (int)SimplificationTarget.Value);
+                        if (targetTriangleCount >= TriangleCount)
                         {
-                            if (!HasValidVersion(merge))
-                            {
-                                continue;
-                            }
-                            if (merge.Cost == float.MaxValue)
-                            {
-                                break;
-                            }
-                            if (IsBlenderCollapseValid(merge))
-                            {
-                                ApplyMerge(merge);
-                            }
-                            else
-                            {
-                                merge.Cost = float.MaxValue;
-                                VertexMerges.Enqueue(merge);
-                            }
+                            break;
+                        }
+
+                        if (UvLoopSourceToTarget.Length == VertexPositionBuffer.Length)
+                        {
+                            ApplyUvLoopDissolveMappings();
+                        }
+
+                        if (targetTriangleCount < TriangleCount)
+                        {
+                            RunBlenderDecimate(targetTriangleCount);
                         }
                     }
                     break;
+            }
+        }
+
+        void ApplyUvLoopDissolveMappings()
+        {
+            for (var source = 0; source < UvLoopSourceToTarget.Length; source++)
+            {
+                var target = UvLoopSourceToTarget[source];
+                if (target < 0 || target == source || IsDiscardedVertex(source) ||
+                    IsDiscardedVertex(target) || !IsTopologicalEdge(source, target))
+                {
+                    continue;
+                }
+
+                ApplyMerge(new VertexMerge
+                {
+                    VertexAIndex = target,
+                    VertexBIndex = source,
+                    VertexAVersion = VertexVersions[target],
+                    VertexBVersion = VertexVersions[source],
+                    Position = VertexPositionBuffer[target],
+                    Cost = 0f,
+                }, preserveVertexAAttributes: true);
+            }
+        }
+
+        void RunBlenderDecimate(int targetTriangleCount)
+        {
+            UseBlenderDecimate = true;
+            using var blenderErrorQuadrics = new UnsafeList<BlenderErrorQuadric>(
+                VertexPositionBuffer.Length,
+                Allocator.Temp,
+                NativeArrayOptions.ClearMemory);
+            blenderErrorQuadrics.Resize(VertexPositionBuffer.Length, NativeArrayOptions.ClearMemory);
+            BlenderErrorQuadrics = blenderErrorQuadrics;
+            PrepareBlenderDecimate();
+            while (targetTriangleCount < TriangleCount && VertexMerges.TryDequeue(out var merge))
+            {
+                if (!HasValidVersion(merge))
+                {
+                    continue;
+                }
+                if (merge.Cost == float.MaxValue)
+                {
+                    break;
+                }
+                if (IsBlenderCollapseValid(merge))
+                {
+                    ApplyMerge(merge);
+                }
+                else
+                {
+                    merge.Cost = float.MaxValue;
+                    VertexMerges.Enqueue(merge);
+                }
             }
         }
 
@@ -659,7 +710,7 @@ namespace Meshia.MeshSimplification
             }
 
         }
-        public void ApplyMerge(VertexMerge merge)
+        public void ApplyMerge(VertexMerge merge, bool preserveVertexAAttributes = false)
         {
             using (ProfilerMarkers.ApplyMerge.Auto())
             {
@@ -677,9 +728,11 @@ namespace Meshia.MeshSimplification
 
                 var preservedVertexPredicator = PreservedVertexPredicator;
 
-                var shouldPreserveVertexA = !UseBlenderDecimate && preservedVertexPredicator.IsPreserved(vertexA);
+                var shouldPreserveVertexA = preserveVertexAAttributes ||
+                    (!UseBlenderDecimate && preservedVertexPredicator.IsPreserved(vertexA));
 
-                var shouldPreserveVertexB = !UseBlenderDecimate && preservedVertexPredicator.IsPreserved(vertexB);
+                var shouldPreserveVertexB = !preserveVertexAAttributes && !UseBlenderDecimate &&
+                    preservedVertexPredicator.IsPreserved(vertexB);
 
                 if (shouldPreserveVertexB)
                 {

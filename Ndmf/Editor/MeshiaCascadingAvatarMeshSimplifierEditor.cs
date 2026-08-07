@@ -273,6 +273,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 };
                 blenderOptionsHelpBox.style.display = DisplayStyle.None;
                 optionsField.parent.Insert(optionsField.parent.IndexOf(optionsField), blenderOptionsHelpBox);
+                HelpBox uvLoopDissolveHelpBox = new(
+                    "Reconstructs conservative quad loops, protects UV seams and boundaries, then uses Blender Decimate to reach the remaining target. Meshia options are not used.",
+                    HelpBoxMessageType.Info)
+                {
+                    name = "UvLoopDissolveHelpBox",
+                };
+                uvLoopDissolveHelpBox.style.display = DisplayStyle.None;
+                optionsField.parent.Insert(optionsField.parent.IndexOf(optionsField), uvLoopDissolveHelpBox);
                 enabledToggle.RegisterValueChangedCallback(changeEvent =>
                 {
                     var enabled = changeEvent.newValue;
@@ -422,18 +430,25 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var algorithmProperty = entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Algorithm));
             var usesBlenderDecimate = algorithmProperty.enumValueIndex ==
                 (int)MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;
+            var usesUvLoopDissolve = algorithmProperty.enumValueIndex ==
+                (int)MeshiaCascadingSimplificationAlgorithm.UvLoopDissolve;
+            var usesMeshiaOptions = !usesBlenderDecimate && !usesUvLoopDissolve;
 
             var optionsField = itemRoot.Q<PropertyField>("OptionsField");
             var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
             var blenderOptionsHelpBox = itemRoot.Q<HelpBox>("BlenderOptionsHelpBox");
+            var uvLoopDissolveHelpBox = itemRoot.Q<HelpBox>("UvLoopDissolveHelpBox");
             var optionsToggle = itemRoot.Q<Toggle>("OptionsToggle");
 
-            optionsField.SetEnabled(!usesBlenderDecimate);
-            preserveBorderEdgesBonesFoldout.SetEnabled(!usesBlenderDecimate);
-            optionsField.tooltip = preserveBorderEdgesBonesFoldout.tooltip = usesBlenderDecimate
-                ? "Not supported by Blender Decimate. Select Meshia to use these options."
+            optionsField.SetEnabled(usesMeshiaOptions);
+            preserveBorderEdgesBonesFoldout.SetEnabled(usesMeshiaOptions);
+            optionsField.tooltip = preserveBorderEdgesBonesFoldout.tooltip = !usesMeshiaOptions
+                ? "Not supported by this algorithm. Select Meshia to use these options."
                 : string.Empty;
             blenderOptionsHelpBox.style.display = usesBlenderDecimate && optionsToggle.value
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+            uvLoopDissolveHelpBox.style.display = usesUvLoopDissolve && optionsToggle.value
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
         }

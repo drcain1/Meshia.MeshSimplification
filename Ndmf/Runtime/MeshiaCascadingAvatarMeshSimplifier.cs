@@ -23,6 +23,11 @@ namespace Meshia.MeshSimplification.Ndmf
         BlenderDecimate,
         /// <summary>Use Meshia's standard absolute-triangle-count simplifier.</summary>
         Meshia,
+        /// <summary>
+        /// Reconstruct and dissolve UV-aware quad loops before using Blender Decimate
+        /// to reach the allocated triangle count.
+        /// </summary>
+        UvLoopDissolve,
     }
 
     [AddComponentMenu("Meshia Mesh Simplification/Meshia Cascading Avatar Mesh Simplifier")]
@@ -232,6 +237,15 @@ namespace Meshia.MeshSimplification.Ndmf
         /// </summary>
         public MeshSimplificationTarget CreateTarget(int sourceTriangleCount)
         {
+            if (Algorithm == MeshiaCascadingSimplificationAlgorithm.UvLoopDissolve)
+            {
+                return new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.UvLoopDissolveTriangleCount,
+                    Value = TargetTriangleCount,
+                };
+            }
+
             if (Algorithm == MeshiaCascadingSimplificationAlgorithm.BlenderDecimate)
             {
                 var ratio = sourceTriangleCount > 0 ? TargetTriangleCount / (float)sourceTriangleCount : 1f;

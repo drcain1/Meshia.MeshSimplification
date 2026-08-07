@@ -39,6 +39,12 @@ namespace Meshia.MeshSimplification
         /// A value of 1 keeps the current triangle count and 0 decimates as far as topology allows.
         /// </summary>
         BlenderDecimateRatio,
+        /// <summary>
+        /// The value is an absolute target triangle count. Before falling back to the
+        /// Blender-compatible collapse policy, the simplifier removes conservative,
+        /// alternating edge-loop batches reconstructed from the triangulated mesh.
+        /// </summary>
+        UvLoopDissolveTriangleCount,
     }
 }
 

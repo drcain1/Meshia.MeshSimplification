@@ -561,7 +561,35 @@ namespace Meshia.MeshSimplification
          /// </remarks>
         public JobHandle ScheduleSimplify(Mesh.MeshData meshData, NativeList<BlendShapeData> blendShapes, MeshSimplificationTarget target, NativeBitArray preserveBorderEdgesBoneIndices, JobHandle dependency)
         {
-            return new SimplifyJob
+            NativeArray<int> uvLoopSourceToTarget = new(
+                target.Kind == MeshSimplificationTargetKind.UvLoopDissolveTriangleCount
+                    ? meshData.vertexCount
+                    : 0,
+                Unity.Collections.Allocator.TempJob,
+                NativeArrayOptions.UninitializedMemory);
+            var simplifyDependency = dependency;
+            if (target.Kind == MeshSimplificationTargetKind.UvLoopDissolveTriangleCount)
+            {
+                simplifyDependency = new UvLoopDissolveJob
+                {
+                    Mesh = meshData,
+                    VertexPositionBuffer = VertexPositionBuffer.AsDeferredJobArray(),
+                    VertexNormalBuffer = VertexNormalBuffer.AsDeferredJobArray(),
+                    VertexTexCoord0Buffer = VertexTexCoord0Buffer.AsDeferredJobArray(),
+                    VertexBlendWeightBuffer = VertexBlendWeightBuffer.AsDeferredJobArray(),
+                    VertexBlendIndicesBuffer = VertexBlendIndicesBuffer.AsDeferredJobArray(),
+                    Triangles = Triangles.AsDeferredJobArray(),
+                    TriangleNormals = TriangleNormals.AsDeferredJobArray(),
+                    VertexContainingTriangles = VertexContainingTriangles,
+                    VertexMergeOpponentVertices = VertexMergeOpponentVertices,
+                    DiscardedTriangle = TriangleIsDiscardedBits,
+                    DiscardedVertex = VertexIsDiscardedBits,
+                    SourceToTarget = uvLoopSourceToTarget,
+                    TargetTriangleCount = math.max(0, (int)target.Value),
+                }.Schedule(dependency);
+            }
+
+            var simplify = new SimplifyJob
             {
                 Mesh = meshData,
                 SimplificationTarget = target,
@@ -594,7 +622,12 @@ namespace Meshia.MeshSimplification
                 VertexMerges = VertexMerges,
                 PreserveBorderEdgesBoneIndices = preserveBorderEdgesBoneIndices,
                 SmartLinks = SmartLinks,
-            }.Schedule(dependency);
+                UvLoopSourceToTarget = uvLoopSourceToTarget,
+            }.Schedule(simplifyDependency);
+
+            return uvLoopSourceToTarget.IsCreated
+                ? uvLoopSourceToTarget.Dispose(simplify)
+                : simplify;
         }
 
 
