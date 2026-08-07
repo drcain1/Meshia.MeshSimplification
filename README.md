@@ -29,6 +29,30 @@ Attach `MeshiaMeshSimplifier` to your models.
 
 You can preview the result in EditMode.
 
+#### Cascading avatar simplifier
+
+Add `Meshia Cascading Avatar Mesh Simplifier` to a child object beneath the avatar. It assigns a shared triangle budget across the avatar's eligible renderers. Use **Adjust** to distribute the current target manually, or enable **Auto Adjust** to update renderer targets automatically.
+
+Each renderer's cogwheel provides an algorithm selector:
+
+- **Blender Decimate** — the default option. Uses the Blender-compatible collapse implementation to reach the renderer's allocated triangle count.
+- **Meshia** — uses Meshia's original simplification algorithm and exposes its existing preservation and interpolation options.
+- **UV Loop Dissolve** — reconstructs quad-like topology and removes safe complete or partial edge-loop segments. UV seams, material boundaries, hard edges, borders, and non-manifold areas are protected. If loop removal cannot reach the target, Blender Decimate finishes the operation and the preview displays a fallback notification.
+
+Use **Preview UVs** inside a renderer's cogwheel to compare the original and simplified UV layouts. The preview updates as triangle targets and simplification settings change.
+
+#### Build-aware triangle budgeting
+
+The cascading inspector distinguishes Meshia's output from the estimated final avatar count after downstream NDMF tools:
+
+- **Meshia output** reports triangles before downstream processing.
+- **AAO estimate** accounts for meshes and polygons expected to be removed by Avatar Optimizer when its compatible API is available.
+- **Analyze NDMF Build** runs a temporary full NDMF build and records the exact final triangle count.
+
+A completed analysis calibrates **Adjust** and **Auto Adjust**, allowing their targets to account for downstream removals instead of unnecessarily reducing every renderer. The inspector marks analysis data as stale after relevant avatar settings change; rerun **Analyze NDMF Build** to refresh it.
+
+The Blender-compatible implementation has additional licensing information in [BLENDER_PORT_NOTICE.md](BLENDER_PORT_NOTICE.md).
+
 
 #### Use from C#
 
