@@ -376,6 +376,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 MeshiaCascadingAvatarMeshSimplifierPreview.PreviewControlNode.IsEnabled.OnChange -= onNdmfPreviewEnabledChanged;
             });
 
+            IVisualElementScheduledItem? scheduledUvPreviewRefresh = null;
+            root.TrackSerializedObjectValue(serializedObject, _ =>
+            {
+                scheduledUvPreviewRefresh?.Pause();
+                scheduledUvPreviewRefresh = root.schedule.Execute(RefreshOpenUvPreview).StartingIn(150);
+            });
+
 
             return root;
         }
@@ -395,6 +402,35 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 return;
             }
 
+            var simplifiedMesh = CreateUvPreviewMesh(entry, sourceMesh);
+            MeshUvPreviewWindow.ShowComparison(sourceMesh, simplifiedMesh);
+        }
+
+        private void RefreshOpenUvPreview()
+        {
+            serializedObject.ApplyModifiedProperties();
+            foreach (var entry in Target.Entries)
+            {
+                if (!entry.Enabled || entry.GetTargetRenderer(Target) is not { } targetRenderer ||
+                    RendererUtility.GetMesh(targetRenderer) is not { } sourceMesh ||
+                    !MeshUvPreviewWindow.IsShowingComparison(sourceMesh))
+                {
+                    continue;
+                }
+
+                var simplifiedMesh = CreateUvPreviewMesh(entry, sourceMesh);
+                if (!MeshUvPreviewWindow.UpdateComparison(sourceMesh, simplifiedMesh))
+                {
+                    DestroyImmediate(simplifiedMesh);
+                }
+                return;
+            }
+        }
+
+        private Mesh CreateUvPreviewMesh(
+            MeshiaCascadingAvatarMeshSimplifierRendererEntry entry,
+            Mesh sourceMesh)
+        {
             var simplifiedMesh = new Mesh { name = $"{sourceMesh.name}-UV-Preview" };
             try
             {
@@ -410,7 +446,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     entry.Options,
                     preserveBorderEdgesBoneIndices,
                     simplifiedMesh);
-                MeshUvPreviewWindow.ShowComparison(sourceMesh, simplifiedMesh);
+                return simplifiedMesh;
             }
             catch
             {

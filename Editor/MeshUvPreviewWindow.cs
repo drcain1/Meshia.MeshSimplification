@@ -48,16 +48,61 @@ namespace Meshia.MeshSimplification.Editor
         public static void ShowComparison(Mesh original, Mesh simplified)
         {
             var window = GetWindow<MeshUvPreviewWindow>("Meshia UV Preview");
-            window.ReleaseOwnedMesh();
-            window.originalMesh = original;
-            window.simplifiedMesh = simplified;
-            window.ownedSimplifiedMesh = simplified;
-            simplified.hideFlags = HideFlags.HideAndDontSave;
+            window.SetComparison(original, simplified);
             window.viewMode = ViewMode.Overlay;
             window.zoom = 0.9f;
             window.pan = Vector2.zero;
             window.Show();
             window.Repaint();
+        }
+
+        /// <summary>
+        /// Returns whether the open UV preview is comparing the supplied source mesh.
+        /// This does not create a preview window.
+        /// </summary>
+        public static bool IsShowingComparison(Mesh original)
+        {
+            return FindOpenWindow(original) != null;
+        }
+
+        /// <summary>
+        /// Replaces the temporary simplified mesh in an existing comparison while
+        /// preserving the current UV channel, view mode, zoom, and pan.
+        /// </summary>
+        /// <returns>Whether an open comparison was updated.</returns>
+        public static bool UpdateComparison(Mesh original, Mesh simplified)
+        {
+            var window = FindOpenWindow(original);
+            if (window == null)
+            {
+                return false;
+            }
+
+            window.SetComparison(original, simplified);
+            window.Repaint();
+            return true;
+        }
+
+        static MeshUvPreviewWindow? FindOpenWindow(Mesh original)
+        {
+            foreach (var window in Resources.FindObjectsOfTypeAll<MeshUvPreviewWindow>())
+            {
+                if (window.originalMesh == original && window.simplifiedMesh != null)
+                {
+                    return window;
+                }
+            }
+
+            return null;
+        }
+
+        void SetComparison(Mesh original, Mesh simplified)
+        {
+            ReleaseOwnedMesh();
+            originalMesh = original;
+            simplifiedMesh = simplified;
+            ownedSimplifiedMesh = simplified;
+            simplified.hideFlags = HideFlags.HideAndDontSave;
         }
 
         void OnDisable()
