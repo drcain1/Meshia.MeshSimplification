@@ -9,9 +9,10 @@
             <ui:Button text="Adjust" parse-escape-sequences="true" display-tooltip-when-elided="true" enable-rich-text="false" name="AdjustButton" />
             <ui:Toggle label="Enable Auto Adjust" binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
         </ui:GroupBox>
-        <ui:GroupBox style="flex-direction: row; justify-content: space-between; display: flex;">
-            <ui:IMGUIContainer name="TriangleCountLabel" />
-            <ui:GroupBox style="flex-direction: row;">
+        <ui:GroupBox style="flex-direction: row; justify-content: space-between; align-items: flex-start; display: flex;">
+            <ui:IMGUIContainer name="TriangleCountLabel" style="flex-grow: 1;" />
+            <ui:GroupBox style="flex-direction: column;">
+                <ui:Button text="Analyze NDMF Build" tooltip="Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count." name="AnalyzeNdmfBuildButton" />
                 <ui:Button text="Remove Invalid Entries" parse-escape-sequences="true" display-tooltip-when-elided="true" name="RemoveInvalidEntriesButton" />
                 <ui:Button text="Reset" parse-escape-sequences="true" display-tooltip-when-elided="true" name="ResetButton" />
             </ui:GroupBox>

@@ -1,13 +1,9 @@
 {
-    "name": "Meshia.MeshSimplification.Ndmf.Editor.Tests",
-    "rootNamespace": "Meshia.MeshSimplification.Ndmf.Tests",
+    "name": "Meshia.MeshSimplification.Ndmf.Aao.Editor",
+    "rootNamespace": "Meshia.MeshSimplification.Ndmf.Editor.Aao",
     "references": [
-        "Meshia.MeshSimplification.Runtime",
-        "Meshia.MeshSimplification.Ndmf.Runtime",
-        "Meshia.MeshSimplification.Ndmf.Editor"
-    ],
-    "optionalUnityReferences": [
-        "TestAssemblies"
+        "Meshia.MeshSimplification.Ndmf.Editor",
+        "com.anatawa12.avatar-optimizer.api.editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -18,15 +14,14 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [
-        "UNITY_INCLUDE_TESTS",
-        "ENABLE_NDMF",
+        "ENABLE_AVATAR_OPTIMIZER",
         "ENABLE_MODULAR_AVATAR"
     ],
     "versionDefines": [
         {
-            "name": "nadena.dev.ndmf",
-            "expression": "",
-            "define": "ENABLE_NDMF"
+            "name": "com.anatawa12.avatar-optimizer",
+            "expression": "1.8.0",
+            "define": "ENABLE_AVATAR_OPTIMIZER"
         },
         {
             "name": "nadena.dev.modular-avatar",

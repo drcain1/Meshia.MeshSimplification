@@ -8,6 +8,10 @@ using UnityEngine;
 using UnityEditor;
 using Meshia.MeshSimplification.Editor;
 using Meshia.MeshSimplification.Ndmf.Editor.Preview;
+using nadena.dev.ndmf;
+using nadena.dev.ndmf.platform;
+using nadena.dev.ndmf.preview;
+using nadena.dev.ndmf.runtime;
 using UnityEngine.UIElements;
 using UnityEditor.UIElements;
 
@@ -16,6 +20,44 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
     [CustomEditor(typeof(MeshiaCascadingAvatarMeshSimplifier))]
     internal class MeshiaCascadingAvatarMeshSimplifierEditor : UnityEditor.Editor
     {
+        private readonly struct BuildAnalysisResult
+        {
+            internal readonly int TriangleCount;
+            internal readonly int EstimatedBeforeDownstreamTriangleCount;
+            internal readonly int Revision;
+            internal readonly string? Error;
+
+            internal BuildAnalysisResult(
+                int triangleCount,
+                int estimatedBeforeDownstreamTriangleCount,
+                int revision,
+                string? error)
+            {
+                TriangleCount = triangleCount;
+                EstimatedBeforeDownstreamTriangleCount = estimatedBeforeDownstreamTriangleCount;
+                Revision = revision;
+                Error = error;
+            }
+        }
+
+        [Serializable]
+        private sealed class SerializedBuildAnalysisResult
+        {
+            public int TriangleCount;
+            public int EstimatedBeforeDownstreamTriangleCount;
+            public int Revision;
+            public string? Error;
+        }
+
+        private const string AnalysisRevisionSessionKey =
+            "Meshia.MeshSimplification.CascadingTriangleAnalysis.Revision";
+        private const string AnalysisResultSessionKeyPrefix =
+            "Meshia.MeshSimplification.CascadingTriangleAnalysis.Result.";
+
+        private static readonly Dictionary<string, BuildAnalysisResult> BuildAnalysisCache = new();
+        private static bool s_analysisInProgress;
+        private static int CurrentAnalysisRevision => SessionState.GetInt(AnalysisRevisionSessionKey, 0);
+
         [SerializeField] VisualTreeAsset editorVisualTreeAsset = null!;
         [SerializeField] VisualTreeAsset entryEditorVisualTreeAsset = null!;
         private MeshiaCascadingAvatarMeshSimplifier Target => (MeshiaCascadingAvatarMeshSimplifier)target;
@@ -23,6 +65,32 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private SerializedProperty AutoAdjustEnabledProperty => serializedObject.FindProperty(nameof(MeshiaCascadingAvatarMeshSimplifier.AutoAdjustEnabled));
         private SerializedProperty TargetTriangleCountProperty => serializedObject.FindProperty(nameof(MeshiaCascadingAvatarMeshSimplifier.TargetTriangleCount));
         private SerializedProperty EntriesProperty => serializedObject.FindProperty(nameof(MeshiaCascadingAvatarMeshSimplifier.Entries));
+
+        [InitializeOnLoadMethod]
+        private static void InitializeTriangleAnalysisInvalidation()
+        {
+            Undo.postprocessModifications -= OnPostprocessModifications;
+            Undo.postprocessModifications += OnPostprocessModifications;
+            Undo.undoRedoPerformed -= InvalidateTriangleAnalysis;
+            Undo.undoRedoPerformed += InvalidateTriangleAnalysis;
+        }
+
+        private static UndoPropertyModification[] OnPostprocessModifications(UndoPropertyModification[] modifications)
+        {
+            InvalidateTriangleAnalysis();
+            return modifications;
+        }
+
+        private static void InvalidateTriangleAnalysis()
+        {
+            if (s_analysisInProgress)
+            {
+                return;
+            }
+
+            SessionState.SetInt(AnalysisRevisionSessionKey, CurrentAnalysisRevision + 1);
+            DownstreamTriangleEstimator.Invalidate();
+        }
 
 
         [MenuItem("GameObject/Meshia Mesh Simplification/Meshia Cascading Avatar Mesh Simplifier", false, 0)]
@@ -35,7 +103,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         }
         private void OnEnable()
         {
-            RefreshEntries();
+            if (target is MeshiaCascadingAvatarMeshSimplifier)
+            {
+                RefreshEntries();
+            }
         }
 
         private void RefreshEntries()
@@ -84,6 +155,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var adjustButton = root.Q<Button>("AdjustButton");
             var autoAdjustEnabledToggle = root.Q<Toggle>("AutoAdjustEnabledToggle");
             var triangleCountLabel = root.Q<IMGUIContainer>("TriangleCountLabel");
+            var analyzeNdmfBuildButton = root.Q<Button>("AnalyzeNdmfBuildButton");
 
             var removeInvalidEntriesButton = root.Q<Button>("RemoveInvalidEntriesButton");
             var resetButton = root.Q<Button>("ResetButton");
@@ -91,6 +163,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var ndmfPreviewToggle = root.Q<Toggle>("NdmfPreviewToggle");
 
             attachedToRootWarning.style.display = Target.transform.parent == null ? DisplayStyle.Flex : DisplayStyle.None;
+
+            root.RegisterCallback<SerializedPropertyChangeEvent>(changeEvent =>
+            {
+                if (changeEvent.changedProperty.propertyPath !=
+                    nameof(MeshiaCascadingAvatarMeshSimplifier.AutoAdjustEnabled))
+                {
+                    InvalidateTriangleAnalysis();
+                }
+            });
 
 
             targetTriangleCountField.RegisterValueChangedCallback(changeEvent =>
@@ -140,12 +221,95 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             {
                 var current = GetTotalSimplifiedTriangleCount(true);
                 var sum = GetTotalOriginalTriangleCount();
-                var countLabel = $"Current: {current} / {sum}";
-                var labelWidth1 = 7f * countLabel.ToString().Count();
-                var isOverflow = TargetTriangleCountProperty.intValue < current;
-                if (isOverflow) EditorGUILayout.LabelField(countLabel + " - Overflow!", GUIStyleHelper.RedStyle, GUILayout.Width(labelWidth1));
-                else EditorGUILayout.LabelField(countLabel, GUILayout.Width(labelWidth1));
+                var targetCount = TargetTriangleCountProperty.intValue;
+                EditorGUILayout.LabelField($"Meshia output (before downstream tools): {current:N0} / {sum:N0}");
+
+                if (DownstreamTriangleEstimator.IsAaoAvailable)
+                {
+                    var estimatedFinal = GetTotalEstimatedFinalTriangleCount(true);
+                    if (TryGetAnalyzedCalibration(Target, out var calibration, out var calibrationStale))
+                    {
+                        EditorGUILayout.LabelField($"AAO estimate: {estimatedFinal:N0} / {targetCount:N0}");
+                        var calibratedFinal = DownstreamTriangleEstimator.ApplyAnalyzedDelta(
+                            estimatedFinal,
+                            calibration.EstimatedBeforeDownstreamTriangleCount,
+                            calibration.TriangleCount);
+                        var calibratedOverflow = targetCount < calibratedFinal;
+                        var calibratedLabel = $"Calibrated estimate: {calibratedFinal:N0} / {targetCount:N0}";
+                        if (calibratedOverflow)
+                        {
+                            calibratedLabel += " - Potential overflow";
+                        }
+                        if (calibrationStale)
+                        {
+                            calibratedLabel += " - Stale calibration";
+                        }
+                        EditorGUILayout.LabelField(
+                            calibratedLabel,
+                            calibratedOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
+                    }
+                    else
+                    {
+                        var estimateOverflow = targetCount < estimatedFinal;
+                        var estimateLabel = $"AAO estimate: {estimatedFinal:N0} / {targetCount:N0}";
+                        if (estimateOverflow)
+                        {
+                            estimateLabel += " - Potential overflow";
+                        }
+                        EditorGUILayout.LabelField(
+                            estimateLabel,
+                            estimateOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
+                        EditorGUILayout.LabelField(
+                            "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes.");
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("AAO estimate unavailable; use Analyze NDMF Build for an exact count.");
+                }
+
+                if (TryGetBuildAnalysisResult(Target, out var analysis))
+                {
+                    var stale = analysis.Revision != CurrentAnalysisRevision;
+                    if (!string.IsNullOrEmpty(analysis.Error))
+                    {
+                        if (analysis.TriangleCount > 0)
+                        {
+                            var warningLabel =
+                                $"Analyzed NDMF build: {analysis.TriangleCount:N0} / {targetCount:N0} - {analysis.Error}";
+                            if (stale)
+                            {
+                                warningLabel += " - Stale";
+                            }
+                            EditorGUILayout.LabelField(
+                                warningLabel);
+                        }
+                        else
+                        {
+                            EditorGUILayout.LabelField($"NDMF analysis failed: {analysis.Error}", GUIStyleHelper.RedStyle);
+                        }
+                    }
+                    else
+                    {
+                        var exactOverflow = !stale && targetCount < analysis.TriangleCount;
+                        var exactLabel = $"Analyzed NDMF build: {analysis.TriangleCount:N0} / {targetCount:N0}";
+                        if (stale)
+                        {
+                            exactLabel += " - Stale";
+                        }
+                        else if (exactOverflow)
+                        {
+                            exactLabel += " - Overflow!";
+                        }
+                        EditorGUILayout.LabelField(exactLabel, exactOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("Analyzed NDMF build: not run");
+                }
             };
+            analyzeNdmfBuildButton.clicked += () => AnalyzeNdmfBuild(analyzeNdmfBuildButton);
             removeInvalidEntriesButton.clicked += () =>
             {
                 var target = Target;
@@ -169,9 +333,19 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             };
             resetButton.clicked += () =>
             {
-                var originalTriangleCount = GetTotalOriginalTriangleCount();
+                var originalTriangleCount = GetTotalEstimatedOriginalTriangleCount();
+                var resetTargetTriangleCount = TargetTriangleCountProperty.intValue;
+                if (TryGetAnalyzedCalibration(Target, out var calibration, out _))
+                {
+                    resetTargetTriangleCount = DownstreamTriangleEstimator.GetPreDownstreamTarget(
+                        resetTargetTriangleCount,
+                        calibration.EstimatedBeforeDownstreamTriangleCount,
+                        calibration.TriangleCount);
+                }
 
-                var quality = TargetTriangleCountProperty.intValue / (float)originalTriangleCount;
+                var quality = originalTriangleCount > 0
+                    ? resetTargetTriangleCount / (float)originalTriangleCount
+                    : 1f;
 
                 var entriesProperty = EntriesProperty;
                 var arraySize = entriesProperty.arraySize;
@@ -535,6 +709,52 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
             return totalCount;
         }
+
+        private int GetTotalEstimatedFinalTriangleCount(bool usePreview)
+        {
+            var totalCount = 0;
+            var target = Target;
+            foreach (var entry in target.Entries)
+            {
+                if (entry.IsValid(target) && TryGetEstimatedFinalTriangleCount(entry, usePreview, out var triangleCount))
+                {
+                    totalCount += triangleCount;
+                }
+            }
+            return totalCount;
+        }
+
+        private int GetTotalEstimatedOriginalTriangleCount()
+        {
+            var totalCount = 0;
+            var target = Target;
+            foreach (var entry in target.Entries)
+            {
+                if (!entry.IsValid(target) || !TryGetOriginalTriangleCount(entry, false, out var triangleCount) ||
+                    entry.GetTargetRenderer(target) is not { } renderer)
+                {
+                    continue;
+                }
+
+                totalCount += DownstreamTriangleEstimator.EstimateFinalTriangleCount(renderer, triangleCount);
+            }
+            return totalCount;
+        }
+
+        private bool TryGetEstimatedFinalTriangleCount(
+            MeshiaCascadingAvatarMeshSimplifierRendererEntry entry,
+            bool preferPreview,
+            out int triangleCount)
+        {
+            if (!TryGetSimplifiedTriangleCount(entry, preferPreview, out triangleCount) ||
+                entry.GetTargetRenderer(Target) is not { } renderer)
+            {
+                return false;
+            }
+
+            triangleCount = DownstreamTriangleEstimator.EstimateFinalTriangleCount(renderer, triangleCount);
+            return true;
+        }
         private bool TryGetSimplifiedTriangleCount(MeshiaCascadingAvatarMeshSimplifierRendererEntry entry, bool preferPreview, out int triangleCount)
         {
 
@@ -599,7 +819,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private void AdjustQuality(int fixedIndex = -1)
         {
             serializedObject.ApplyModifiedProperties();
-            var targetTotalCount = TargetTriangleCountProperty.intValue;
+            var finalTargetTotalCount = TargetTriangleCountProperty.intValue;
+            var targetTotalCount = finalTargetTotalCount;
+            if (TryGetAnalyzedCalibration(Target, out var calibration, out _))
+            {
+                targetTotalCount = DownstreamTriangleEstimator.GetPreDownstreamTarget(
+                    finalTargetTotalCount,
+                    calibration.EstimatedBeforeDownstreamTriangleCount,
+                    calibration.TriangleCount);
+            }
 
             var target = Target;
             var entries = target.Entries;
@@ -622,7 +850,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     }
                     var entryProperty = entriesProperty.GetArrayElementAtIndex(i);
 
-                    TryGetSimplifiedTriangleCount(entry, false, out var triangleCount);
+                    TryGetEstimatedFinalTriangleCount(entry, false, out var triangleCount);
 
                     currentTotal += triangleCount;
 
@@ -686,9 +914,157 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     var targetTriangleCountProperty = entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.TargetTriangleCount));
 
 
-                    targetTriangleCountProperty.intValue = (int)(originalTriangleCount * ratio);
+                    targetTriangleCountProperty.intValue = Mathf.Clamp(
+                        (int)(originalTriangleCount * ratio),
+                        0,
+                        originalTriangleCount);
                 }
             }
+        }
+
+        private void AnalyzeNdmfBuild(Button button)
+        {
+            var avatarRoot = RuntimeUtil.FindAvatarInParents(Target.transform);
+            if (avatarRoot == null)
+            {
+                StoreBuildAnalysisResult(Target, new BuildAnalysisResult(
+                    0,
+                    0,
+                    CurrentAnalysisRevision,
+                    "Could not find the avatar root."));
+                return;
+            }
+
+            var originalButtonText = button.text;
+            GameObject? clone = null;
+            var finalTriangleCount = 0;
+            var estimatedBeforeDownstreamTriangleCount = GetTotalEstimatedFinalTriangleCount(true);
+            string? analysisError = null;
+            var previousDisablePreviewDepth = NDMFPreview.DisablePreviewDepth;
+            s_analysisInProgress = true;
+            NDMFPreview.DisablePreviewDepth = previousDisablePreviewDepth + 1;
+            button.SetEnabled(false);
+            button.text = "Analyzing...";
+
+            try
+            {
+                EditorUtility.DisplayProgressBar("Meshia", "Analyzing the complete NDMF avatar build...", 0.5f);
+                clone = Instantiate(avatarRoot.gameObject);
+                clone.name = $"{avatarRoot.name} (Meshia Triangle Analysis)";
+                clone.SetActive(true);
+                var buildContext = AvatarProcessor.ProcessAvatar(clone, AmbientPlatform.CurrentPlatform);
+                if (!buildContext.Successful)
+                {
+                    analysisError = "Build reported errors; count may be incomplete.";
+                }
+
+                foreach (var renderer in clone.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer is MeshRenderer or SkinnedMeshRenderer && RendererUtility.GetMesh(renderer) is { } mesh)
+                    {
+                        finalTriangleCount += mesh.GetTriangleCount();
+                    }
+                }
+
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, Target);
+                analysisError = exception.Message;
+            }
+            finally
+            {
+                if (clone != null)
+                {
+                    DestroyImmediate(clone);
+                }
+
+                try
+                {
+                    AvatarProcessor.CleanTemporaryAssets();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception, Target);
+                }
+
+                EditorUtility.ClearProgressBar();
+                NDMFPreview.DisablePreviewDepth = previousDisablePreviewDepth;
+                button.text = originalButtonText;
+                button.SetEnabled(true);
+            }
+
+            StoreBuildAnalysisResult(Target, new BuildAnalysisResult(
+                finalTriangleCount,
+                estimatedBeforeDownstreamTriangleCount,
+                CurrentAnalysisRevision,
+                analysisError));
+            EditorApplication.delayCall += () => s_analysisInProgress = false;
+            UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+        }
+
+        private static bool TryGetBuildAnalysisResult(
+            MeshiaCascadingAvatarMeshSimplifier target,
+            out BuildAnalysisResult result)
+        {
+            var key = GetBuildAnalysisResultKey(target);
+            if (BuildAnalysisCache.TryGetValue(key, out result))
+            {
+                return true;
+            }
+
+            var json = SessionState.GetString(key, string.Empty);
+            if (string.IsNullOrEmpty(json) || JsonUtility.FromJson<SerializedBuildAnalysisResult>(json) is not { } stored)
+            {
+                result = default;
+                return false;
+            }
+
+            result = new BuildAnalysisResult(
+                stored.TriangleCount,
+                stored.EstimatedBeforeDownstreamTriangleCount,
+                stored.Revision,
+                string.IsNullOrEmpty(stored.Error) ? null : stored.Error);
+            BuildAnalysisCache[key] = result;
+            return true;
+        }
+
+        private static void StoreBuildAnalysisResult(
+            MeshiaCascadingAvatarMeshSimplifier target,
+            BuildAnalysisResult result)
+        {
+            var key = GetBuildAnalysisResultKey(target);
+            BuildAnalysisCache[key] = result;
+            SessionState.SetString(key, JsonUtility.ToJson(new SerializedBuildAnalysisResult
+            {
+                TriangleCount = result.TriangleCount,
+                EstimatedBeforeDownstreamTriangleCount = result.EstimatedBeforeDownstreamTriangleCount,
+                Revision = result.Revision,
+                Error = result.Error,
+            }));
+        }
+
+        private static string GetBuildAnalysisResultKey(MeshiaCascadingAvatarMeshSimplifier target)
+        {
+            return AnalysisResultSessionKeyPrefix + GlobalObjectId.GetGlobalObjectIdSlow(target);
+        }
+
+        private static bool TryGetAnalyzedCalibration(
+            MeshiaCascadingAvatarMeshSimplifier target,
+            out BuildAnalysisResult calibration,
+            out bool stale)
+        {
+            if (TryGetBuildAnalysisResult(target, out calibration) &&
+                calibration.TriangleCount > 0 &&
+                calibration.EstimatedBeforeDownstreamTriangleCount > 0 &&
+                string.IsNullOrEmpty(calibration.Error))
+            {
+                stale = calibration.Revision != CurrentAnalysisRevision;
+                return true;
+            }
+
+            stale = false;
+            return false;
         }
 
     }
