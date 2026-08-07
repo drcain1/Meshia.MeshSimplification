@@ -277,7 +277,7 @@ namespace Meshia.MeshSimplification
                         break;
                     case VertexAttributeFormat.Float16:
                         {
-                            for (int vertexIndex = 0; vertexIndex < vertexAttributeData.Length; vertexIndex++)
+                            for (int vertexIndex = 0; vertexIndex < elementCount; vertexIndex++)
                             {
                                 var sourceElement = (half*)(sourcePtr + stride * vertexIndex);
                                 var destinationElement = destinationPtr + dimension * vertexIndex;
@@ -294,7 +294,7 @@ namespace Meshia.MeshSimplification
                         break;
                     case VertexAttributeFormat.UNorm8:
                         {
-                            for (int vertexIndex = 0; vertexIndex < vertexAttributeData.Length; vertexIndex++)
+                            for (int vertexIndex = 0; vertexIndex < elementCount; vertexIndex++)
                             {
                                 var sourceElement = (byte*)(sourcePtr + stride * vertexIndex);
                                 var destinationElement = destinationPtr + dimension * vertexIndex;
@@ -311,7 +311,7 @@ namespace Meshia.MeshSimplification
                         break;
                     case VertexAttributeFormat.SNorm8:
                         {
-                            for (int vertexIndex = 0; vertexIndex < vertexAttributeData.Length; vertexIndex++)
+                            for (int vertexIndex = 0; vertexIndex < elementCount; vertexIndex++)
                             {
                                 var sourceElement = (sbyte*)(sourcePtr + stride * vertexIndex);
                                 var destinationElement = destinationPtr + dimension * vertexIndex;
@@ -328,7 +328,7 @@ namespace Meshia.MeshSimplification
                         break;
                     case VertexAttributeFormat.UNorm16:
                         {
-                            for (int vertexIndex = 0; vertexIndex < vertexAttributeData.Length; vertexIndex++)
+                            for (int vertexIndex = 0; vertexIndex < elementCount; vertexIndex++)
                             {
                                 var sourceElement = (ushort*)(sourcePtr + stride * vertexIndex);
                                 var destinationElement = destinationPtr + dimension * vertexIndex;
@@ -345,7 +345,7 @@ namespace Meshia.MeshSimplification
                         break;
                     case VertexAttributeFormat.SNorm16:
                         {
-                            for (int vertexIndex = 0; vertexIndex < vertexAttributeData.Length; vertexIndex++)
+                            for (int vertexIndex = 0; vertexIndex < elementCount; vertexIndex++)
                             {
                                 var sourceElement = (short*)(sourcePtr + stride * vertexIndex);
                                 var destinationElement = destinationPtr + dimension * vertexIndex;

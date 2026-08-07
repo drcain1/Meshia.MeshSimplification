@@ -7,6 +7,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.TestTools;
 
 namespace Meshia.MeshSimplification.Tests
@@ -161,6 +162,54 @@ namespace Meshia.MeshSimplification.Tests
             Assert.AreEqual(source.vertexCount, destination.vertexCount);
             Assert.AreEqual(source.triangles.Length, destination.triangles.Length);
             Object.DestroyImmediate(destination);
+        }
+
+        [TestCase(VertexAttributeFormat.Float16)]
+        [TestCase(VertexAttributeFormat.UNorm8)]
+        [TestCase(VertexAttributeFormat.UNorm16)]
+        public void ShouldPreserveCompactSkinWeights(VertexAttributeFormat weightFormat)
+        {
+            var source = CreateCompactSkinnedTriangle(weightFormat);
+            var destination = new Mesh();
+
+            try
+            {
+                MeshSimplifier.Simplify(source, new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
+                    Value = 1f,
+                }, MeshSimplifierOptions.Default, destination);
+
+                Assert.AreEqual(weightFormat, destination.GetVertexAttributeFormat(VertexAttribute.BlendWeight));
+                Assert.AreEqual(source.vertexCount, destination.vertexCount);
+                Assert.AreEqual(source.bindposes.Length, destination.bindposes.Length);
+
+                using var bonesPerVertex = destination.GetBonesPerVertex();
+                using var weights = destination.GetAllBoneWeights();
+                Assert.AreEqual(destination.vertexCount, bonesPerVertex.Length);
+
+                var weightIndex = 0;
+                for (var vertex = 0; vertex < bonesPerVertex.Length; vertex++)
+                {
+                    var weightSum = 0f;
+                    for (var influence = 0; influence < bonesPerVertex[vertex]; influence++)
+                    {
+                        var weight = weights[weightIndex++];
+                        Assert.Less(weight.boneIndex, destination.bindposes.Length);
+                        Assert.That(weight.weight, Is.InRange(0f, 1f));
+                        weightSum += weight.weight;
+                    }
+
+                    Assert.That(weightSum, Is.EqualTo(1f).Within(0.01f));
+                }
+
+                Assert.AreEqual(weights.Length, weightIndex);
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+                Object.DestroyImmediate(destination);
+            }
         }
 
         [Test]
@@ -618,6 +667,59 @@ namespace Meshia.MeshSimplification.Tests
             mesh.normals = normals;
             mesh.uv = uvs;
             mesh.triangles = triangles;
+            return mesh;
+        }
+
+        static Mesh CreateCompactSkinnedTriangle(VertexAttributeFormat weightFormat)
+        {
+            var mesh = new Mesh();
+            var meshDataArray = Mesh.AllocateWritableMeshData(1);
+            var meshData = meshDataArray[0];
+            meshData.SetVertexBufferParams(3,
+                new VertexAttributeDescriptor(VertexAttribute.Position, VertexAttributeFormat.Float32, 3, 0),
+                new VertexAttributeDescriptor(VertexAttribute.BlendWeight, weightFormat, 4, 1),
+                new VertexAttributeDescriptor(VertexAttribute.BlendIndices, VertexAttributeFormat.UInt8, 4, 1));
+            meshData.SetIndexBufferParams(3, IndexFormat.UInt16);
+
+            var positions = meshData.GetVertexData<Vector3>(0);
+            positions[0] = Vector3.zero;
+            positions[1] = Vector3.right;
+            positions[2] = Vector3.up;
+
+            var skinStream = meshData.GetVertexData<byte>(1);
+            var skinStride = meshData.GetVertexBufferStride(1);
+            var weightOffset = meshData.GetVertexAttributeOffset(VertexAttribute.BlendWeight);
+            var indexOffset = meshData.GetVertexAttributeOffset(VertexAttribute.BlendIndices);
+            var vertexWeights = new[]
+            {
+                new[] { 1f, 0f, 0f, 0f },
+                new[] { 0f, 1f, 0f, 0f },
+                new[] { 0.5f, 0.5f, 0f, 0f },
+            };
+            var vertexIndices = new[]
+            {
+                new[] { 0, 0, 0, 0 },
+                new[] { 0, 1, 0, 0 },
+                new[] { 0, 1, 0, 0 },
+            };
+
+            for (var vertex = 0; vertex < 3; vertex++)
+            {
+                WriteToMeshDataJob.SetVertexAttributeDataElement(
+                    skinStream, skinStride, weightOffset, weightFormat, vertex, vertexWeights[vertex]);
+                WriteToMeshDataJob.SetVertexAttributeDataElement(
+                    skinStream, skinStride, indexOffset, VertexAttributeFormat.UInt8, vertex, vertexIndices[vertex]);
+            }
+
+            var indices = meshData.GetIndexData<ushort>();
+            indices[0] = 0;
+            indices[1] = 1;
+            indices[2] = 2;
+            meshData.subMeshCount = 1;
+            meshData.SetSubMesh(0, new SubMeshDescriptor(0, 3, MeshTopology.Triangles));
+
+            Mesh.ApplyAndDisposeWritableMeshData(meshDataArray, mesh);
+            mesh.bindposes = new[] { Matrix4x4.identity, Matrix4x4.identity };
             return mesh;
         }
 
