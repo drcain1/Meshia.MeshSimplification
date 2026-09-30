@@ -76,6 +76,26 @@ Changing algorithms, including through **Algorithm for All Meshes**, retains eac
 
 **Boundary Weight** and **Area Weight** discourage boundary movement but do not lock borders. Likewise, **Preserve Attribute Seams** protects coincident split vertices, not every open edge. Keep **Preserve Border Edges** enabled when exact open-boundary retention is required, and check this setting on older entries. Border, seam, and skinning protection can leave fewer legal collapses and prevent reaching an aggressive triangle target.
 
+##### Hair protection and further reduction
+
+**There is no automatic hair preset or name-based hair detection.** Hair uses the same FA-QEM safeguards as other meshes. Thin hair cards and individual strands often have many open edges and coincident split vertices, including UV and normal seams. **Preserve Border Edges** and **Preserve Attribute Seams** are on by default and can lock much of this geometry. Lowering the triangle target alone does not override these locks, so hair may stop well above its target.
+
+Start with the defaults and give visually important hair a larger budget. To explore further reduction, use **that hair renderer's cogwheel** on a copy and change one option at a time:
+
+| Option | How to reduce protection | Tradeoff |
+| --- | --- | --- |
+| **Preserve Border Edges** | Turn it off to allow open-boundary vertices to move or collapse. Check **Preserve Border Edges Bones** too: selected bones can keep associated boundary vertices locked even with the main toggle off. | Strand tips and card outlines can change; gaps may appear between strands. |
+| **Preserve Attribute Seams** | Turn it off to release coincident split-vertex locks. This does not weld the copies together, and border protection may still lock the same vertices. | Copies can move apart, causing cracks, UV discontinuities, or shading changes. |
+| **Maximum Surface Deviation** (`MaxSurfaceDeviation`) | If enabled, increase the positive tolerance or set it to `0` to disable the guard. Its default is already `0`. | More surface drift and possible intersections with the head or clothing. |
+| **Minimum Face Normal Dot** (`MinNormalDot`) | Lower the FA-QEM value within `0`–`1` to allow larger face rotations per collapse. | Sharper folds and changed shading; other topology checks still apply. |
+| **Protect joint deformation** | If active for this mesh, increase **Max Weight Distance** / **Max Discarded Weight**, or turn protection off. Turn off **Automatically protect detected body mesh** first if Auto is selected. Lowering **Strength** only reduces the cost penalty, not the rejection limits. | Check hair-bone motion and blend shapes. Auto selects a single anatomical body candidate; it is not automatic hair protection. |
+
+**Boundary Weight**, **Normal Weight**, and **Area Weight** change collapse ranking; they do not release border or seam locks, and lowering them does not guarantee further reduction. **Smart Link** does not weld disconnected hair pieces for FA-QEM.
+
+**Some safeguards cannot be switched off:** material-membership and local topology checks, rejection of very short edges and degenerate surviving faces, and protection of distinct-index source faces that are flat at rest on meshes with skin weights or blend shapes. Those flat faces can open during animation, so FA-QEM retains them and locks their vertices even with border and seam protection off. There is no user-facing switch to disable that flat-face safeguard.
+
+Compare the original and simplified hair from the front, back, and side, including strand tips and overlaps. Then test hair motion, expressions, and clothing toggles in Play Mode or VRChat. **Preview UVs** helps inspect UV changes but cannot validate animation. Verify the final budget with **Analyze NDMF Build** or the built avatar. If cracks or silhouette loss appear, restore the option and recover triangles from another mesh. These protections reduce risk; they do not guarantee hole-free hair in every pose.
+
 ##### FA-QEM controls
 
 These defaults come from `FaQemOptions.Default`:
@@ -101,7 +121,7 @@ For layered clothing, inspect both sides of an overlap: an inner layer moving ou
 
 NDMF preview resolves Legacy, Auto, On, and Off joint-protection policies through the same body-selection logic as the build. Auto preview invalidates when its rig, candidate renderers, meshes, or simplifier configuration changes. Preview still covers only participating preview passes; source geometry and final counts can differ from a complete build, so use **Analyze NDMF Build** or the actual built avatar for the final budget.
 
-All geometric terms and this tolerance use coordinates normalized by the source bounds diagonal. The mixed error terms scale differently, so these weights describe this normalized implementation; equivalence to unnormalized paper weights is not assumed. Edges shorter than `1e-8` of that diagonal are rejected even when seam protection is disabled. Coincident split records remain locked; no automatic welding or virtual edges are introduced.
+All geometric terms and this tolerance use coordinates normalized by the source bounds diagonal. The mixed error terms scale differently, so these weights describe this normalized implementation; equivalence to unnormalized paper weights is not assumed. Edges shorter than `1e-8` of that diagonal are rejected even when seam protection is disabled. Coincident split records are locked when **Preserve Attribute Seams** is enabled; no automatic welding or virtual edges are introduced.
 
 ##### C# usage and diagnostics
 
@@ -232,6 +252,26 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 
 **Boundary Weight** と **Area Weight** は境界の移動を抑える評価項目であり、境界を固定する設定ではありません。**Preserve Attribute Seams** も同じ位置にある分離頂点を保護するもので、開いた境界すべてを保護するものではありません。境界を厳密に維持したい場合は **Preserve Border Edges** を有効にし、古い項目の設定も確認してください。境界、シーム、スキニングの保護によって有効な統合候補が減り、厳しい三角形数の目標に達しない場合があります。
 
+##### 髪の保護と、さらに削減するための設定
+
+**髪専用のプリセットの自動適用や、名前による髪の判別は行いません。** 髪にも他のメッシュと同じ FA-QEM の安全策が働きます。薄い板状の髪や独立した毛束には、開いた境界や、UV・法線の継ぎ目などで同じ位置に重なる別々の頂点が多いことがあります。**メッシュの端の辺を保持（Preserve Border Edges）** と **属性の継ぎ目を保持（Preserve Attribute Seams）** の初期値はオンで、多くの頂点が固定される場合があります。目標三角形数を下げるだけでは固定を解除できないため、目標数よりかなり多い状態で削減が止まることがあります。
+
+まずは初期設定を使い、見た目に重要な髪には多めに三角形数を配分してください。さらに削減したい場合は、コピー上で **対象の髪レンダラーの歯車メニュー** を開き、一度に一つずつ設定を変えて比較します。
+
+| 設定 | 保護を緩める方法 | 注意する変化 |
+| --- | --- | --- |
+| **メッシュの端の辺を保持（Preserve Border Edges）** | オフにすると、開いた境界の頂点を移動・統合できるようになります。**境界を保持するボーン（Preserve Border Edges Bones）** も確認してください。主設定がオフでも、選択したボーンに対応する境界頂点は固定される場合があります。 | 毛先や板状の髪の輪郭の変化、毛束の間の隙間。 |
+| **属性の継ぎ目を保持（Preserve Attribute Seams）** | オフにすると、同じ位置にある分離頂点の固定を解除します。頂点同士を溶接する機能ではなく、同じ頂点が境界保護で固定されている場合もあります。 | 頂点が別々に動くことによる亀裂、UV の不連続、陰影の変化。 |
+| **元の表面からのずれの上限（Maximum Surface Deviation）** | 有効な場合は正の許容値を大きくするか、`0` にして無効にします。初期値はすでに `0` です。 | 元の形状からのずれ、頭や服へのめり込み。 |
+| **面法線の内積の下限（Minimum Face Normal Dot）** | FA-QEM 側の値を `0`～`1` の範囲で下げると、統合時の面の向きの変化をより大きく許容します。 | 鋭い折れ目や陰影の変化。他のトポロジー検査は引き続き適用されます。 |
+| **関節変形の保護（Protect joint deformation）** | このメッシュで有効な場合は **Max Weight Distance** / **Max Discarded Weight** を大きくするか、保護をオフにします。Auto が選択されている場合は、先に **Automatically protect detected body mesh** をオフにしてください。**Strength** を下げるだけでは評価コストが変わるだけで、拒否条件は解除されません。 | 髪ボーンの動きやブレンドシェイプを確認してください。Auto は身体メッシュ候補が一つの場合に選択する機能で、髪の自動保護ではありません。 |
+
+**Boundary Weight**、**Normal Weight**、**Area Weight** は統合候補の優先順位に関わる重みで、境界やシームの固定を解除する設定ではありません。値を下げても、必ず三角形数が減るとは限りません。**Smart Link** も、FA-QEM で離れた髪のパーツを溶接する機能ではありません。
+
+**オフにできない安全策もあります。** マテリアル所属と局所的なトポロジーの検査、極端に短いエッジや統合後に退化する面の拒否、アニメーションで開く可能性がある面の保護は常に有効です。スキンウェイトまたはブレンドシェイプを持つメッシュでは、異なる頂点インデックスを持ち、初期状態で面積がゼロの面を保持して頂点を固定します。境界とシームの保護がオフでも適用され、この面の保護を無効にするユーザー向けのスイッチはありません。
+
+元の髪と軽量化後の髪を正面・背面・側面から比較し、毛先や重なりを確認してください。その後、Play Mode または VRChat で髪の動き、表情、衣装の切り替えも確認します。**UVをプレビュー（Preview UVs）** は UV の変化を確認する補助であり、アニメーション品質の確認にはなりません。最終的な三角形数は **Analyze NDMF Build** またはビルド後のアバターで確認してください。亀裂や輪郭の崩れが出る場合は設定を戻し、他のメッシュから削減量を確保してください。これらの保護は問題を減らすためのもので、すべてのポーズで髪に穴が開かないことを保証するものではありません。
+
 ##### FA-QEM の設定
 
 以下は `FaQemOptions.Default` の初期値です。画面上の項目と照合できるよう、設定名は英語表記を併記しています。
@@ -257,7 +297,7 @@ FA-QEM は専用の **Min Normal Dot** と特徴量の重みを使います。�
 
 NDMF プレビューは、ビルドと同じ身体メッシュ選択処理で Legacy、Auto、On、Off の関節保護設定を解決します。Auto のプレビューはリグ、候補レンダラー、メッシュ、軽量化設定の変更に応じて再評価されます。ただし、プレビューが扱うのは参加しているプレビューパスだけです。完全なビルドとは入力形状や最終的な数が異なる場合があるため、最終確認には **Analyze NDMF Build** または実際のビルド結果を使用してください。
 
-幾何学的な評価項目と許容距離は、元のメッシュのバウンディングボックスの対角線長で正規化した座標を使います。各評価項目のスケール依存性は異なるため、これらの重みが論文の非正規化の重みと等価とは限りません。対角線長の `1e-8` より短いエッジは、シーム保護が無効でも統合を拒否します。同じ位置にある分離頂点はシーム保護の対象として固定し、自動溶接や仮想エッジは導入しません。
+幾何学的な評価項目と許容距離は、元のメッシュのバウンディングボックスの対角線長で正規化した座標を使います。各評価項目のスケール依存性は異なるため、これらの重みが論文の非正規化の重みと等価とは限りません。対角線長の `1e-8` より短いエッジは、シーム保護が無効でも統合を拒否します。同じ位置にある分離頂点は **Preserve Attribute Seams** が有効な場合に固定します。自動溶接や仮想エッジは導入しません。
 
 ##### C# からの利用と診断
 
