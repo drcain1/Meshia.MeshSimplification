@@ -20,7 +20,7 @@ namespace Meshia.MeshSimplification.Ndmf
 
         void Reset()
         {
-            options = MeshSimplifierOptions.ConservativeAvatar;
+            options = MeshSimplifierOptions.AvatarInitial;
             var mesh = RendererUtility.GetMesh(GetComponent<Renderer>());
             target = new MeshSimplificationTarget
             {

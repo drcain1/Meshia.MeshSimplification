@@ -12,6 +12,22 @@
     background-image: resource('icons/Settings.png');
 }
 
+#DeformationProtectionToggle #unity-checkmark {
+    width: 16px;
+    height: 16px;
+    opacity: 0.4;
+}
+
+#DeformationProtectionToggle:checked #unity-checkmark {
+    opacity: 1;
+    background-color: rgb(43, 113, 79);
+}
+
+#DeformationProtectionToggle.partial-protection #unity-checkmark {
+    opacity: 1;
+    background-color: rgb(144, 102, 35);
+}
+
 #OptionsToggle:checked #unity-checkmark {
     background-image: resource('icons/d_MoreOptions.png');
 }

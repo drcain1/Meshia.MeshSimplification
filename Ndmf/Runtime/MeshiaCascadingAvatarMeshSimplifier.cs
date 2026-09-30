@@ -278,12 +278,18 @@ namespace Meshia.MeshSimplification.Ndmf
         public MeshiaCascadingAvatarMeshSimplifierRendererEntry(Renderer renderer)
         {
             Algorithm = MeshiaCascadingSimplificationAlgorithm.FaQem;
+            Enabled = IsEnabledByDefault(renderer);
             RendererObjectReference = new AvatarObjectReference();
             RendererObjectReference.Set(renderer.gameObject);
             TargetTriangleCount = RendererUtility.GetMesh(renderer)?.GetTriangleCount() ?? 0;
-            Options = MeshSimplifierOptions.ConservativeAvatar;
+            Options = MeshSimplifierOptions.AvatarInitial;
             PreserveJointTransitionsBones = DefaultJointBones;
         }
+
+        // Common avatar convention: Body is the face, while Body_base is the body.
+        // This is a conservative name default, not anatomical face detection.
+        internal static bool IsEnabledByDefault(Renderer? renderer)
+            => renderer != null && !string.Equals(renderer.name, "Body", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Converts this entry's allocated triangle count to its selected simplification target.

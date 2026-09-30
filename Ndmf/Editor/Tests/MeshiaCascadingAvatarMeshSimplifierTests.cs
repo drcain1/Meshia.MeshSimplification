@@ -8,6 +8,31 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
 {
     public class MeshiaCascadingAvatarMeshSimplifierTests
     {
+        [TestCase("Body", false)]
+        [TestCase("body", false)]
+        [TestCase("BODY", false)]
+        [TestCase("Body_base", true)]
+        [TestCase("Hair", true)]
+        public void ShouldExcludeBodyByDefaultWithoutOverwritingUserChoices(string name, bool enabled)
+        {
+            var avatar = new GameObject("Default test");
+            var meshObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            meshObject.name = name;
+            meshObject.transform.SetParent(avatar.transform);
+            var settings = new GameObject("Settings");
+            settings.transform.SetParent(avatar.transform);
+            try
+            {
+                var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+                component.RefreshEntries();
+                Assert.AreEqual(enabled, component.Entries[0].Enabled);
+                component.Entries[0].Enabled = !enabled;
+                component.RefreshEntries();
+                Assert.AreEqual(!enabled, component.Entries[0].Enabled, "Refresh must keep a manual override.");
+            }
+            finally { Object.DestroyImmediate(avatar); }
+        }
+
         [Test]
         public void ShouldPreserveAlgorithmValuesAndMapUvTarget()
         {

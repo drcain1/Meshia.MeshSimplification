@@ -627,8 +627,143 @@ msgstr "各メッシュの保護設定と関節を保護するボーンの選択
 msgid "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
 msgstr "三角形数の目標より保護を優先します。自動調整は配分のみを変更し、保護を解除しません。プレビューの数値が古い場合があるため、NDMFビルド解析で最終的な数を確認してください。"
 
-msgid "Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify."
-msgstr "直近のプレビュー：{0} は目標 {2:N0} に対して {1:N0} 三角形を保持しました。制約により削減が制限されています。NDMFビルド解析で確認してください。"
+msgid "{0}: {1:N0} triangles in last preview; requested {2:N0}."
+msgstr "{0}：直近のプレビューは {1:N0} 三角形、目標は {2:N0}。"
+
+msgid "{0} meshes exceeded their allocations in the last preview. This does not confirm the final avatar is over budget. Analyze NDMF Build to check the current total."
+msgstr "直近のプレビューで {0} 個のメッシュが配分された目標数を超えています。最終的なアバター全体が目標数を超えているとは限りません。NDMFビルド解析で現在の合計を確認してください。"
+
+msgid "Show preview allocation details"
+msgstr "プレビューの配分結果を表示"
 
 msgid "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically."
 msgstr "Meshia:「{0}」は目標 {2:N0} に対して {1:N0} 三角形を保持しました。保護と接続構造の制約を目標より優先します。他のメッシュの配分か、このメッシュの保護設定を見直してください。保護を自動で解除することはありません。"
+
+msgid "Requested Triangle Budget"
+msgstr "目標三角形数（配分用）"
+
+msgid "An allocation goal, not a hard cap. Protection can stop reduction above the requested budget."
+msgstr "配分の目標であり、最終的な数の上限を保証するものではありません。保護によって目標数より多い状態で削減が止まる場合があります。"
+
+msgid "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
+msgstr "ロックされていないメッシュに予算を再配分します。手動で下げた目標数が上がる場合があります。最終的な三角形数は保証されません。"
+
+msgid "Only reduce other unlocked targets when needed. Lowering a mesh keeps the savings; spare budget is not redistributed. Protection is unchanged."
+msgstr "必要な場合に、他のロックされていない目標数を下げます。メッシュの目標数を下げても、余った予算を他に再配分しません。保護設定は変更しません。"
+
+msgid "Find ways to reduce"
+msgstr "削減方法を確認"
+
+msgid "Estimates and build details"
+msgstr "推定値とビルドの詳細"
+
+msgid "Budget notes"
+msgstr "目標数についての補足"
+
+msgid "Mesh budget breakdown and next steps"
+msgstr "メッシュごとの配分と削減方法"
+
+msgid "Start with geometry always covered by clothing. Use AAO Remove Mesh By BlendShape, or Modular Avatar Shape Changer in Delete mode, with a suitable body-hiding blendshape. Shrinking or visually hiding polygons alone does not remove them. Animated Shape Changer deletion does not lower the reported polygon count. Keep geometry needed by any outfit toggle, and analyze the build again."
+msgstr "まず、常に衣装で隠れる部分を見直してください。素体を隠す適切なブレンドシェイプを指定し、AAO Remove Mesh By BlendShape または Modular Avatar Shape Changer の Delete モードで削除できます。縮小や見た目を隠すだけではポリゴンは削除されません。Shape Changer の削除をアニメーションで切り替える場合、報告されるポリゴン数は減りません。衣装の切り替えで必要になる部分は残し、変更後にビルドを再解析してください。"
+
+msgid "AAO removal guide"
+msgstr "AAOの削除ガイド"
+
+msgid "Shape Changer guide"
+msgstr "Shape Changerのガイド"
+
+msgid "Preview and source counts below are not final per-mesh build counts. Downstream tools may remove, merge, or add geometry. Savings and the exact limiting protection have not been measured."
+msgstr "以下はプレビューまたは元のメッシュの数であり、ビルド後の各メッシュの最終的な数ではありません。後続のツールで削除・統合・追加される場合があります。削減可能な数や、どの保護が削減を制限したかは計測していません。"
+
+msgid "Above allocation: review the largest overruns first. Open mesh settings to adjust that mesh's allocation or protection, and compare the result in animated poses. A lower target alone may not reduce it further."
+msgstr "配分超過：超過が大きいメッシュから見直してください。メッシュ設定を開いて配分や保護を調整し、動かした状態で比較します。目標数を下げるだけでは、さらに削減できない場合があります。"
+
+msgid "Not being simplified: enable reduction in mesh settings if appropriate. For optional accessories you never use, consider removing them from the build. Fixed allocations are retained by Auto Adjust; review them manually."
+msgstr "軽量化対象外：必要に応じてメッシュ設定で軽量化を有効にしてください。使用しないアクセサリーはビルドから除外することも検討してください。固定配分は自動調整で維持されるため、手動で見直します。"
+
+msgid "Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below."
+msgstr "目標：{0:N0} 三角形。最終的な数は未解析です。NDMFビルド解析で計測するか、下のボタンから削減方法を確認してください。"
+
+msgid "Build analysis failed or was incomplete: {0}. Analyze again before judging the budget."
+msgstr "ビルド解析が失敗したか、完了していません：{0}。目標を達成したか判断する前に再解析してください。"
+
+msgid "Requested budget: {0:N0}. Previous analyzed result: {1:N0} triangles (out of date). Analyze again to check the current result."
+msgstr "目標：{0:N0}。前回の解析結果：{1:N0} 三角形（古い結果）。現在の結果を確認するには再解析してください。"
+
+msgid "Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - {2:N0} over budget. Review mesh allocations, excluded meshes, and hidden geometry below. Protection and downstream processing can affect the final count."
+msgstr "目標：{0:N0}。解析結果：{1:N0} 三角形 — {2:N0} 超過。以下で各メッシュの配分、軽量化対象外のメッシュ、隠れた部分を見直してください。保護や後続の処理によって最終的な数は変わります。"
+
+msgid "Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - within budget ({2:N0} remaining)."
+msgstr "目標：{0:N0}。解析結果：{1:N0} 三角形 — 目標以内（残り {2:N0}）。"
+
+msgid "{0}: not being simplified; {1:N0} source triangles."
+msgstr "{0}：軽量化対象外。元のメッシュは {1:N0} 三角形。"
+
+msgid "{0}: last preview {1:N0}; allocation {2:N0}; {3:N0} above allocation."
+msgstr "{0}：直近のプレビュー {1:N0}、配分 {2:N0}、超過 {3:N0}。"
+
+msgid "{0}: {1:N0} source triangles; allocation {2:N0}; no preview measurement yet."
+msgstr "{0}：元のメッシュ {1:N0} 三角形、配分 {2:N0}。プレビューは未計測。"
+
+msgid " Fixed allocation."
+msgstr " 固定配分。"
+
+msgid "No eligible meshes in this component."
+msgstr "このコンポーネントに有効なメッシュはありません。"
+
+msgid "Above allocation (last preview)"
+msgstr "配分超過（直近のプレビュー）"
+
+msgid "Not being simplified"
+msgstr "軽量化対象外"
+
+msgid "Other meshes"
+msgstr "その他のメッシュ"
+
+msgid "Open mesh settings"
+msgstr "メッシュ設定を開く"
+
+msgid "Deformation protection: not applicable"
+msgstr "変形の保護：対象外"
+
+msgid "Deformation protection: mesh excluded"
+msgstr "変形の保護：軽量化対象外"
+
+msgid "Deformation protection: partial"
+msgstr "変形の保護：一部有効"
+
+msgid "Deformation protection: on"
+msgstr "変形の保護：有効"
+
+msgid "Deformation protection: off"
+msgstr "変形の保護：無効"
+
+msgid "Click to enable deformation protection."
+msgstr "クリックすると変形の保護を有効にします。"
+
+msgid "Click to disable deformation protection."
+msgstr "クリックすると変形の保護を無効にします。"
+
+msgid "Automatic bone-weight selection is enabled."
+msgstr "ボーンウェイト保護の自動判定が有効です。"
+
+msgid "Shows your settings. Individual options are in the cog menu."
+msgstr "設定の状態を表示しています。個別の設定は歯車メニューで変更できます。"
+
+msgid "Protection preset"
+msgstr "保護プリセット"
+
+msgid "Conservative"
+msgstr "保守的"
+
+msgid "Aggressive"
+msgstr "積極的"
+
+msgid "Apply Aggressive Preset"
+msgstr "積極的プリセットを適用"
+
+msgid "Apply conservative protection to all meshes. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+msgstr "全メッシュに保守的な保護設定を適用します。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
+
+msgid "Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+msgstr "検出した手・髪・顔の名前を持つメッシュには変形の保護を適用し、それ以外はオフにします。境界・継ぎ目・表面の保護は保守的な設定を維持します。判定は完全ではないため、ポーズと服を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"

@@ -25,7 +25,7 @@ namespace Meshia.MeshSimplification
             FaQem = FaQemOptions.Default,
         };
 
-        /// <summary>Conservative defaults for newly configured avatars. Saved options and core defaults are unchanged.</summary>
+        /// <summary>Conservative avatar preset, applied explicitly. Saved options and core defaults are unchanged.</summary>
         public static MeshSimplifierOptions ConservativeAvatar
         {
             get
@@ -37,6 +37,19 @@ namespace Meshia.MeshSimplification
                 options.SkinningProtection.MaxWeightDistance = .1f;
                 options.SkinningProtection.MaxDiscardedWeight = .02f;
                 options.FaQem.MaxSurfaceDeviation = .0005f;
+                return options;
+            }
+        }
+
+        /// <summary>New avatar settings: geometry guards on, deformation protection opt-in.</summary>
+        public static MeshSimplifierOptions AvatarInitial
+        {
+            get
+            {
+                var options = ConservativeAvatar;
+                options.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
+                options.SkinningProtection.Enabled = false;
+                options.SkinningProtection.PreserveJointTransitions = false;
                 return options;
             }
         }

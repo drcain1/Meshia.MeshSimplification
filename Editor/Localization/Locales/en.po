@@ -632,8 +632,143 @@ msgstr "Replaces mesh protection options and joint-bone selections with conserva
 msgid "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
 msgstr "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
 
-msgid "Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify."
-msgstr "Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify."
+msgid "{0}: {1:N0} triangles in last preview; requested {2:N0}."
+msgstr "{0}: {1:N0} triangles in last preview; requested {2:N0}."
+
+msgid "{0} meshes exceeded their allocations in the last preview. This does not confirm the final avatar is over budget. Analyze NDMF Build to check the current total."
+msgstr "{0} meshes exceeded their allocations in the last preview. This does not confirm the final avatar is over budget. Analyze NDMF Build to check the current total."
+
+msgid "Show preview allocation details"
+msgstr "Show preview allocation details"
 
 msgid "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically."
 msgstr "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically."
+
+msgid "Requested Triangle Budget"
+msgstr "Requested Triangle Budget"
+
+msgid "An allocation goal, not a hard cap. Protection can stop reduction above the requested budget."
+msgstr "An allocation goal, not a hard cap. Protection can stop reduction above the requested budget."
+
+msgid "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
+msgstr "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
+
+msgid "Only reduce other unlocked targets when needed. Lowering a mesh keeps the savings; spare budget is not redistributed. Protection is unchanged."
+msgstr "Only reduce other unlocked targets when needed. Lowering a mesh keeps the savings; spare budget is not redistributed. Protection is unchanged."
+
+msgid "Find ways to reduce"
+msgstr "Find ways to reduce"
+
+msgid "Estimates and build details"
+msgstr "Estimates and build details"
+
+msgid "Budget notes"
+msgstr "Budget notes"
+
+msgid "Mesh budget breakdown and next steps"
+msgstr "Mesh budget breakdown and next steps"
+
+msgid "Start with geometry always covered by clothing. Use AAO Remove Mesh By BlendShape, or Modular Avatar Shape Changer in Delete mode, with a suitable body-hiding blendshape. Shrinking or visually hiding polygons alone does not remove them. Animated Shape Changer deletion does not lower the reported polygon count. Keep geometry needed by any outfit toggle, and analyze the build again."
+msgstr "Start with geometry always covered by clothing. Use AAO Remove Mesh By BlendShape, or Modular Avatar Shape Changer in Delete mode, with a suitable body-hiding blendshape. Shrinking or visually hiding polygons alone does not remove them. Animated Shape Changer deletion does not lower the reported polygon count. Keep geometry needed by any outfit toggle, and analyze the build again."
+
+msgid "AAO removal guide"
+msgstr "AAO removal guide"
+
+msgid "Shape Changer guide"
+msgstr "Shape Changer guide"
+
+msgid "Preview and source counts below are not final per-mesh build counts. Downstream tools may remove, merge, or add geometry. Savings and the exact limiting protection have not been measured."
+msgstr "Preview and source counts below are not final per-mesh build counts. Downstream tools may remove, merge, or add geometry. Savings and the exact limiting protection have not been measured."
+
+msgid "Above allocation: review the largest overruns first. Open mesh settings to adjust that mesh's allocation or protection, and compare the result in animated poses. A lower target alone may not reduce it further."
+msgstr "Above allocation: review the largest overruns first. Open mesh settings to adjust that mesh's allocation or protection, and compare the result in animated poses. A lower target alone may not reduce it further."
+
+msgid "Not being simplified: enable reduction in mesh settings if appropriate. For optional accessories you never use, consider removing them from the build. Fixed allocations are retained by Auto Adjust; review them manually."
+msgstr "Not being simplified: enable reduction in mesh settings if appropriate. For optional accessories you never use, consider removing them from the build. Fixed allocations are retained by Auto Adjust; review them manually."
+
+msgid "Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below."
+msgstr "Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below."
+
+msgid "Build analysis failed or was incomplete: {0}. Analyze again before judging the budget."
+msgstr "Build analysis failed or was incomplete: {0}. Analyze again before judging the budget."
+
+msgid "Requested budget: {0:N0}. Previous analyzed result: {1:N0} triangles (out of date). Analyze again to check the current result."
+msgstr "Requested budget: {0:N0}. Previous analyzed result: {1:N0} triangles (out of date). Analyze again to check the current result."
+
+msgid "Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - {2:N0} over budget. Review mesh allocations, excluded meshes, and hidden geometry below. Protection and downstream processing can affect the final count."
+msgstr "Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - {2:N0} over budget. Review mesh allocations, excluded meshes, and hidden geometry below. Protection and downstream processing can affect the final count."
+
+msgid "Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - within budget ({2:N0} remaining)."
+msgstr "Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - within budget ({2:N0} remaining)."
+
+msgid "{0}: not being simplified; {1:N0} source triangles."
+msgstr "{0}: not being simplified; {1:N0} source triangles."
+
+msgid "{0}: last preview {1:N0}; allocation {2:N0}; {3:N0} above allocation."
+msgstr "{0}: last preview {1:N0}; allocation {2:N0}; {3:N0} above allocation."
+
+msgid "{0}: {1:N0} source triangles; allocation {2:N0}; no preview measurement yet."
+msgstr "{0}: {1:N0} source triangles; allocation {2:N0}; no preview measurement yet."
+
+msgid " Fixed allocation."
+msgstr " Fixed allocation."
+
+msgid "No eligible meshes in this component."
+msgstr "No eligible meshes in this component."
+
+msgid "Above allocation (last preview)"
+msgstr "Above allocation (last preview)"
+
+msgid "Not being simplified"
+msgstr "Not being simplified"
+
+msgid "Other meshes"
+msgstr "Other meshes"
+
+msgid "Open mesh settings"
+msgstr "Open mesh settings"
+
+msgid "Deformation protection: not applicable"
+msgstr "Deformation protection: not applicable"
+
+msgid "Deformation protection: mesh excluded"
+msgstr "Deformation protection: mesh excluded"
+
+msgid "Deformation protection: partial"
+msgstr "Deformation protection: partial"
+
+msgid "Deformation protection: on"
+msgstr "Deformation protection: on"
+
+msgid "Deformation protection: off"
+msgstr "Deformation protection: off"
+
+msgid "Click to enable deformation protection."
+msgstr "Click to enable deformation protection."
+
+msgid "Click to disable deformation protection."
+msgstr "Click to disable deformation protection."
+
+msgid "Automatic bone-weight selection is enabled."
+msgstr "Automatic bone-weight selection is enabled."
+
+msgid "Shows your settings. Individual options are in the cog menu."
+msgstr "Shows your settings. Individual options are in the cog menu."
+
+msgid "Protection preset"
+msgstr "Protection preset"
+
+msgid "Conservative"
+msgstr "Conservative"
+
+msgid "Aggressive"
+msgstr "Aggressive"
+
+msgid "Apply Aggressive Preset"
+msgstr "Apply Aggressive Preset"
+
+msgid "Apply conservative protection to all meshes. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+msgstr "Apply conservative protection to all meshes. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+
+msgid "Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+msgstr "Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo."

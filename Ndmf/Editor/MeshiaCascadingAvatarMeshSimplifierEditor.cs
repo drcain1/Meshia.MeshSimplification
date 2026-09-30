@@ -59,6 +59,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private static readonly Dictionary<string, BuildAnalysisResult> BuildAnalysisCache = new();
         private static bool s_analysisInProgress;
         private static int CurrentAnalysisRevision => SessionState.GetInt(AnalysisRevisionSessionKey, 0);
+        private int pendingBudgetEntry = -1;
 
         [SerializeField] VisualTreeAsset editorVisualTreeAsset = null!;
         [SerializeField] VisualTreeAsset entryEditorVisualTreeAsset = null!;
@@ -163,20 +164,34 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var resetButton = root.Q<Button>("ResetButton");
             var entriesListView = root.Q<ListView>("EntriesListView");
             var ndmfPreviewToggle = root.Q<Toggle>("NdmfPreviewToggle");
+            root.Q<Button>("FindBudgetReductionsButton").clicked += () =>
+            {
+                root.Q<Foldout>("BudgetBreakdown").value = true;
+                RefreshBudgetGuidance(root);
+            };
+            root.Q<Foldout>("BudgetBreakdown").RegisterValueChangedCallback(_ => RefreshBudgetGuidance(root));
+            root.Q<Button>("AaoRemovalGuideButton").clicked += () => Application.OpenURL(
+                "https://vpm.anatawa12.com/avatar-optimizer/" + (CurrentLocale == "ja" ? "ja" : "en") + "/docs/reference/remove-mesh-by-blendshape/");
+            root.Q<Button>("ShapeChangerGuideButton").clicked += () => Application.OpenURL(
+                "https://modular-avatar.nadena.dev/" + (CurrentLocale == "ja" ? "ja/" : "") + "docs/reference/reaction/shape-changer");
+            root.schedule.Execute(() =>
+            {
+                if (target == null) return;
+                RefreshPreviewShortfalls(root);
+                RefreshBudgetGuidance(root);
+            }).Every(500);
 
-            root.Q<Button>("ConservativeDefaultsButton").clicked += () =>
+            void ApplyProtectionPreset(bool aggressive)
             {
                 serializedObject.ApplyModifiedProperties();
-                Undo.RecordObject(Target, Tr("Apply Conservative Defaults to All Meshes"));
-                foreach (var entry in Target.Entries)
-                {
-                    entry.Options = MeshSimplifierOptions.ConservativeAvatar;
-                    entry.PreserveJointTransitionsBones = MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones;
-                }
+                Undo.RecordObject(Target, aggressive ? Tr("Apply Aggressive Preset") : Tr("Apply Conservative Defaults to All Meshes"));
+                AvatarProtectionPreset.Apply(Target, aggressive);
                 EditorUtility.SetDirty(Target);
                 serializedObject.Update();
                 entriesListView.Rebuild();
-            };
+            }
+            root.Q<Button>("ConservativeDefaultsButton").clicked += () => ApplyProtectionPreset(false);
+            root.Q<Button>("AggressiveDefaultsButton").clicked += () => ApplyProtectionPreset(true);
 
             var allMeshesAlgorithmField = root.Q<DropdownField>("AllMeshesAlgorithmField");
             var algorithms = (MeshiaCascadingSimplificationAlgorithm[])Enum.GetValues(typeof(MeshiaCascadingSimplificationAlgorithm));
@@ -239,7 +254,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 targetTriangleCountPresetDropdownField.SetValueWithoutNotify(name);
                 if (AutoAdjustEnabledProperty.boolValue)
                 {
-                    AdjustQuality();
+                    AdjustQuality(allowIncrease: false);
                     serializedObject.ApplyModifiedProperties();
                 }
             });
@@ -267,7 +282,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                 if (autoAdjustEnabled)
                 {
-                    AdjustQuality();
+                    AdjustQuality(allowIncrease: false);
                     serializedObject.ApplyModifiedProperties();
                 }
             });
@@ -275,17 +290,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             triangleCountLabel.onGUIHandler = () =>
             {
+                RefreshPreviewShortfalls(root);
                 var current = GetTotalSimplifiedTriangleCount(true);
                 var sum = GetTotalOriginalTriangleCount();
                 var targetCount = TargetTriangleCountProperty.intValue;
-                foreach (var entry in Target.Entries)
-                {
-                    if (!entry.Enabled || !entry.IsValid(Target) || entry.GetTargetRenderer(Target) is not { } renderer ||
-                        !MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.TryGetValue(renderer, out var count) ||
-                        count.simplified <= entry.TargetTriangleCount + 1) continue;
-                    EditorGUILayout.HelpBox(Format("Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify.",
-                        renderer.name, count.simplified, entry.TargetTriangleCount), MessageType.Warning);
-                }
                 EditorGUILayout.LabelField(Format("Meshia output (before downstream tools): {0:N0} / {1:N0}", current, sum));
 
                 if (DownstreamTriangleEstimator.IsAaoAvailable)
@@ -373,7 +381,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     EditorGUILayout.LabelField(Tr("Analyzed NDMF build: not run"));
                 }
             };
-            analyzeNdmfBuildButton.clicked += () => AnalyzeNdmfBuild(analyzeNdmfBuildButton);
+            analyzeNdmfBuildButton.clicked += () =>
+            {
+                AnalyzeNdmfBuild(analyzeNdmfBuildButton);
+                RefreshPreviewShortfalls(root);
+                RefreshBudgetGuidance(root);
+            };
             removeInvalidEntriesButton.clicked += () =>
             {
                 var target = Target;
@@ -407,8 +420,18 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         calibration.TriangleCount);
                 }
 
-                var quality = originalTriangleCount > 0
-                    ? resetTargetTriangleCount / (float)originalTriangleCount
+                var excludedTriangleCount = 0;
+                foreach (var entry in Target.Entries)
+                {
+                    var renderer = entry.GetTargetRenderer(Target);
+                    if (renderer != null && entry.IsValid(Target) &&
+                        !MeshiaCascadingAvatarMeshSimplifierRendererEntry.IsEnabledByDefault(renderer) &&
+                        TryGetOriginalTriangleCount(entry, false, out var triangles))
+                        excludedTriangleCount += DownstreamTriangleEstimator.EstimateFinalTriangleCount(renderer, triangles);
+                }
+                var adjustableTriangleCount = originalTriangleCount - excludedTriangleCount;
+                var quality = adjustableTriangleCount > 0
+                    ? Mathf.Clamp01((resetTargetTriangleCount - excludedTriangleCount) / (float)adjustableTriangleCount)
                     : 1f;
 
                 var entriesProperty = EntriesProperty;
@@ -416,10 +439,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 for (int i = 0; i < arraySize; i++)
                 {
                     var entryProperty = entriesProperty.GetArrayElementAtIndex(i);
-                    entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Enabled)).boolValue = true;
+                    entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Enabled)).boolValue =
+                        MeshiaCascadingAvatarMeshSimplifierRendererEntry.IsEnabledByDefault(Target.Entries[i].GetTargetRenderer(Target));
                     entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Fixed)).boolValue = false;
                 }
 
+                // SetQualityAll reads entry.Fixed; commit the reset flags first.
+                serializedObject.ApplyModifiedProperties();
                 SetQualityAll(quality);
                 serializedObject.ApplyModifiedProperties();
             };
@@ -441,6 +467,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 LocalizationProvider.BindEnum(algorithmField,
                     entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Algorithm)));
                 itemRoot.userData = index;
+                RefreshAllocationFields(itemRoot);
+                if (pendingBudgetEntry == index)
+                {
+                    pendingBudgetEntry = -1;
+                    itemRoot.Q<Toggle>("OptionsToggle").value = true;
+                }
                 UpdateAlgorithmOptionAvailability(itemRoot);
                 var targetRenderer = entry.GetTargetRenderer(Target);
                 if (targetRenderer != null)
@@ -503,6 +535,26 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var targetTriangleCountField = itemRoot.Q<IntegerField>("TargetTriangleCountField");
                 var triangleCountDivider = itemRoot.Q<Label>("TriangleCountDivider");
                 var optionsToggle = itemRoot.Q<Toggle>("OptionsToggle");
+                var deformationToggle = itemRoot.Q<Toggle>("DeformationProtectionToggle");
+                deformationToggle.Q("unity-checkmark").style.backgroundImage =
+                    new StyleBackground((Texture2D)EditorGUIUtility.IconContent("Avatar Icon").image);
+                deformationToggle.RegisterValueChangedCallback(evt =>
+                {
+                    if (evt.target != deformationToggle || itemRoot.userData is not int itemIndex ||
+                        itemIndex < 0 || itemIndex >= Target.Entries.Count) return;
+                    serializedObject.Update();
+                    var options = EntriesProperty.GetArrayElementAtIndex(itemIndex)
+                        .FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Options));
+                    var protection = options.FindPropertyRelative(nameof(MeshSimplifierOptions.SkinningProtection));
+                    // A partial state is an invitation to enable both options, not to disable them.
+                    var enable = evt.newValue || deformationToggle.ClassListContains("partial-protection");
+                    protection.FindPropertyRelative(nameof(SkinningProtectionOptions.Policy)).intValue =
+                        (int)(enable ? SkinningProtectionPolicy.On : SkinningProtectionPolicy.Off);
+                    protection.FindPropertyRelative(nameof(SkinningProtectionOptions.Enabled)).boolValue = enable;
+                    protection.FindPropertyRelative(nameof(SkinningProtectionOptions.PreserveJointTransitions)).boolValue = enable;
+                    serializedObject.ApplyModifiedProperties();
+                    RefreshDeformationProtection(itemRoot);
+                });
                 var algorithmField = itemRoot.Q<DropdownField>("AlgorithmField");
                 var optionsField = itemRoot.Q<PropertyField>("OptionsField");
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
@@ -547,20 +599,27 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                     if (AutoAdjustEnabledProperty.boolValue)
                     {
-                        AdjustQuality();
+                        AdjustQuality(allowIncrease: false);
                         serializedObject.ApplyModifiedProperties();
                     }
                 });
 
                 targetObjectField.SetEnabled(false);
 
-                targetTriangleCountSlider.RegisterValueChangedCallback(changeEvent =>
+                void ChangeAllocation(int value)
                 {
-                    if (itemRoot.userData is int itemIndex && AutoAdjustEnabledProperty.boolValue)
-                    {
-                        AdjustQuality(itemIndex);
-                        serializedObject.ApplyModifiedProperties();
-                    }
+                    if (itemRoot.userData is not int itemIndex || itemIndex < 0 ||
+                        itemIndex >= Target.Entries.Count) return;
+                    SetManualAllocation(itemIndex, value);
+                    root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
+                }
+                targetTriangleCountSlider.RegisterValueChangedCallback(evt =>
+                {
+                    if (evt.target == targetTriangleCountSlider) ChangeAllocation(evt.newValue);
+                });
+                targetTriangleCountField.RegisterValueChangedCallback(evt =>
+                {
+                    if (evt.target == targetTriangleCountField) ChangeAllocation(evt.newValue);
                 });
 
                 optionsToggle.RegisterValueChangedCallback(changeEvent =>
@@ -647,6 +706,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             void RefreshJointBoneSelections()
             {
                 root.Query<TemplateContainer>().ForEach(RefreshJointBoneSelection);
+                root.Query<TemplateContainer>().ForEach(RefreshDeformationProtection);
+                root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
             }
             root.RegisterCallback<AttachToPanelEvent>(_ => Undo.undoRedoPerformed += RefreshJointBoneSelections);
             root.RegisterCallback<DetachFromPanelEvent>(_ => Undo.undoRedoPerformed -= RefreshJointBoneSelections);
@@ -662,6 +723,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             LocalizationProvider.Bind(root, () =>
             {
+                RefreshPreviewShortfalls(root);
+                RefreshBudgetGuidance(root);
                 RefreshAllMeshesAlgorithm();
                 targetTriangleCountPresetDropdownField.SetValueWithoutNotify(
                     TargetTriangleCountPresetValueToName.TryGetValue(TargetTriangleCountProperty.intValue, out var preset)
@@ -669,6 +732,132 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 Repaint();
             });
             return root;
+        }
+
+        private void RefreshPreviewShortfalls(VisualElement root)
+        {
+            var panel = root.Q<VisualElement>("PreviewShortfalls");
+            // A complete, current build supersedes per-mesh preview estimates, even
+            // when the final avatar is over budget. The analyzed count reports that.
+            if (TryGetBuildAnalysisResult(Target, out var analysis) &&
+                analysis.Revision == CurrentAnalysisRevision && string.IsNullOrEmpty(analysis.Error))
+            {
+                panel.style.display = DisplayStyle.None;
+                return;
+            }
+
+            var details = new List<string>();
+            foreach (var entry in Target.Entries)
+            {
+                if (!entry.Enabled || !entry.IsValid(Target) || entry.GetTargetRenderer(Target) is not { } renderer ||
+                    !MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.TryGetValue(renderer, out var count) ||
+                    count.simplified <= entry.TargetTriangleCount + 1) continue;
+                details.Add(Format("{0}: {1:N0} triangles in last preview; requested {2:N0}.",
+                    renderer.name, count.simplified, entry.TargetTriangleCount));
+            }
+
+            panel.style.display = details.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            if (details.Count == 0) return;
+            root.Q<HelpBox>("PreviewShortfallSummary").text = Format(
+                "{0} meshes exceeded their allocations in the last preview. This does not confirm the final avatar is over budget. Analyze NDMF Build to check the current total.", details.Count);
+        }
+
+        private void RefreshBudgetGuidance(VisualElement root)
+        {
+            var budget = Target.TargetTriangleCount;
+            var summary = root.Q<HelpBox>("BudgetSummary");
+            summary.messageType = HelpBoxMessageType.Info;
+            if (!TryGetBuildAnalysisResult(Target, out var analysis))
+            {
+                summary.text = Format("Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below.", budget);
+            }
+            else if (!string.IsNullOrEmpty(analysis.Error))
+            {
+                summary.messageType = HelpBoxMessageType.Warning;
+                summary.text = Format("Build analysis failed or was incomplete: {0}. Analyze again before judging the budget.", Tr(analysis.Error!));
+            }
+            else if (analysis.Revision != CurrentAnalysisRevision)
+            {
+                summary.text = Format("Requested budget: {0:N0}. Previous analyzed result: {1:N0} triangles (out of date). Analyze again to check the current result.", budget, analysis.TriangleCount);
+            }
+            else if (analysis.TriangleCount > budget)
+            {
+                summary.messageType = HelpBoxMessageType.Warning;
+                summary.text = Format("Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - {2:N0} over budget. Review mesh allocations, excluded meshes, and hidden geometry below. Protection and downstream processing can affect the final count.", budget, analysis.TriangleCount, analysis.TriangleCount - budget);
+            }
+            else
+            {
+                summary.text = Format("Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - within budget ({2:N0} remaining).", budget, analysis.TriangleCount, budget - analysis.TriangleCount);
+            }
+
+            if (!root.Q<Foldout>("BudgetBreakdown").value) return;
+            var rows = new List<(int index, Renderer renderer, int group, int count, int excess, string text)>();
+            for (var index = 0; index < Target.Entries.Count; index++)
+            {
+                var entry = Target.Entries[index];
+                if (!entry.IsValid(Target) || entry.GetTargetRenderer(Target) is not { } renderer ||
+                    RendererUtility.GetMesh(renderer) is not { } mesh) continue;
+                var hasPreview = MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.TryGetValue(renderer, out var preview);
+                var original = mesh.GetTriangleCount();
+                var count = entry.Enabled && hasPreview ? preview.simplified : original;
+                var excess = entry.Enabled && hasPreview ? Math.Max(0, count - entry.TargetTriangleCount) : 0;
+                var group = !entry.Enabled ? 1 : excess > 1 ? 0 : 2;
+                var text = !entry.Enabled
+                    ? Format("{0}: not being simplified; {1:N0} source triangles.", renderer.name, original)
+                    : hasPreview
+                        ? Format("{0}: last preview {1:N0}; allocation {2:N0}; {3:N0} above allocation.", renderer.name, count, entry.TargetTriangleCount, excess)
+                        : Format("{0}: {1:N0} source triangles; allocation {2:N0}; no preview measurement yet.", renderer.name, original, entry.TargetTriangleCount);
+                if (entry.Fixed) text += Tr(" Fixed allocation.");
+                rows.Add((index, renderer, group, count, excess, text));
+            }
+
+            var ordered = rows.OrderBy(row => row.group).ThenByDescending(row => row.group == 0 ? row.excess : row.count).ThenBy(row => row.index).ToList();
+            var container = root.Q<VisualElement>("BudgetMeshRows");
+            // Preserve focus and scroll position on repaints when the data has not changed.
+            var signature = CurrentLocale + "|" + string.Join("|", ordered.Select(row => row.index + ":" + row.renderer.GetInstanceID() + ":" + row.group + ":" + row.text));
+            if (container.userData is string previous && previous == signature) return;
+            container.userData = signature;
+            container.Clear();
+            if (ordered.Count == 0) container.Add(new Label(Tr("No eligible meshes in this component.")));
+            var lastGroup = -1;
+            foreach (var row in ordered)
+            {
+                if (row.group != lastGroup)
+                {
+                    lastGroup = row.group;
+                    container.Add(new Label(Tr(row.group == 0 ? "Above allocation (last preview)" : row.group == 1 ? "Not being simplified" : "Other meshes"))
+                        { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 8 } });
+                }
+                var item = new VisualElement { name = "BudgetMeshRow", userData = row.index };
+                item.Add(new Label(row.text) { style = { whiteSpace = WhiteSpace.Normal } });
+                var entry = Target.Entries[row.index];
+                item.Add(new Button(() => OpenBudgetMeshSettings(root, entry)) { text = Tr("Open mesh settings") });
+                container.Add(item);
+            }
+        }
+
+        private void OpenBudgetMeshSettings(VisualElement root, MeshiaCascadingAvatarMeshSimplifierRendererEntry entry)
+        {
+            var index = Target.Entries.IndexOf(entry);
+            if (index < 0) return;
+            if (entry.GetTargetRenderer(Target) is { } renderer) EditorGUIUtility.PingObject(renderer);
+            var list = root.Q<ListView>("EntriesListView");
+            pendingBudgetEntry = index;
+            list.ScrollToItem(index);
+            var item = list.Query<TemplateContainer>().ToList().FirstOrDefault(element => element.userData is int boundIndex && boundIndex == index);
+            if (item != null)
+            {
+                pendingBudgetEntry = -1;
+                item.Q<Toggle>("OptionsToggle").value = true;
+                item.Q<IntegerField>("TargetTriangleCountField").Focus();
+            }
+            // The list may be inside the inspector's own scroll view.
+            root.schedule.Execute(() =>
+            {
+                var scroll = list.parent;
+                while (scroll != null && scroll is not ScrollView) scroll = scroll.parent;
+                (scroll as ScrollView)?.ScrollTo(list);
+            });
         }
 
         private void RefreshJointBoneSelection(TemplateContainer itemRoot)
@@ -680,6 +869,41 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var bone = 0;
             foreach (var toggle in foldout.Children().OfType<Toggle>())
                 toggle.SetValueWithoutNotify((mask & (1ul << bone++)) != 0);
+        }
+
+        private void RefreshDeformationProtection(VisualElement itemRoot)
+        {
+            var toggle = itemRoot.Q<Toggle>("DeformationProtectionToggle");
+            if (toggle == null || target == null || itemRoot.userData is not int index ||
+                index < 0 || index >= Target.Entries.Count) return;
+            var entry = Target.Entries[index];
+            var renderer = entry.GetTargetRenderer(Target);
+            var applicable = renderer is SkinnedMeshRenderer skin && skin.sharedMesh != null;
+            toggle.SetEnabled(applicable && entry.Enabled);
+            var options = entry.Options;
+            // This is a settings control, not an estimate of protection on the built mesh.
+            // In particular, Auto is enabled regardless of the source mesh's current rig.
+            var automatic = options.SkinningProtection.Policy is SkinningProtectionPolicy.Auto or SkinningProtectionPolicy.AutoDeforming;
+            var weightProtection = automatic || options.SkinningProtection.Policy == SkinningProtectionPolicy.On ||
+                (options.SkinningProtection.Policy == SkinningProtectionPolicy.Legacy && options.SkinningProtection.Enabled);
+            var usesJointProtection = entry.Algorithm == MeshiaCascadingSimplificationAlgorithm.FaQem;
+            var jointProtection = usesJointProtection && options.SkinningProtection.PreserveJointTransitions;
+            var partial = usesJointProtection && weightProtection != jointProtection;
+            toggle.SetValueWithoutNotify(weightProtection || jointProtection);
+            toggle.EnableInClassList("partial-protection", partial);
+            var status = !applicable ? Tr("Deformation protection: not applicable") :
+                !entry.Enabled ? Tr("Deformation protection: mesh excluded") :
+                partial ? Tr("Deformation protection: partial") :
+                weightProtection || jointProtection ? Tr("Deformation protection: on") : Tr("Deformation protection: off");
+            toggle.tooltip = status;
+            if (applicable && entry.Enabled)
+            {
+                toggle.tooltip += "\n" + (partial || !toggle.value
+                    ? Tr("Click to enable deformation protection.")
+                    : Tr("Click to disable deformation protection."));
+                if (automatic) toggle.tooltip += "\n" + Tr("Automatic bone-weight selection is enabled.");
+                toggle.tooltip += "\n" + Tr("Shows your settings. Individual options are in the cog menu.");
+            }
         }
 
         private void PreviewUvs(VisualElement itemRoot)
@@ -759,6 +983,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
         private void UpdateAlgorithmOptionAvailability(VisualElement itemRoot)
         {
+            RefreshDeformationProtection(itemRoot);
             if (itemRoot.userData is not int itemIndex || itemIndex < 0 || itemIndex >= EntriesProperty.arraySize)
             {
                 return;
@@ -968,7 +1193,38 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
         }
 
-        private void AdjustQuality(int fixedIndex = -1)
+        private void RefreshAllocationFields(TemplateContainer itemRoot)
+        {
+            if (itemRoot.userData is not int index || index < 0 || index >= Target.Entries.Count) return;
+            var count = Target.Entries[index].TargetTriangleCount;
+            itemRoot.Q<SliderInt>("TargetTriangleCountSlider")?.SetValueWithoutNotify(count);
+            itemRoot.Q<IntegerField>("TargetTriangleCountField")?.SetValueWithoutNotify(count);
+        }
+
+        private void SetManualAllocation(int index, int value)
+        {
+            serializedObject.Update();
+            var entry = Target.Entries[index];
+            if (!entry.Enabled || !entry.IsValid(Target) ||
+                !TryGetOriginalTriangleCount(entry, false, out var maximum)) return;
+            value = Mathf.Clamp(value, 0, maximum);
+            var previous = entry.TargetTriangleCount;
+            if (value == previous) return;
+
+            // Handle both controls explicitly: serialized binding refreshes must never
+            // masquerade as another user edit and recursively redistribute the budget.
+            EntriesProperty.GetArrayElementAtIndex(index)
+                .FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.TargetTriangleCount))
+                .intValue = value;
+            serializedObject.ApplyModifiedProperties();
+            if (value > previous && Target.AutoAdjustEnabled)
+            {
+                AdjustQuality(index, allowIncrease: false);
+            }
+            InvalidateTriangleAnalysis();
+        }
+
+        private void AdjustQuality(int fixedIndex = -1, bool allowIncrease = true)
         {
             serializedObject.ApplyModifiedProperties();
             var finalTargetTotalCount = TargetTriangleCountProperty.intValue;
@@ -1002,7 +1258,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     }
                     var entryProperty = entriesProperty.GetArrayElementAtIndex(i);
 
-                    TryGetEstimatedFinalTriangleCount(entry, false, out var triangleCount);
+                    if (!TryGetEstimatedFinalTriangleCount(entry, false, out var triangleCount)) continue;
 
                     currentTotal += triangleCount;
 
@@ -1012,10 +1268,11 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     }
                 }
 
-                if (adjustableTotal == 0) { Debug.LogError("Adjustable total is 0"); break; }
+                if (adjustableTotal <= 0 || (!allowIncrease && currentTotal <= targetTotalCount)) break;
 
-                var adjustableTargetCount = targetTotalCount - (currentTotal - adjustableTotal);
-                if (adjustableTargetCount <= 0) { Debug.LogError("Adjustable target count is 0"); break; }
+                // Excluded/locked meshes can consume the whole budget. Remaining
+                // allocations may reach zero; the simplifier still retains its guards.
+                var adjustableTargetCount = Math.Max(0, targetTotalCount - (currentTotal - adjustableTotal));
 
                 // 比例配分で調整
                 var proportion = (float)adjustableTargetCount / adjustableTotal;
@@ -1036,11 +1293,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         TryGetSimplifiedTriangleCount(entry, false, out var currentValue);
                         TryGetOriginalTriangleCount(entry, false, out var maxTriangleCount);
 
-                        var newValue = Mathf.Clamp((int)(currentValue * proportion), 0, maxTriangleCount);
+                        var upperBound = allowIncrease ? maxTriangleCount : Math.Min(currentValue, maxTriangleCount);
+                        var newValue = Mathf.Clamp((int)(currentValue * proportion), 0, upperBound);
                         entry.TargetTriangleCount = newValue;
                     }
                 }
             }
+            EditorUtility.SetDirty(target);
             serializedObject.Update();
         }
 

@@ -93,13 +93,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
                 Assert.That(empty.target.Kind, Is.EqualTo(MeshSimplificationTargetKind.FaQemTriangleCount));
                 Assert.That(empty.target.Value, Is.EqualTo(70000));
                 Assert.That(populated.target.Value, Is.EqualTo(6));
-                Assert.That(populated.options, Is.EqualTo(MeshSimplifierOptions.ConservativeAvatar));
+                Assert.That(populated.options, Is.EqualTo(MeshSimplifierOptions.AvatarInitial));
             }
             finally { Object.DestroyImmediate(root); Object.DestroyImmediate(cube); }
         }
 
         [Test]
-        public void NewEntriesProtectLimbsWhileSavedEntriesKeepTheirSettings()
+        public void NewEntriesStartWithDeformationOffWhileSavedEntriesKeepTheirSettings()
         {
             var root = new GameObject("Default options test");
             var renderer = root.AddComponent<MeshRenderer>();
@@ -107,7 +107,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
             {
                 var entry = new MeshiaCascadingAvatarMeshSimplifierRendererEntry(renderer);
                 Assert.That(entry.Algorithm, Is.EqualTo(MeshiaCascadingSimplificationAlgorithm.FaQem));
-                Assert.That(entry.Options, Is.EqualTo(MeshSimplifierOptions.ConservativeAvatar));
+                Assert.That(entry.Options, Is.EqualTo(MeshSimplifierOptions.AvatarInitial));
                 foreach (var bone in new[] { HumanBodyBones.LeftHand, HumanBodyBones.LeftThumbDistal,
                     HumanBodyBones.RightLowerArm, HumanBodyBones.LeftLowerLeg, HumanBodyBones.RightFoot })
                     Assert.That(entry.PreserveJointTransitionsBones & (1ul << (int)bone), Is.Not.Zero);

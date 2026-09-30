@@ -36,6 +36,18 @@ namespace Meshia.MeshSimplification.Tests
         }
 
         [Test]
+        public void AvatarInitialKeepsGeometryGuardsButRequiresOptInForDeformation()
+        {
+            var initial = MeshSimplifierOptions.AvatarInitial;
+            Assert.IsFalse(initial.SkinningProtection.Resolve(true).Enabled);
+            Assert.IsFalse(initial.SkinningProtection.PreserveJointTransitions);
+            Assert.IsTrue(initial.PreserveBorderEdges);
+            Assert.IsTrue(initial.FaQem.PreserveAttributeSeams);
+            Assert.AreEqual(.0005f, initial.FaQem.MaxSurfaceDeviation);
+            Assert.IsTrue(MeshSimplifierOptions.ConservativeAvatar.SkinningProtection.Resolve(true).Enabled);
+        }
+
+        [Test]
         public void PolicyResolutionPreservesLegacyAndHonorsExplicitModes()
         {
             var options = SkinningProtectionOptions.Default;

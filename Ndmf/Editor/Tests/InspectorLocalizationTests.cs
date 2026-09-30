@@ -15,6 +15,377 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         public class TestWindow : EditorWindow { }
 
         [UnityTest]
+        public IEnumerator ManualReductionsKeepSavingsAndAutoAdjustNeverRefillsOtherMeshes()
+        {
+            var avatar = new GameObject("Budget test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            for (var i = 0; i < 3; i++)
+            {
+                var mesh = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                mesh.name = "Mesh " + i; mesh.transform.SetParent(avatar.transform);
+            }
+            var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.RefreshEntries(); component.TargetTriangleCount = 18; component.AutoAdjustEnabled = true;
+            foreach (var entry in component.Entries) entry.TargetTriangleCount = 6;
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            UnityEditor.Editor inspector = null;
+            try
+            {
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                var root = inspector.CreateInspectorGUI(); window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                var rows = root.Query<TemplateContainer>().ToList().Where(x => x.userData is int).ToArray();
+                Assert.AreEqual(3, rows.Length);
+                CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
+                Undo.IncrementCurrentGroup();
+                rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 3;
+                for (var i = 0; i < 10; i++) yield return null;
+                CollectionAssert.AreEqual(new[] { 3, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Saved triangles must not be spent elsewhere.");
+                Assert.AreEqual(3, rows[0].Q<IntegerField>("TargetTriangleCountField").value);
+                Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
+                for (var i = 0; i < 10; i++) yield return null;
+                CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
+                rows[0].Q<IntegerField>("TargetTriangleCountField").value = 3;
+                rows[1].Q<SliderInt>("TargetTriangleCountSlider").value = 4;
+                for (var i = 0; i < 10; i++) yield return null;
+                CollectionAssert.AreEqual(new[] { 3, 4, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Sequential edits must keep previous savings.");
+                // Rebinding/reopening an inspector is not a request to refill the budget.
+                root.Q<ListView>("EntriesListView").Rebuild();
+                for (var i = 0; i < 10; i++) yield return null;
+                CollectionAssert.AreEqual(new[] { 3, 4, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
+                rows = root.Query<TemplateContainer>().ToList().Where(x => x.userData is int).ToArray();
+                component.Entries[2].Fixed = true; EditorUtility.SetDirty(component);
+                rows[0].Q<IntegerField>("TargetTriangleCountField").value = 12;
+                for (var i = 0; i < 10; i++) yield return null;
+                CollectionAssert.AreEqual(new[] { 12, 0, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Raising a target may reduce unlocked peers, never the edited or locked row.");
+                component.Entries[2].Fixed = false; component.AutoAdjustEnabled = false; EditorUtility.SetDirty(component);
+                rows[1].Q<IntegerField>("TargetTriangleCountField").value = 12;
+                for (var i = 0; i < 10; i++) yield return null;
+                CollectionAssert.AreEqual(new[] { 12, 12, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Auto Adjust off must leave peers alone.");
+            }
+            finally
+            {
+                Undo.ClearUndo(component); window.Close();
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar);
+            }
+        }
+
+        [TestCase(false, 6)]
+        [TestCase(true, 12)]
+        public void OnlyExplicitAdjustMaySpendSpareBudget(bool allowIncrease, int expected)
+        {
+            var avatar = new GameObject("Budget test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            var mesh = GameObject.CreatePrimitive(PrimitiveType.Cube); mesh.transform.SetParent(avatar.transform);
+            var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.RefreshEntries(); component.TargetTriangleCount = 12; component.Entries[0].TargetTriangleCount = 6;
+            UnityEditor.Editor inspector = null;
+            try
+            {
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                inspector.GetType().GetMethod("AdjustQuality", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(inspector, new object[] { -1, allowIncrease });
+                Assert.AreEqual(expected, component.Entries[0].TargetTriangleCount);
+            }
+            finally
+            {
+                Undo.ClearUndo(component);
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar);
+            }
+        }
+
+        [Test]
+        public void ResetReservesExcludedFaceGeometryBeforeAllocatingTheRemainingBudget()
+        {
+            var avatar = new GameObject("Reset test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            var face = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            face.name = "Body"; face.transform.SetParent(avatar.transform);
+            var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Body_base"; body.transform.SetParent(avatar.transform);
+            var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false; component.TargetTriangleCount = 18;
+            UnityEditor.Editor inspector = null;
+            try
+            {
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                foreach (var entry in component.Entries) { entry.Enabled = true; entry.Fixed = true; }
+                var root = inspector.CreateInspectorGUI();
+                var reset = root.Q<Button>("ResetButton");
+                typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(reset.clickable, new object[] { null, 0 });
+                Assert.AreEqual(2, component.Entries.Count);
+                var faceEntry = component.Entries[0];
+                var bodyEntry = component.Entries[1];
+                Assert.IsFalse(faceEntry.Enabled);
+                Assert.IsTrue(bodyEntry.Enabled);
+                Assert.IsFalse(bodyEntry.Fixed);
+                Assert.AreEqual(6, bodyEntry.TargetTriangleCount, "Reserve the face's 12 triangles from the total budget of 18.");
+            }
+            finally
+            {
+                Undo.ClearUndo(component);
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator DeformationShortcutSupportsAutoExplicitPoliciesUndoAndLocalization()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var avatar = new GameObject("Protection test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            var meshObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            meshObject.transform.SetParent(avatar.transform);
+            var mesh = Object.Instantiate(meshObject.GetComponent<MeshFilter>().sharedMesh);
+            Object.DestroyImmediate(meshObject.GetComponent<MeshRenderer>());
+            var skin = meshObject.AddComponent<SkinnedMeshRenderer>();
+            var bone = new GameObject("Bone"); bone.transform.SetParent(avatar.transform);
+            skin.bones = new[] { avatar.transform, bone.transform };
+            mesh.bindposes = new[] { Matrix4x4.identity, Matrix4x4.identity };
+            mesh.boneWeights = Enumerable.Repeat(new BoneWeight { boneIndex0 = 0, weight0 = .5f, boneIndex1 = 1, weight1 = .5f }, mesh.vertexCount).ToArray();
+            skin.sharedMesh = mesh;
+            var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false; component.RefreshEntries();
+            component.Entries[0].Options = MeshSimplifierOptions.ConservativeAvatar;
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            UnityEditor.Editor inspector = null;
+            try
+            {
+                LocalizationProvider.CurrentLocale = "en";
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                var root = inspector.CreateInspectorGUI(); window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                var toggle = root.Q<Toggle>("DeformationProtectionToggle");
+                Assert.IsNotNull(toggle);
+                Assert.IsTrue(toggle.value, "Auto is an enabled protection setting.");
+                Assert.IsFalse(toggle.ClassListContains("partial-protection"), "Missing humanoid mappings must not change the settings indicator.");
+                Assert.IsFalse(root.Q<Toggle>("OptionsToggle").value);
+                var before = EditorJsonUtility.ToJson(component);
+                LocalizationProvider.CurrentLocale = "ja";
+                StringAssert.Contains("変形の保護", toggle.tooltip);
+                Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                Undo.IncrementCurrentGroup();
+                toggle.value = false;
+                Assert.AreEqual(SkinningProtectionPolicy.Off, component.Entries[0].Options.SkinningProtection.Policy);
+                Assert.IsFalse(component.Entries[0].Options.SkinningProtection.PreserveJointTransitions);
+                Assert.AreEqual(.0005f, component.Entries[0].Options.FaQem.MaxSurfaceDeviation);
+                Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
+                for (var i = 0; i < 10; i++) yield return null;
+                Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                toggle = root.Q<Toggle>("DeformationProtectionToggle");
+                Assert.IsTrue(toggle.value);
+                toggle.value = false; toggle.value = true;
+                Assert.AreEqual(SkinningProtectionPolicy.On, component.Entries[0].Options.SkinningProtection.Policy);
+                Assert.IsTrue(component.Entries[0].Options.SkinningProtection.PreserveJointTransitions);
+                Assert.IsFalse(toggle.ClassListContains("partial-protection"), "Explicit On must be green even without humanoid bone mappings.");
+                // Verify both partial combinations and one-click restoration, without relying on rig matching.
+                foreach (var weightOn in new[] { true, false })
+                {
+                    var partialOptions = component.Entries[0].Options;
+                    partialOptions.SkinningProtection.Policy = weightOn ? SkinningProtectionPolicy.On : SkinningProtectionPolicy.Off;
+                    partialOptions.SkinningProtection.PreserveJointTransitions = !weightOn;
+                    component.Entries[0].Options = partialOptions; EditorUtility.SetDirty(component);
+                    var partialDeadline = EditorApplication.timeSinceStartup + 2;
+                    while (!root.Q<Toggle>("DeformationProtectionToggle").ClassListContains("partial-protection") &&
+                        EditorApplication.timeSinceStartup < partialDeadline) yield return null;
+                    toggle = root.Q<Toggle>("DeformationProtectionToggle");
+                    Assert.IsTrue(toggle.ClassListContains("partial-protection"));
+                    toggle.value = false; // The next click on a checked partial toggle enables both.
+                    Assert.IsTrue(toggle.value);
+                    Assert.IsFalse(toggle.ClassListContains("partial-protection"));
+                    Assert.AreEqual(SkinningProtectionPolicy.On, component.Entries[0].Options.SkinningProtection.Policy);
+                    Assert.IsTrue(component.Entries[0].Options.SkinningProtection.PreserveJointTransitions);
+                }
+                // Automatic selection remains enabled even on a mesh weighted to only one bone.
+                mesh.boneWeights = Enumerable.Repeat(new BoneWeight { boneIndex0 = 0, weight0 = 1 }, mesh.vertexCount).ToArray();
+                var autoOptions = component.Entries[0].Options;
+                autoOptions.SkinningProtection.Policy = SkinningProtectionPolicy.AutoDeforming;
+                component.Entries[0].Options = autoOptions; EditorUtility.SetDirty(component);
+                LocalizationProvider.CurrentLocale = "en"; // Refresh the displayed state without changing settings.
+                Assert.IsTrue(toggle.value);
+                Assert.IsFalse(toggle.ClassListContains("partial-protection"));
+                StringAssert.Contains("Automatic bone-weight selection is enabled.", toggle.tooltip);
+                // Changes in the cog menu must be reflected without reopening the inspector.
+                var options = component.Entries[0].Options;
+                options.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
+                options.SkinningProtection.PreserveJointTransitions = false;
+                component.Entries[0].Options = options; EditorUtility.SetDirty(component);
+                var deadline = EditorApplication.timeSinceStartup + 2;
+                while (root.Q<Toggle>("DeformationProtectionToggle").value && EditorApplication.timeSinceStartup < deadline)
+                    yield return null;
+                Assert.IsFalse(root.Q<Toggle>("DeformationProtectionToggle").value);
+            }
+            finally
+            {
+                Undo.ClearUndo(component); window.Close();
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar); Object.DestroyImmediate(mesh);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        [TestCase("en", false, false, null, 0, true)]
+        [TestCase("ja", false, false, null, 0, true)]
+        [TestCase("en", true, false, null, 10, false)]
+        [TestCase("ja", true, false, null, 90000, false)]
+        [TestCase("en", true, true, null, 10, true)]
+        [TestCase("ja", true, false, "Build reported errors; count may be incomplete.", 10, true)]
+        public void PreviewShortfallsAreCompactAndSupersededOnlyByCurrentSuccessfulAnalysis(
+            string language, bool analyzed, bool stale, string error, int triangles, bool showPreview)
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var avatar = new GameObject("Preview diagnostic test");
+            avatar.AddComponent<nadena.dev.ndmf.runtime.components.NDMFAvatarRoot>();
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.SetParent(avatar.transform);
+            var child = new GameObject("Settings"); child.transform.SetParent(avatar.transform);
+            var component = child.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false;
+            component.RefreshEntries();
+            var renderer = cube.GetComponent<Renderer>();
+            var cache = Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache;
+            UnityEditor.Editor inspector = null;
+            System.Collections.IDictionary analysisCache = null;
+            string analysisKey = null;
+            try
+            {
+                LocalizationProvider.CurrentLocale = language;
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                var entry = new MeshiaCascadingAvatarMeshSimplifierRendererEntry(renderer);
+                component.Entries.Clear();
+                component.Entries.Add(entry);
+                entry.TargetTriangleCount = 4;
+                cache[renderer] = (12, 10);
+                var type = inspector.GetType();
+                const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+                analysisCache = (System.Collections.IDictionary)type.GetField("BuildAnalysisCache", flags).GetValue(null);
+                analysisKey = (string)type.GetMethod("GetBuildAnalysisResultKey", flags).Invoke(null, new object[] { component });
+                analysisCache.Remove(analysisKey);
+                SessionState.EraseString(analysisKey);
+                var root = inspector.CreateInspectorGUI();
+                var refresh = type.GetMethod("RefreshPreviewShortfalls", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                refresh.Invoke(inspector, new object[] { root });
+                Assert.AreEqual(DisplayStyle.Flex, root.Q("PreviewShortfalls").style.display.value);
+                Assert.AreEqual(1, root.Q("PreviewShortfalls").Query<HelpBox>().ToList().Count);
+                Assert.AreEqual(HelpBoxMessageType.Info, root.Q<HelpBox>("PreviewShortfallSummary").messageType);
+                var foldout = root.Q<Foldout>("BudgetBreakdown");
+                Assert.IsFalse(foldout.value, "Per-mesh details must start collapsed.");
+                Assert.AreEqual(language == "ja" ? "メッシュごとの配分と削減方法" : "Mesh budget breakdown and next steps", foldout.text);
+                Assert.IsNotNull(root.Q<ScrollView>("BudgetMeshScroll"));
+
+                if (analyzed)
+                {
+                    var revision = (int)type.GetProperty("CurrentAnalysisRevision", flags).GetValue(null);
+                    var resultType = type.GetNestedType("BuildAnalysisResult", System.Reflection.BindingFlags.NonPublic);
+                    var result = System.Activator.CreateInstance(resultType,
+                        System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                        new object[] { triangles, 12, stale ? revision - 1 : revision, error }, null);
+                    type.GetMethod("StoreBuildAnalysisResult", flags).Invoke(null, new object[] { component, result });
+                }
+                refresh.Invoke(inspector, new object[] { root });
+                Assert.AreEqual(showPreview ? DisplayStyle.Flex : DisplayStyle.None, root.Q("PreviewShortfalls").style.display.value);
+                type.GetMethod("RefreshBudgetGuidance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    .Invoke(inspector, new object[] { root });
+                var summary = root.Q<HelpBox>("BudgetSummary");
+                Assert.AreEqual(analyzed && (error != null || (!stale && triangles > component.TargetTriangleCount))
+                    ? HelpBoxMessageType.Warning : HelpBoxMessageType.Info, summary.messageType);
+                if (analyzed && error == null)
+                {
+                    StringAssert.Contains(triangles.ToString("N0"), summary.text);
+                    if (!stale && triangles > component.TargetTriangleCount)
+                        StringAssert.Contains((triangles - component.TargetTriangleCount).ToString("N0"), summary.text);
+                }
+
+                // Disabled entries and absent cached previews must not leave a notice behind.
+                entry.Enabled = false;
+                refresh.Invoke(inspector, new object[] { root });
+                Assert.AreEqual(DisplayStyle.None, root.Q("PreviewShortfalls").style.display.value);
+                entry.Enabled = true;
+                cache.Remove(renderer);
+                refresh.Invoke(inspector, new object[] { root });
+                Assert.AreEqual(DisplayStyle.None, root.Q("PreviewShortfalls").style.display.value);
+            }
+            finally
+            {
+                cache.Remove(renderer);
+                if (analysisKey != null) { analysisCache.Remove(analysisKey); SessionState.EraseString(analysisKey); }
+                Undo.ClearUndo(component);
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator BudgetBreakdownOrdersOverrunsSeparatesExclusionsAndOpensSettings()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var avatar = new GameObject("Budget test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            var cubes = new GameObject[4];
+            for (var i = 0; i < cubes.Length; i++)
+            {
+                cubes[i] = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                cubes[i].name = "Mesh " + i;
+                cubes[i].transform.SetParent(avatar.transform);
+            }
+            var child = new GameObject("Settings"); child.transform.SetParent(avatar.transform);
+            var component = child.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false;
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            UnityEditor.Editor inspector = null;
+            var cache = Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache;
+            try
+            {
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                component.Entries.Clear();
+                foreach (var cube in cubes) component.Entries.Add(new MeshiaCascadingAvatarMeshSimplifierRendererEntry(cube.GetComponent<Renderer>()));
+                component.Entries[0].TargetTriangleCount = 8;
+                component.Entries[1].TargetTriangleCount = 2;
+                component.Entries[1].Fixed = true;
+                component.Entries[2].Enabled = false;
+                cache[cubes[0].GetComponent<Renderer>()] = (12, 10);
+                cache[cubes[1].GetComponent<Renderer>()] = (12, 10);
+                var root = inspector.CreateInspectorGUI(); window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                var before = EditorJsonUtility.ToJson(component);
+                var button = root.Q<Button>("FindBudgetReductionsButton");
+                typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(button.clickable, new object[] { null, 0 });
+                Assert.IsTrue(root.Q<Foldout>("BudgetBreakdown").value);
+                foreach (var language in new[] { "en", "ja", "en" })
+                {
+                    LocalizationProvider.CurrentLocale = language;
+                    var rows = root.Q("BudgetMeshRows").Query<VisualElement>("BudgetMeshRow").ToList();
+                    CollectionAssert.AreEqual(new[] { 1, 0, 2, 3 }, rows.Select(row => (int)row.userData).ToArray());
+                    StringAssert.Contains(language == "ja" ? "固定配分" : "Fixed allocation", rows[0].Q<Label>().text);
+                    StringAssert.Contains(language == "ja" ? "軽量化対象外" : "not being simplified", rows[2].Q<Label>().text);
+                    StringAssert.Contains(language == "ja" ? "未計測" : "no preview measurement", rows[3].Q<Label>().text);
+                    Assert.AreEqual(language == "ja" ? "削減方法を確認" : "Find ways to reduce", button.text);
+                }
+                var open = root.Q("BudgetMeshRows").Query<VisualElement>("BudgetMeshRow").First().Q<Button>();
+                typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(open.clickable, new object[] { null, 0 });
+                for (var i = 0; i < 10; i++) yield return null;
+                var item = root.Q<ListView>("EntriesListView").Query<TemplateContainer>().ToList().First(row => row.userData is int index && index == 1);
+                Assert.IsTrue(item.Q<Toggle>("OptionsToggle").value);
+                Assert.AreEqual(before, EditorJsonUtility.ToJson(component), "Guidance and navigation must not modify mesh settings.");
+            }
+            finally
+            {
+                foreach (var cube in cubes) cache.Remove(cube.GetComponent<Renderer>());
+                window.Close();
+                Undo.ClearUndo(component);
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ShouldTranslateBoundOptionsOnCreationAndLanguageChanges()
         {
             var locale = LocalizationProvider.CurrentLocale;
@@ -92,7 +463,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 var root = inspector.CreateInspectorGUI(); window.rootVisualElement.Add(root); window.Show();
                 for (var i = 0; i < 10; i++) yield return null;
                 var button = root.Q<Button>("ConservativeDefaultsButton");
-                Assert.That(button.text, Is.EqualTo("全メッシュに保守的な初期設定を適用"));
+                Assert.That(button.text, Is.EqualTo("保守的"));
                 var before = EditorJsonUtility.ToJson(component);
                 typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(button.clickable, new object[] { null, 0 });
@@ -107,7 +478,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 for (var i = 0; i < 10; i++) yield return null;
                 Assert.That(EditorJsonUtility.ToJson(component), Is.EqualTo(before));
                 LocalizationProvider.CurrentLocale = "en";
-                Assert.That(button.text, Is.EqualTo("Apply Conservative Defaults to All Meshes"));
+                Assert.That(button.text, Is.EqualTo("Conservative"));
             }
             finally
             {
