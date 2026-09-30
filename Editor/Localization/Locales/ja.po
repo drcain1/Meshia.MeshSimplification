@@ -85,7 +85,7 @@ msgid "FA-QEM Options"
 msgstr "FA-QEM設定"
 
 msgid "Skinning Protection"
-msgstr "スキニング保護"
+msgstr "ボーンによる変形の保護"
 
 msgid "Automatically protect detected body mesh"
 msgstr "検出したボディメッシュを自動保護"
@@ -94,10 +94,10 @@ msgid "Selects protection only when exactly one humanoid body candidate is detec
 msgstr "ビルド時にヒューマノイドのボディ候補が1つだけ検出された場合に、自動で保護を有効にします。"
 
 msgid "Protect joint deformation"
-msgstr "関節の変形を保護"
+msgstr "関節を動かしたときの形状を保護"
 
 msgid "Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses."
-msgstr "手動設定です。関節付近のボーンウェイトの変化を保持しますが、削減できるポリゴン数が少なくなる場合があります。"
+msgstr "手動設定です。関節付近のボーンウェイトの違いを保ち、関節を動かしたときの形状の崩れを抑えます。削減できるポリゴン数が少なくなる場合があります。"
 
 msgid "Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence."
 msgstr "実験的機能です。有効にすると、Blender方式とFA-QEMによる軽量化に適用されます。ポーズの完全な一致を保証するものではありません。"
@@ -112,10 +112,10 @@ msgid "Maximum Discarded Skin Weight"
 msgstr "破棄するボーンウェイトの上限"
 
 msgid "Weight of the skinning deformation penalty when ranking collapses."
-msgstr "頂点の統合候補を評価する際に、スキニング変形のペナルティに適用する重みです。"
+msgstr "頂点の統合候補を評価する際に、ボーンによる変形への影響をどれだけ重視するかを指定します。値を大きくすると、その影響が大きい統合候補が選ばれにくくなります。"
 
 msgid "Maximum allowed difference between skin-weight distributions at the collapsed vertices."
-msgstr "統合する頂点間で許容するボーンウェイト分布の差の上限です。"
+msgstr "統合する頂点間で許容するボーンウェイト分布の差の上限です。ボーンウェイトは、各ボーンが頂点の動きに与える影響の強さです。この値を小さくすると、ウェイトが異なる頂点同士の統合を制限し、関節を動かしたときの形状を保ちやすくなります。"
 
 msgid "Maximum bone influence weight that may be discarded when merging vertices."
 msgstr "頂点を統合する際に破棄できるボーンの影響度の上限です。"
@@ -241,7 +241,7 @@ msgid "Show mesh options"
 msgstr "メッシュの設定を表示します"
 
 msgid "Blender Decimate supports skinning protection. Meshia-specific geometry options are not used."
-msgstr "Blender Decimateではスキニング保護を使用できます。Meshia固有の形状設定は使用されません。"
+msgstr "Blender Decimateではボーンによる変形の保護を使用できます。Meshia固有の形状設定は使用されません。"
 
 msgid "Reconstructs conservative quad loops, protects UV seams and boundaries, then uses Blender Decimate to reach the remaining target. Meshia options are not used."
 msgstr "安全に処理できる四角形ループを再構築し、UVの継ぎ目と境界を保護します。その後、Blender Decimateで残りの削減を行います。Meshiaの設定は使用されません。"
