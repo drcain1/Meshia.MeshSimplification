@@ -17,9 +17,10 @@
         <ui:Toggle label="Automatically protect detected body mesh" name="SkinningProtectionAuto" tooltip="Selects protection only when exactly one humanoid body candidate is detected during the build." />
         <ui:Toggle label="Protect joint deformation" name="SkinningProtectionEnabled" tooltip="Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses." />
         <uie:PropertyField binding-path="SkinningProtection.Policy" name="SkinningProtectionPolicyField" style="display:none" />
-        <uie:PropertyField label="Protection Strength" tooltip="Weight of the skinning deformation penalty when ranking collapses." binding-path="SkinningProtection.Strength" />
-        <uie:PropertyField label="Maximum Skin Weight Distance" tooltip="Maximum allowed difference between skin-weight distributions at the collapsed vertices." binding-path="SkinningProtection.MaxWeightDistance" />
-        <uie:PropertyField label="Maximum Discarded Skin Weight" tooltip="Maximum bone influence weight that may be discarded when merging vertices." binding-path="SkinningProtection.MaxDiscardedWeight" />
+        <!-- Explicit fields keep localized labels when Unity binds the serialized values. -->
+        <ui:FloatField label="Protection Strength" tooltip="Weight of the skinning deformation penalty when ranking collapses." binding-path="SkinningProtection.Strength" />
+        <ui:FloatField label="Maximum Skin Weight Distance" tooltip="Maximum allowed difference between skin-weight distributions at the collapsed vertices." binding-path="SkinningProtection.MaxWeightDistance" />
+        <ui:FloatField label="Maximum Discarded Skin Weight" tooltip="Maximum bone influence weight that may be discarded when merging vertices." binding-path="SkinningProtection.MaxDiscardedWeight" />
         <ui:HelpBox message-type="Info" text="Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence." />
     </ui:Foldout>
     <ui:Foldout text="FA-QEM Options" name="FaQemOptionsGroup">
@@ -27,8 +28,8 @@
         <ui:FloatField label="Boundary Weight" tooltip="Weight of boundary curvature constraints." binding-path="FaQem.BoundaryWeight" />
         <ui:FloatField label="Normal Weight" tooltip="Weight of tangent planes derived from the original normals." binding-path="FaQem.NormalWeight" />
         <ui:FloatField label="Swept Area Weight" tooltip="Penalty for the area swept by a moving boundary edge." binding-path="FaQem.AreaWeight" />
-        <uie:PropertyField label="Use Inverse Area Weighting" tooltip="Weights source planes by inverse triangle area." binding-path="FaQem.UseInverseAreaWeighting" />
-        <uie:PropertyField label="Preserve Attribute Seams" tooltip="Keeps coincident vertex records together, including UV and normal seams, to prevent cracks." binding-path="FaQem.PreserveAttributeSeams" />
+        <ui:Toggle label="Use Inverse Area Weighting" tooltip="Weights source planes by inverse triangle area." binding-path="FaQem.UseInverseAreaWeighting" />
+        <ui:Toggle label="Preserve Attribute Seams" tooltip="Keeps coincident vertex records together, including UV and normal seams, to prevent cracks." binding-path="FaQem.PreserveAttributeSeams" />
         <ui:Slider low-value="0" high-value="1" show-input-field="true" label="Minimum Face Normal Dot" tooltip="Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation." binding-path="FaQem.MinNormalDot" />
         <ui:Slider low-value="0" high-value="0.1" show-input-field="true" label="Maximum Surface Deviation" binding-path="FaQem.MaxSurfaceDeviation" tooltip="Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target." />
     </ui:Foldout>

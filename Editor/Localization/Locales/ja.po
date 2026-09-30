@@ -3,7 +3,7 @@ msgstr ""
 "Language: ja\n"
 
 msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveBorderEdges.label"
-msgstr "メッシュの端の辺を保持"
+msgstr "境界エッジを保持"
 
 msgid "Meshia.MeshSimplification.MeshSimplifierOptions.PreserveBorderEdges.tooltip"
 msgstr ""
@@ -229,7 +229,7 @@ msgid "Compare this renderer's original and simplified UV layout."
 msgstr "このレンダラーの元のUV配置と軽量化後のUV配置を比較します。"
 
 msgid "Preserve Border Edges Bones"
-msgstr "境界を保持するボーン"
+msgstr "境界エッジを保持するボーン"
 
 msgid "Enable simplification for this mesh"
 msgstr "このメッシュの軽量化を有効にします"

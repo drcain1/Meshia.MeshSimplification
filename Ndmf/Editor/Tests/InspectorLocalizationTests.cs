@@ -1,5 +1,6 @@
 #if ENABLE_MODULAR_AVATAR
 using System.Collections;
+using System.Linq;
 using Meshia.MeshSimplification.Editor.Localization;
 using NUnit.Framework;
 using UnityEditor;
@@ -12,6 +13,73 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
     public class InspectorLocalizationTests
     {
         public class TestWindow : EditorWindow { }
+
+        [UnityTest]
+        public IEnumerator ShouldTranslateBoundOptionsOnCreationAndLanguageChanges()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var meshObject = new GameObject("Options localization test", typeof(MeshRenderer));
+            var component = meshObject.AddComponent<MeshiaMeshSimplifier>();
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            UnityEditor.Editor inspector = null;
+            try
+            {
+                // Start in Japanese: translating an already generated field can conceal
+                // labels overwritten by Unity during the initial serialized binding.
+                LocalizationProvider.CurrentLocale = "ja";
+                var before = EditorJsonUtility.ToJson(component);
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root);
+                window.Show();
+                foreach (var language in new[] { "ja", "en", "ja" })
+                {
+                    LocalizationProvider.CurrentLocale = language;
+                    for (var i = 0; i < 10; i++) yield return null;
+                    AssertOption<float>(root, "SkinningProtection.Strength", "Protection Strength", "保護の強さ", language);
+                    AssertOption<float>(root, "SkinningProtection.MaxWeightDistance", "Maximum Skin Weight Distance", "ボーンウェイト差の上限", language);
+                    AssertOption<float>(root, "SkinningProtection.MaxDiscardedWeight", "Maximum Discarded Skin Weight", "破棄するボーンウェイトの上限", language);
+                    AssertOption<bool>(root, "FaQem.UseInverseAreaWeighting", "Use Inverse Area Weighting", "面積の逆数による重み付け", language);
+                    AssertOption<bool>(root, "FaQem.PreserveAttributeSeams", "Preserve Attribute Seams", "属性の継ぎ目を保持", language);
+                    AssertOption<bool>(root, "PreserveBorderEdges", "Preserve Border Edges", "境界エッジを保持", language);
+                    Assert.AreEqual(before, EditorJsonUtility.ToJson(component), "Language changes must not change simplification settings.");
+                }
+
+                // The translated controls must still write to the correct properties.
+                FindOption<float>(root, "SkinningProtection.Strength").value = 2f;
+                FindOption<float>(root, "SkinningProtection.MaxWeightDistance").value = .3f;
+                FindOption<float>(root, "SkinningProtection.MaxDiscardedWeight").value = .15f;
+                FindOption<bool>(root, "FaQem.UseInverseAreaWeighting").value = false;
+                FindOption<bool>(root, "FaQem.PreserveAttributeSeams").value = false;
+                for (var i = 0; i < 10; i++) yield return null;
+                Assert.AreEqual(2f, component.options.SkinningProtection.Strength);
+                Assert.AreEqual(.3f, component.options.SkinningProtection.MaxWeightDistance);
+                Assert.AreEqual(.15f, component.options.SkinningProtection.MaxDiscardedWeight);
+                Assert.IsFalse(component.options.FaQem.UseInverseAreaWeighting);
+                Assert.IsFalse(component.options.FaQem.PreserveAttributeSeams);
+            }
+            finally
+            {
+                Undo.ClearUndo(component);
+                window.Close();
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(meshObject);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        private static BaseField<T> FindOption<T>(VisualElement root, string path)
+        {
+            return root.Query<BaseField<T>>().ToList().Single(field => !string.IsNullOrEmpty(field.bindingPath) && field.bindingPath.EndsWith(path));
+        }
+
+        private static void AssertOption<T>(VisualElement root, string path, string english, string japanese, string locale)
+        {
+            var field = FindOption<T>(root, path);
+            var expected = locale == "ja" ? japanese : english;
+            Assert.AreEqual(expected, field.label, path);
+            Assert.AreEqual(expected, field.labelElement.text, path + " visible label");
+        }
 
         [UnityTest]
         public IEnumerator ShouldTranslateGlobalAndPerMeshControlsWithoutChangingTargets()
