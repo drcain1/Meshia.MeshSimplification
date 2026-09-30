@@ -6,6 +6,7 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Meshia.MeshSimplification.Editor;
+using Meshia.MeshSimplification.Editor.Localization;
 
 namespace Meshia.MeshSimplification.Ndmf.Editor
 {
@@ -22,11 +23,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 AssetDatabase.GUIDToAssetPath("8132ade07e7e2b14dba6ea4ee4ef0867"));
             if (visualTreeAsset == null)
             {
-                return new HelpBox("Meshia inspector UI asset could not be loaded.", HelpBoxMessageType.Error);
+                return new HelpBox(LocalizationProvider.Tr("Meshia inspector UI asset could not be loaded."), HelpBoxMessageType.Error);
             }
 
             VisualElement root = new();
             visualTreeAsset.CloneTree(root);
+            LocalizationProvider.Bind(root);
+            LocalizationProvider.SetMinimum(root.Q<FloatField>("TargetValueField"), 0f);
+            LocalizationProvider.BindEnum(root.Q<DropdownField>("TargetKindField"), serializedObject.FindProperty("target.Kind"));
             root.Bind(serializedObject);
 
             var ndmfNotImportedWarning = root.Q<HelpBox>("NdmfNotImportedWarning");
@@ -81,10 +85,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     var ndmfMeshSimplifier = (MeshiaMeshSimplifier)target;
                     if (TryGetTargetMesh(ndmfMeshSimplifier, out var targetMesh))
                     {
-                        if (GUILayout.Button("Bake mesh"))
+                        if (GUILayout.Button(LocalizationProvider.Tr("Bake mesh")))
                         {
                             var absolutePath = EditorUtility.SaveFilePanel(
-                                        title: "Save baked mesh",
+                                        title: LocalizationProvider.Tr("Save baked mesh"),
                                         directory: "",
                                         defaultName: $"{targetMesh.name}-Simplified.asset",
                                         extension: "asset");

@@ -1,6 +1,4 @@
 #nullable enable
-using CustomLocalization4EditorExtension;
-using Meshia.MeshSimplification;
 using Meshia.MeshSimplification.Editor.Localization;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -17,9 +15,17 @@ namespace Meshia.MeshSimplification.Editor
 
             var root = visualTreeAsset.CloneTree();
 
-            root.BindProperty(property);
+            LocalizationProvider.Bind(root, () => LocalizationProvider.LocalizeBindedElements<MeshSimplifierOptions>(root));
 
-            var languagePicker = root.Q<DropdownField>("LanguagePicker");
+            foreach (var field in root.Query<FloatField>().ToList())
+            {
+                if (field.bindingPath.StartsWith("FaQem."))
+                {
+                    LocalizationProvider.SetMinimum(field, field.bindingPath == "FaQem.PlaneAreaWeight" ? 0.000001f : 0f);
+                }
+            }
+
+            root.BindProperty(property);
 
             var enableSmartLinkToggle = root.Q<Toggle>("EnableSmartLinkToggle");
             var smartLinkOptionsGroup = root.Q<GroupBox>("SmartLinkOptionsGroup");
@@ -93,15 +99,6 @@ namespace Meshia.MeshSimplification.Editor
             root.TrackPropertyValue(property.FindPropertyRelative(nameof(MeshSimplifierOptions.SkinningProtection))
                 .FindPropertyRelative(nameof(SkinningProtectionOptions.Enabled)), _ => RefreshSkinningProtection());
             RefreshSkinningProtection();
-
-            LocalizationProvider.Localization.MountLanguagePicker(languagePicker);
-
-            languagePicker.RegisterValueChangedCallback(evt =>
-            {
-                LocalizationProvider.LocalizeBindedElements<MeshSimplifierOptions>(root);
-                smartLinkOptionsGroup.text = LocalizationProvider.Localization.Tr("Meshia.MeshSimplification.MeshSimplifierOptions.SmartLinkOptions");
-                faQemOptionsGroup.text = LocalizationProvider.Localization.Tr("Meshia.MeshSimplification.MeshSimplifierOptions.FaQemOptions");
-            });
 
             faQemOptionsGroup.RegisterValueChangedCallback(changeEvent =>
             {

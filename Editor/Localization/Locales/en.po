@@ -74,5 +74,530 @@ msgstr "Use different tolerance for normal angle for Smart Link. The stricter of
 msgid "locale:en"
 msgstr "English"
 
+msgid "locale:ja"
+msgstr "日本語"
+
 msgid "Meshia.MeshSimplification.MeshSimplifierOptions.FaQemOptions"
 msgstr "FA-QEM Options"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Smart Link Options"
+msgstr "Smart Link Options"
+
+msgid "FA-QEM Options"
+msgstr "FA-QEM Options"
+
+msgid "Skinning Protection"
+msgstr "Skinning Protection"
+
+msgid "Automatically protect detected body mesh"
+msgstr "Automatically protect detected body mesh"
+
+msgid "Selects protection only when exactly one humanoid body candidate is detected during the build."
+msgstr "Selects protection only when exactly one humanoid body candidate is detected during the build."
+
+msgid "Protect joint deformation"
+msgstr "Protect joint deformation"
+
+msgid "Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses."
+msgstr "Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses."
+
+msgid "Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence."
+msgstr "Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence."
+
+msgid "Protection Strength"
+msgstr "Protection Strength"
+
+msgid "Maximum Skin Weight Distance"
+msgstr "Maximum Skin Weight Distance"
+
+msgid "Maximum Discarded Skin Weight"
+msgstr "Maximum Discarded Skin Weight"
+
+msgid "Weight of the skinning deformation penalty when ranking collapses."
+msgstr "Weight of the skinning deformation penalty when ranking collapses."
+
+msgid "Maximum allowed difference between skin-weight distributions at the collapsed vertices."
+msgstr "Maximum allowed difference between skin-weight distributions at the collapsed vertices."
+
+msgid "Maximum bone influence weight that may be discarded when merging vertices."
+msgstr "Maximum bone influence weight that may be discarded when merging vertices."
+
+msgid "Plane Area Divisor"
+msgstr "Plane Area Divisor"
+
+msgid "Boundary Weight"
+msgstr "Boundary Weight"
+
+msgid "Normal Weight"
+msgstr "Normal Weight"
+
+msgid "Swept Area Weight"
+msgstr "Swept Area Weight"
+
+msgid "Use Inverse Area Weighting"
+msgstr "Use Inverse Area Weighting"
+
+msgid "Preserve Attribute Seams"
+msgstr "Preserve Attribute Seams"
+
+msgid "Minimum Face Normal Dot"
+msgstr "Minimum Face Normal Dot"
+
+msgid "Maximum Surface Deviation"
+msgstr "Maximum Surface Deviation"
+
+msgid "Positive divisor applied to source triangle areas in the plane metric."
+msgstr "Positive divisor applied to source triangle areas in the plane metric."
+
+msgid "Weight of boundary curvature constraints."
+msgstr "Weight of boundary curvature constraints."
+
+msgid "Weight of tangent planes derived from the original normals."
+msgstr "Weight of tangent planes derived from the original normals."
+
+msgid "Penalty for the area swept by a moving boundary edge."
+msgstr "Penalty for the area swept by a moving boundary edge."
+
+msgid "Weights source planes by inverse triangle area."
+msgstr "Weights source planes by inverse triangle area."
+
+msgid "Keeps coincident vertex records together, including UV and normal seams, to prevent cracks."
+msgstr "Keeps coincident vertex records together, including UV and normal seams, to prevent cracks."
+
+msgid "Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation."
+msgstr "Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation."
+
+msgid "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target."
+msgstr "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target."
+
+msgid "Reset Options"
+msgstr "Reset Options"
+
+msgid "Algorithm for All Meshes"
+msgstr "Algorithm for All Meshes"
+
+msgid "Choose an algorithm to apply to every mesh entry. Individual mesh options and triangle targets are retained."
+msgstr "Choose an algorithm to apply to every mesh entry. Individual mesh options and triangle targets are retained."
+
+msgid "Target Triangle Count"
+msgstr "Target Triangle Count"
+
+msgid "Adjust"
+msgstr "Adjust"
+
+msgid "Enable Auto Adjust"
+msgstr "Enable Auto Adjust"
+
+msgid "Analyze NDMF Build"
+msgstr "Analyze NDMF Build"
+
+msgid "Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count."
+msgstr "Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count."
+
+msgid "Remove Invalid Entries"
+msgstr "Remove Invalid Entries"
+
+msgid "Reset"
+msgstr "Reset"
+
+msgid "Enable NDMF Preview"
+msgstr "Enable NDMF Preview"
+
+msgid "This component should not be attached to root GameObject."
+msgstr "This component should not be attached to root GameObject."
+
+msgid "This component has no effect without NDMF imported to the project."
+msgstr "This component has no effect without NDMF imported to the project."
+
+msgid "Target"
+msgstr "Target"
+
+msgid "Options"
+msgstr "Options"
+
+msgid "Target Kind"
+msgstr "Target Kind"
+
+msgid "Target Value"
+msgstr "Target Value"
+
+msgid "Algorithm"
+msgstr "Algorithm"
+
+msgid "Preview UVs"
+msgstr "Preview UVs"
+
+msgid "Compare this renderer's original and simplified UV layout."
+msgstr "Compare this renderer's original and simplified UV layout."
+
+msgid "Preserve Border Edges Bones"
+msgstr "Preserve Border Edges Bones"
+
+msgid "Enable simplification for this mesh"
+msgstr "Enable simplification for this mesh"
+
+msgid "Keep this mesh target fixed during automatic adjustment"
+msgstr "Keep this mesh target fixed during automatic adjustment"
+
+msgid "Show mesh options"
+msgstr "Show mesh options"
+
+msgid "Blender Decimate supports skinning protection. Meshia-specific geometry options are not used."
+msgstr "Blender Decimate supports skinning protection. Meshia-specific geometry options are not used."
+
+msgid "Reconstructs conservative quad loops, protects UV seams and boundaries, then uses Blender Decimate to reach the remaining target. Meshia options are not used."
+msgstr "Reconstructs conservative quad loops, protects UV seams and boundaries, then uses Blender Decimate to reach the remaining target. Meshia options are not used."
+
+msgid "FA-QEM simplifies geometry while retaining the existing UV layout, materials, and textures."
+msgstr "FA-QEM simplifies geometry while retaining the existing UV layout, materials, and textures."
+
+msgid "Not supported by this algorithm."
+msgstr "Not supported by this algorithm."
+
+msgid "No meshes"
+msgstr "No meshes"
+
+msgid "Mixed"
+msgstr "Mixed"
+
+msgid "Custom"
+msgstr "Custom"
+
+msgid "Blender Decimate"
+msgstr "Blender Decimate"
+
+msgid "Meshia"
+msgstr "Meshia"
+
+msgid "Uv Loop Dissolve"
+msgstr "Uv Loop Dissolve"
+
+msgid "Fa Qem"
+msgstr "Fa Qem"
+
+msgid "PC-Poor-Medium-Good"
+msgstr "PC-Poor-Medium-Good"
+
+msgid "PC-Excellent"
+msgstr "PC-Excellent"
+
+msgid "Mobile-Poor"
+msgstr "Mobile-Poor"
+
+msgid "Mobile-Medium"
+msgstr "Mobile-Medium"
+
+msgid "Mobile-Good"
+msgstr "Mobile-Good"
+
+msgid "Mobile-Excellent"
+msgstr "Mobile-Excellent"
+
+msgid "Meshia output (before downstream tools): {0:N0} / {1:N0}"
+msgstr "Meshia output (before downstream tools): {0:N0} / {1:N0}"
+
+msgid "AAO estimate: {0:N0} / {1:N0}"
+msgstr "AAO estimate: {0:N0} / {1:N0}"
+
+msgid "Calibrated estimate: {0:N0} / {1:N0}"
+msgstr "Calibrated estimate: {0:N0} / {1:N0}"
+
+msgid "Analyzed NDMF build: {0:N0} / {1:N0}"
+msgstr "Analyzed NDMF build: {0:N0} / {1:N0}"
+
+msgid "Analyzed NDMF build: {0:N0} / {1:N0} - {2}"
+msgstr "Analyzed NDMF build: {0:N0} / {1:N0} - {2}"
+
+msgid "NDMF analysis failed: {0}"
+msgstr "NDMF analysis failed: {0}"
+
+msgid "Analyzed NDMF build: not run"
+msgstr "Analyzed NDMF build: not run"
+
+msgid " - Potential overflow"
+msgstr " - Potential overflow"
+
+msgid " - Stale calibration"
+msgstr " - Stale calibration"
+
+msgid " - Stale"
+msgstr " - Stale"
+
+msgid " - Overflow!"
+msgstr " - Overflow!"
+
+msgid "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."
+msgstr "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."
+
+msgid "AAO estimate unavailable; use Analyze NDMF Build for an exact count."
+msgstr "AAO estimate unavailable; use Analyze NDMF Build for an exact count."
+
+msgid "Could not find the avatar root."
+msgstr "Could not find the avatar root."
+
+msgid "Build reported errors; count may be incomplete."
+msgstr "Build reported errors; count may be incomplete."
+
+msgid "Analyzing..."
+msgstr "Analyzing..."
+
+msgid "Analyzing the complete NDMF avatar build..."
+msgstr "Analyzing the complete NDMF avatar build..."
+
+msgid "Meshia inspector UI asset could not be loaded."
+msgstr "Meshia inspector UI asset could not be loaded."
+
+msgid "Meshia cascading inspector UI assets could not be loaded."
+msgstr "Meshia cascading inspector UI assets could not be loaded."
+
+msgid "Bake mesh"
+msgstr "Bake mesh"
+
+msgid "Save baked mesh"
+msgstr "Save baked mesh"
+
+msgid "Change algorithm for all meshes"
+msgstr "Change algorithm for all meshes"
+
+msgid "Create Meshia Cascading Avatar Mesh Simplifier"
+msgstr "Create Meshia Cascading Avatar Mesh Simplifier"
+
+msgid "Get entries"
+msgstr "Get entries"
+
+msgid "Adjust Quality"
+msgstr "Adjust Quality"
+
+msgid "Meshia UV Preview"
+msgstr "Meshia UV Preview"
+
+msgid "Original"
+msgstr "Original"
+
+msgid "Simplified"
+msgstr "Simplified"
+
+msgid "Original + Simplified"
+msgstr "Original + Simplified"
+
+msgid "Overlay"
+msgstr "Overlay"
+
+msgid "Side by Side"
+msgstr "Side by Side"
+
+msgid "Reset View"
+msgstr "Reset View"
+
+msgid "Cyan: original   Orange: simplified"
+msgstr "Cyan: original   Orange: simplified"
+
+msgid "{0}: none"
+msgstr "{0}: none"
+
+msgid "{0}: {1:N0} verts, {2:N0} tris"
+msgstr "{0}: {1:N0} verts, {2:N0} tris"
+
+msgid "No UV{0} data"
+msgstr "No UV{0} data"
+
+msgid "UV loops: {0} pass(es), then Blender fallback."
+msgstr "UV loops: {0} pass(es), then Blender fallback."
+
+msgid "No safe UV loops found; using Blender fallback."
+msgstr "No safe UV loops found; using Blender fallback."
+
+msgid "Relative Vertex Count"
+msgstr "Relative Vertex Count"
+
+msgid "Absolute Vertex Count"
+msgstr "Absolute Vertex Count"
+
+msgid "Scaled Total Error"
+msgstr "Scaled Total Error"
+
+msgid "Absolute Total Error"
+msgstr "Absolute Total Error"
+
+msgid "Relative Triangle Count"
+msgstr "Relative Triangle Count"
+
+msgid "Absolute Triangle Count"
+msgstr "Absolute Triangle Count"
+
+msgid "Blender Decimate Ratio"
+msgstr "Blender Decimate Ratio"
+
+msgid "Uv Loop Dissolve Triangle Count"
+msgstr "Uv Loop Dissolve Triangle Count"
+
+msgid "Fa Qem Triangle Count"
+msgstr "Fa Qem Triangle Count"
+
+msgid "Hips"
+msgstr "Hips"
+
+msgid "Spine"
+msgstr "Spine"
+
+msgid "Chest"
+msgstr "Chest"
+
+msgid "UpperChest"
+msgstr "UpperChest"
+
+msgid "Neck"
+msgstr "Neck"
+
+msgid "Head"
+msgstr "Head"
+
+msgid "Jaw"
+msgstr "Jaw"
+
+msgid "LeftUpperLeg"
+msgstr "LeftUpperLeg"
+
+msgid "LeftLowerLeg"
+msgstr "LeftLowerLeg"
+
+msgid "LeftFoot"
+msgstr "LeftFoot"
+
+msgid "LeftToes"
+msgstr "LeftToes"
+
+msgid "LeftShoulder"
+msgstr "LeftShoulder"
+
+msgid "LeftUpperArm"
+msgstr "LeftUpperArm"
+
+msgid "LeftLowerArm"
+msgstr "LeftLowerArm"
+
+msgid "LeftHand"
+msgstr "LeftHand"
+
+msgid "LeftEye"
+msgstr "LeftEye"
+
+msgid "LeftThumbProximal"
+msgstr "LeftThumbProximal"
+
+msgid "LeftThumbIntermediate"
+msgstr "LeftThumbIntermediate"
+
+msgid "LeftThumbDistal"
+msgstr "LeftThumbDistal"
+
+msgid "LeftIndexProximal"
+msgstr "LeftIndexProximal"
+
+msgid "LeftIndexIntermediate"
+msgstr "LeftIndexIntermediate"
+
+msgid "LeftIndexDistal"
+msgstr "LeftIndexDistal"
+
+msgid "LeftMiddleProximal"
+msgstr "LeftMiddleProximal"
+
+msgid "LeftMiddleIntermediate"
+msgstr "LeftMiddleIntermediate"
+
+msgid "LeftMiddleDistal"
+msgstr "LeftMiddleDistal"
+
+msgid "LeftRingProximal"
+msgstr "LeftRingProximal"
+
+msgid "LeftRingIntermediate"
+msgstr "LeftRingIntermediate"
+
+msgid "LeftRingDistal"
+msgstr "LeftRingDistal"
+
+msgid "LeftLittleProximal"
+msgstr "LeftLittleProximal"
+
+msgid "LeftLittleIntermediate"
+msgstr "LeftLittleIntermediate"
+
+msgid "LeftLittleDistal"
+msgstr "LeftLittleDistal"
+
+msgid "RightUpperLeg"
+msgstr "RightUpperLeg"
+
+msgid "RightLowerLeg"
+msgstr "RightLowerLeg"
+
+msgid "RightFoot"
+msgstr "RightFoot"
+
+msgid "RightToes"
+msgstr "RightToes"
+
+msgid "RightShoulder"
+msgstr "RightShoulder"
+
+msgid "RightUpperArm"
+msgstr "RightUpperArm"
+
+msgid "RightLowerArm"
+msgstr "RightLowerArm"
+
+msgid "RightHand"
+msgstr "RightHand"
+
+msgid "RightEye"
+msgstr "RightEye"
+
+msgid "RightThumbProximal"
+msgstr "RightThumbProximal"
+
+msgid "RightThumbIntermediate"
+msgstr "RightThumbIntermediate"
+
+msgid "RightThumbDistal"
+msgstr "RightThumbDistal"
+
+msgid "RightIndexProximal"
+msgstr "RightIndexProximal"
+
+msgid "RightIndexIntermediate"
+msgstr "RightIndexIntermediate"
+
+msgid "RightIndexDistal"
+msgstr "RightIndexDistal"
+
+msgid "RightMiddleProximal"
+msgstr "RightMiddleProximal"
+
+msgid "RightMiddleIntermediate"
+msgstr "RightMiddleIntermediate"
+
+msgid "RightMiddleDistal"
+msgstr "RightMiddleDistal"
+
+msgid "RightRingProximal"
+msgstr "RightRingProximal"
+
+msgid "RightRingIntermediate"
+msgstr "RightRingIntermediate"
+
+msgid "RightRingDistal"
+msgstr "RightRingDistal"
+
+msgid "RightLittleProximal"
+msgstr "RightLittleProximal"
+
+msgid "RightLittleIntermediate"
+msgstr "RightLittleIntermediate"
+
+msgid "RightLittleDistal"
+msgstr "RightLittleDistal"

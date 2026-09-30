@@ -5,14 +5,116 @@ namespace Meshia.MeshSimplification.Editor.Localization
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using UnityEditor.UIElements;
     using UnityEngine.UIElements;
 
-    internal static class LocalizationProvider
+    /// <summary>Shared editor translations and live language updates.</summary>
+    public static class LocalizationProvider
     {
         private const string DefaultLocale = "en";
 
         [AssemblyCL4EELocalization]
-        public static Localization Localization { get; } = new("ca7beb49d3e85244e803080472c014c2", DefaultLocale);
+        internal static Localization Localization { get; } = new("ca7beb49d3e85244e803080472c014c2", DefaultLocale);
+
+        /// <summary>Translates editor text, retaining English when a translation is absent.</summary>
+        public static string Tr(string text) => Localization.Tr(text);
+
+        /// <summary>Formats a translated message without translating its data arguments.</summary>
+        public static string Format(string text, params object[] args) => string.Format(Tr(text), args);
+
+        /// <summary>Gets or sets the shared editor language.</summary>
+        public static string CurrentLocale
+        {
+            get { _ = Tr("Language"); return Localization.CurrentLocaleCode; }
+            set { _ = Tr("Language"); Localization.CurrentLocaleCode = value; }
+        }
+
+        /// <summary>Localizes authored UI text and refreshes it while its panel is attached.</summary>
+        public static void Bind(VisualElement root, Action? onRefresh = null)
+        {
+            var updates = new List<Action>();
+            void Capture(string source, Action<string> setter)
+            {
+                if (!string.IsNullOrEmpty(source)) updates.Add(() => setter(Tr(source)));
+            }
+            void Visit(VisualElement element)
+            {
+                Capture(element.tooltip, text => element.tooltip = text);
+                // Do not capture generated child labels or values: binding owns those.
+                switch (element)
+                {
+                    case ListView _: return; // Virtualized rows localize themselves.
+                    case PropertyField field: Capture(field.label, text => field.label = text); return;
+                    case DropdownField field:
+                        Capture(field.label, text => field.label = text);
+                        if (field.name == "LanguagePicker")
+                        {
+                            field.choices = Localization.LocalizationByIsoCode.Keys.ToList();
+                            field.formatListItemCallback = code => Tr("locale:" + code);
+                            field.formatSelectedValueCallback = code => Tr("locale:" + code);
+                            field.RegisterValueChangedCallback(evt =>
+                            {
+                                // Label text changes also bubble ChangeEvent<string> through a field.
+                                if (evt.target == field && field.choices.Contains(evt.newValue)) CurrentLocale = evt.newValue;
+                            });
+                            updates.Add(() => field.SetValueWithoutNotify(CurrentLocale));
+                        }
+                        else
+                        {
+                            field.formatListItemCallback = Tr;
+                            field.formatSelectedValueCallback = Tr;
+                            updates.Add(() => field.SetValueWithoutNotify(field.value));
+                        }
+                        return;
+                    case Toggle field: Capture(field.label, text => field.label = text); return;
+                    case FloatField field: Capture(field.label, text => field.label = text); return;
+                    case IntegerField field: Capture(field.label, text => field.label = text); return;
+                    case Slider field: Capture(field.label, text => field.label = text); return;
+                    case SliderInt field: Capture(field.label, text => field.label = text); return;
+                    case TextField field: Capture(field.label, text => field.label = text); return;
+                    case HelpBox box: Capture(box.text, text => box.text = text); return;
+                    case TextElement textElement: Capture(textElement.text, text => textElement.text = text); return;
+                    case Foldout foldout: Capture(foldout.text, text => foldout.text = text); break;
+                    case GroupBox group: Capture(group.text, text => group.text = text); break;
+                }
+                foreach (var child in element.Children()) Visit(child);
+            }
+            Visit(root);
+            void Refresh(string _)
+            {
+                foreach (var update in updates) update();
+                onRefresh?.Invoke();
+                root.MarkDirtyRepaint();
+            }
+            root.RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                Localization.LocaleChanged -= Refresh;
+                Localization.LocaleChanged += Refresh;
+                Refresh(CurrentLocale);
+            });
+            root.RegisterCallback<DetachFromPanelEvent>(_ => Localization.LocaleChanged -= Refresh);
+            Refresh(CurrentLocale);
+        }
+
+        /// <summary>Binds enum indices independently of translated display names.</summary>
+        public static void BindEnum(DropdownField field, UnityEditor.SerializedProperty property)
+        {
+            field.choices = property.enumDisplayNames.ToList();
+            field.formatListItemCallback = Tr;
+            field.formatSelectedValueCallback = Tr;
+            field.BindProperty(property);
+        }
+
+        /// <summary>Preserves the minimum used by a numeric property's IMGUI drawer.</summary>
+        public static void SetMinimum(FloatField field, float minimum)
+        {
+            field.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.target != field || evt.newValue >= minimum) return;
+                field.value = minimum;
+                evt.StopImmediatePropagation();
+            });
+        }
         public static void LocalizeBindedElements<T>(VisualElement root)
         {
             var typeName = typeof(T).FullName;

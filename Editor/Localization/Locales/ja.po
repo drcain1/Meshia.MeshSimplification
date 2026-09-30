@@ -69,5 +69,530 @@ msgstr "SmartLink処理時に、通常と異なる許容誤差を指定できま
 msgid "locale:ja"
 msgstr "日本語"
 
+msgid "locale:en"
+msgstr "English"
+
 msgid "Meshia.MeshSimplification.MeshSimplifierOptions.FaQemOptions"
 msgstr "FA-QEM設定"
+
+msgid "Language"
+msgstr "言語"
+
+msgid "Smart Link Options"
+msgstr "Smart Link設定"
+
+msgid "FA-QEM Options"
+msgstr "FA-QEM設定"
+
+msgid "Skinning Protection"
+msgstr "スキニング保護"
+
+msgid "Automatically protect detected body mesh"
+msgstr "検出したボディメッシュを自動保護"
+
+msgid "Selects protection only when exactly one humanoid body candidate is detected during the build."
+msgstr "ビルド時にヒューマノイドのボディ候補が1つだけ検出された場合に、自動で保護を有効にします。"
+
+msgid "Protect joint deformation"
+msgstr "関節の変形を保護"
+
+msgid "Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses."
+msgstr "手動設定です。関節付近のボーンウェイトの変化を保持しますが、削減できるポリゴン数が少なくなる場合があります。"
+
+msgid "Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence."
+msgstr "実験的機能です。有効にすると、Blender方式とFA-QEMによる軽量化に適用されます。ポーズの完全な一致を保証するものではありません。"
+
+msgid "Protection Strength"
+msgstr "保護の強さ"
+
+msgid "Maximum Skin Weight Distance"
+msgstr "ボーンウェイト差の上限"
+
+msgid "Maximum Discarded Skin Weight"
+msgstr "破棄するボーンウェイトの上限"
+
+msgid "Weight of the skinning deformation penalty when ranking collapses."
+msgstr "頂点の統合候補を評価する際に、スキニング変形のペナルティに適用する重みです。"
+
+msgid "Maximum allowed difference between skin-weight distributions at the collapsed vertices."
+msgstr "統合する頂点間で許容するボーンウェイト分布の差の上限です。"
+
+msgid "Maximum bone influence weight that may be discarded when merging vertices."
+msgstr "頂点を統合する際に破棄できるボーンの影響度の上限です。"
+
+msgid "Plane Area Divisor"
+msgstr "平面評価の面積除数"
+
+msgid "Boundary Weight"
+msgstr "境界の重み"
+
+msgid "Normal Weight"
+msgstr "法線の重み"
+
+msgid "Swept Area Weight"
+msgstr "境界移動面積の重み"
+
+msgid "Use Inverse Area Weighting"
+msgstr "面積の逆数による重み付け"
+
+msgid "Preserve Attribute Seams"
+msgstr "属性の継ぎ目を保持"
+
+msgid "Minimum Face Normal Dot"
+msgstr "面法線の内積の下限"
+
+msgid "Maximum Surface Deviation"
+msgstr "元の表面からのずれの上限"
+
+msgid "Positive divisor applied to source triangle areas in the plane metric."
+msgstr "平面の誤差評価で、元の三角形の面積に適用する正の除数です。"
+
+msgid "Weight of boundary curvature constraints."
+msgstr "境界の曲率を保持する制約の重みです。"
+
+msgid "Weight of tangent planes derived from the original normals."
+msgstr "元の法線から求める接平面の重みです。"
+
+msgid "Penalty for the area swept by a moving boundary edge."
+msgstr "境界の辺が移動する際に通過する面積に対するペナルティです。"
+
+msgid "Weights source planes by inverse triangle area."
+msgstr "三角形の面積の逆数で、元の平面に重みを付けます。"
+
+msgid "Keeps coincident vertex records together, including UV and normal seams, to prevent cracks."
+msgstr "UVや法線の継ぎ目を含め、同じ位置にある頂点同士が離れないようにして、亀裂を防ぎます。"
+
+msgid "Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation."
+msgstr "頂点統合の前後で残る面の法線同士の内積の下限です。値が高いほど、面の向きの変化を厳しく制限します。"
+
+msgid "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target."
+msgstr "元の表面からの距離をサンプリングして制限します。値はメッシュのバウンディングボックスの対角線長に対する比率です。0で無効、0.001で対角線長の0.1%です。目標三角形数まで削減できない場合があります。"
+
+msgid "Reset Options"
+msgstr "設定をリセット"
+
+msgid "Algorithm for All Meshes"
+msgstr "全メッシュのアルゴリズム"
+
+msgid "Choose an algorithm to apply to every mesh entry. Individual mesh options and triangle targets are retained."
+msgstr "全メッシュに適用するアルゴリズムを選択します。各メッシュの設定と目標三角形数は維持されます。"
+
+msgid "Target Triangle Count"
+msgstr "目標三角形数"
+
+msgid "Adjust"
+msgstr "調整"
+
+msgid "Enable Auto Adjust"
+msgstr "自動調整を有効化"
+
+msgid "Analyze NDMF Build"
+msgstr "NDMFビルドを解析"
+
+msgid "Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count."
+msgstr "アバターの一時コピーをNDMFの全工程でビルドし、最終的な三角形数を正確に確認します。"
+
+msgid "Remove Invalid Entries"
+msgstr "無効な項目を削除"
+
+msgid "Reset"
+msgstr "リセット"
+
+msgid "Enable NDMF Preview"
+msgstr "NDMFプレビューを有効化"
+
+msgid "This component should not be attached to root GameObject."
+msgstr "このコンポーネントはルートのGameObjectに追加せず、その子オブジェクトに追加してください。"
+
+msgid "This component has no effect without NDMF imported to the project."
+msgstr "このコンポーネントを使用するには、プロジェクトにNDMFを導入する必要があります。"
+
+msgid "Target"
+msgstr "目標"
+
+msgid "Options"
+msgstr "設定"
+
+msgid "Target Kind"
+msgstr "目標の種類"
+
+msgid "Target Value"
+msgstr "目標値"
+
+msgid "Algorithm"
+msgstr "アルゴリズム"
+
+msgid "Preview UVs"
+msgstr "UVをプレビュー"
+
+msgid "Compare this renderer's original and simplified UV layout."
+msgstr "このレンダラーの元のUV配置と軽量化後のUV配置を比較します。"
+
+msgid "Preserve Border Edges Bones"
+msgstr "境界を保持するボーン"
+
+msgid "Enable simplification for this mesh"
+msgstr "このメッシュの軽量化を有効にします"
+
+msgid "Keep this mesh target fixed during automatic adjustment"
+msgstr "自動調整時に、このメッシュの目標三角形数を固定します"
+
+msgid "Show mesh options"
+msgstr "メッシュの設定を表示します"
+
+msgid "Blender Decimate supports skinning protection. Meshia-specific geometry options are not used."
+msgstr "Blender Decimateではスキニング保護を使用できます。Meshia固有の形状設定は使用されません。"
+
+msgid "Reconstructs conservative quad loops, protects UV seams and boundaries, then uses Blender Decimate to reach the remaining target. Meshia options are not used."
+msgstr "安全に処理できる四角形ループを再構築し、UVの継ぎ目と境界を保護します。その後、Blender Decimateで残りの削減を行います。Meshiaの設定は使用されません。"
+
+msgid "FA-QEM simplifies geometry while retaining the existing UV layout, materials, and textures."
+msgstr "FA-QEMは既存のUV配置、マテリアル、テクスチャを維持しながら形状を軽量化します。"
+
+msgid "Not supported by this algorithm."
+msgstr "このアルゴリズムでは使用できません。"
+
+msgid "No meshes"
+msgstr "メッシュなし"
+
+msgid "Mixed"
+msgstr "混在"
+
+msgid "Custom"
+msgstr "カスタム"
+
+msgid "Blender Decimate"
+msgstr "Blender Decimate"
+
+msgid "Meshia"
+msgstr "Meshia"
+
+msgid "Uv Loop Dissolve"
+msgstr "UVループ溶解"
+
+msgid "Fa Qem"
+msgstr "FA-QEM"
+
+msgid "PC-Poor-Medium-Good"
+msgstr "PC：Poor / Medium / Good"
+
+msgid "PC-Excellent"
+msgstr "PC：Excellent"
+
+msgid "Mobile-Poor"
+msgstr "モバイル：Poor"
+
+msgid "Mobile-Medium"
+msgstr "モバイル：Medium"
+
+msgid "Mobile-Good"
+msgstr "モバイル：Good"
+
+msgid "Mobile-Excellent"
+msgstr "モバイル：Excellent"
+
+msgid "Meshia output (before downstream tools): {0:N0} / {1:N0}"
+msgstr "Meshia出力（後続ツールの処理前）：{0:N0} / {1:N0}"
+
+msgid "AAO estimate: {0:N0} / {1:N0}"
+msgstr "AAOの推定値：{0:N0} / {1:N0}"
+
+msgid "Calibrated estimate: {0:N0} / {1:N0}"
+msgstr "補正後の推定値：{0:N0} / {1:N0}"
+
+msgid "Analyzed NDMF build: {0:N0} / {1:N0}"
+msgstr "NDMFビルドの解析結果：{0:N0} / {1:N0}"
+
+msgid "Analyzed NDMF build: {0:N0} / {1:N0} - {2}"
+msgstr "NDMFビルドの解析結果：{0:N0} / {1:N0} - {2}"
+
+msgid "NDMF analysis failed: {0}"
+msgstr "NDMFの解析に失敗しました：{0}"
+
+msgid "Analyzed NDMF build: not run"
+msgstr "NDMFビルドの解析：未実行"
+
+msgid " - Potential overflow"
+msgstr " - 目標超過の可能性あり"
+
+msgid " - Stale calibration"
+msgstr " - 補正情報が古くなっています"
+
+msgid " - Stale"
+msgstr " - 再解析が必要です"
+
+msgid " - Overflow!"
+msgstr " - 目標を超過しています！"
+
+msgid "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."
+msgstr "「NDMFビルドを解析」を一度実行すると、後続ツールによる変化を考慮して自動調整を補正できます。"
+
+msgid "AAO estimate unavailable; use Analyze NDMF Build for an exact count."
+msgstr "AAOの推定値を取得できません。正確な数を確認するには「NDMFビルドを解析」を実行してください。"
+
+msgid "Could not find the avatar root."
+msgstr "アバターのルートが見つかりません。"
+
+msgid "Build reported errors; count may be incomplete."
+msgstr "ビルドでエラーが発生したため、三角形数が不完全な可能性があります。"
+
+msgid "Analyzing..."
+msgstr "解析中…"
+
+msgid "Analyzing the complete NDMF avatar build..."
+msgstr "NDMFによるアバタービルド全体を解析しています…"
+
+msgid "Meshia inspector UI asset could not be loaded."
+msgstr "Meshiaのインスペクター用UIアセットを読み込めませんでした。"
+
+msgid "Meshia cascading inspector UI assets could not be loaded."
+msgstr "Meshiaの一括軽量化インスペクター用UIアセットを読み込めませんでした。"
+
+msgid "Bake mesh"
+msgstr "軽量化メッシュを保存"
+
+msgid "Save baked mesh"
+msgstr "軽量化メッシュの保存"
+
+msgid "Change algorithm for all meshes"
+msgstr "全メッシュのアルゴリズムを変更"
+
+msgid "Create Meshia Cascading Avatar Mesh Simplifier"
+msgstr "Meshiaのアバター一括軽量化コンポーネントを作成"
+
+msgid "Get entries"
+msgstr "メッシュ一覧を取得"
+
+msgid "Adjust Quality"
+msgstr "削減率を調整"
+
+msgid "Meshia UV Preview"
+msgstr "Meshia UVプレビュー"
+
+msgid "Original"
+msgstr "元のメッシュ"
+
+msgid "Simplified"
+msgstr "軽量化後"
+
+msgid "Original + Simplified"
+msgstr "元のメッシュ＋軽量化後"
+
+msgid "Overlay"
+msgstr "重ねて表示"
+
+msgid "Side by Side"
+msgstr "並べて表示"
+
+msgid "Reset View"
+msgstr "表示をリセット"
+
+msgid "Cyan: original   Orange: simplified"
+msgstr "水色：元のメッシュ　オレンジ：軽量化後"
+
+msgid "{0}: none"
+msgstr "{0}：なし"
+
+msgid "{0}: {1:N0} verts, {2:N0} tris"
+msgstr "{0}：頂点 {1:N0}、三角形 {2:N0}"
+
+msgid "No UV{0} data"
+msgstr "UV{0}のデータがありません"
+
+msgid "UV loops: {0} pass(es), then Blender fallback."
+msgstr "UVループを{0}回処理した後、Blender方式で残りを削減しました。"
+
+msgid "No safe UV loops found; using Blender fallback."
+msgstr "安全に削減できるUVループがないため、Blender方式で削減しました。"
+
+msgid "Relative Vertex Count"
+msgstr "頂点数の比率"
+
+msgid "Absolute Vertex Count"
+msgstr "頂点数"
+
+msgid "Scaled Total Error"
+msgstr "スケール補正した総誤差"
+
+msgid "Absolute Total Error"
+msgstr "総誤差"
+
+msgid "Relative Triangle Count"
+msgstr "三角形数の比率"
+
+msgid "Absolute Triangle Count"
+msgstr "三角形数"
+
+msgid "Blender Decimate Ratio"
+msgstr "Blender Decimateの削減後の比率"
+
+msgid "Uv Loop Dissolve Triangle Count"
+msgstr "UVループ溶解の目標三角形数"
+
+msgid "Fa Qem Triangle Count"
+msgstr "FA-QEMの目標三角形数"
+
+msgid "Hips"
+msgstr "腰"
+
+msgid "Spine"
+msgstr "背骨"
+
+msgid "Chest"
+msgstr "胸"
+
+msgid "UpperChest"
+msgstr "上胸"
+
+msgid "Neck"
+msgstr "首"
+
+msgid "Head"
+msgstr "頭"
+
+msgid "Jaw"
+msgstr "あご"
+
+msgid "LeftUpperLeg"
+msgstr "左太もも"
+
+msgid "LeftLowerLeg"
+msgstr "左すね"
+
+msgid "LeftFoot"
+msgstr "左足"
+
+msgid "LeftToes"
+msgstr "左つま先"
+
+msgid "LeftShoulder"
+msgstr "左肩"
+
+msgid "LeftUpperArm"
+msgstr "左上腕"
+
+msgid "LeftLowerArm"
+msgstr "左前腕"
+
+msgid "LeftHand"
+msgstr "左手"
+
+msgid "LeftEye"
+msgstr "左目"
+
+msgid "LeftThumbProximal"
+msgstr "左親指（付け根）"
+
+msgid "LeftThumbIntermediate"
+msgstr "左親指（中間）"
+
+msgid "LeftThumbDistal"
+msgstr "左親指（先端）"
+
+msgid "LeftIndexProximal"
+msgstr "左人差し指（付け根）"
+
+msgid "LeftIndexIntermediate"
+msgstr "左人差し指（中間）"
+
+msgid "LeftIndexDistal"
+msgstr "左人差し指（先端）"
+
+msgid "LeftMiddleProximal"
+msgstr "左中指（付け根）"
+
+msgid "LeftMiddleIntermediate"
+msgstr "左中指（中間）"
+
+msgid "LeftMiddleDistal"
+msgstr "左中指（先端）"
+
+msgid "LeftRingProximal"
+msgstr "左薬指（付け根）"
+
+msgid "LeftRingIntermediate"
+msgstr "左薬指（中間）"
+
+msgid "LeftRingDistal"
+msgstr "左薬指（先端）"
+
+msgid "LeftLittleProximal"
+msgstr "左小指（付け根）"
+
+msgid "LeftLittleIntermediate"
+msgstr "左小指（中間）"
+
+msgid "LeftLittleDistal"
+msgstr "左小指（先端）"
+
+msgid "RightUpperLeg"
+msgstr "右太もも"
+
+msgid "RightLowerLeg"
+msgstr "右すね"
+
+msgid "RightFoot"
+msgstr "右足"
+
+msgid "RightToes"
+msgstr "右つま先"
+
+msgid "RightShoulder"
+msgstr "右肩"
+
+msgid "RightUpperArm"
+msgstr "右上腕"
+
+msgid "RightLowerArm"
+msgstr "右前腕"
+
+msgid "RightHand"
+msgstr "右手"
+
+msgid "RightEye"
+msgstr "右目"
+
+msgid "RightThumbProximal"
+msgstr "右親指（付け根）"
+
+msgid "RightThumbIntermediate"
+msgstr "右親指（中間）"
+
+msgid "RightThumbDistal"
+msgstr "右親指（先端）"
+
+msgid "RightIndexProximal"
+msgstr "右人差し指（付け根）"
+
+msgid "RightIndexIntermediate"
+msgstr "右人差し指（中間）"
+
+msgid "RightIndexDistal"
+msgstr "右人差し指（先端）"
+
+msgid "RightMiddleProximal"
+msgstr "右中指（付け根）"
+
+msgid "RightMiddleIntermediate"
+msgstr "右中指（中間）"
+
+msgid "RightMiddleDistal"
+msgstr "右中指（先端）"
+
+msgid "RightRingProximal"
+msgstr "右薬指（付け根）"
+
+msgid "RightRingIntermediate"
+msgstr "右薬指（中間）"
+
+msgid "RightRingDistal"
+msgstr "右薬指（先端）"
+
+msgid "RightLittleProximal"
+msgstr "右小指（付け根）"
+
+msgid "RightLittleIntermediate"
+msgstr "右小指（中間）"
+
+msgid "RightLittleDistal"
+msgstr "右小指（先端）"

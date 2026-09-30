@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using Meshia.MeshSimplification.Editor;
+using Meshia.MeshSimplification.Editor.Localization;
+using static Meshia.MeshSimplification.Editor.Localization.LocalizationProvider;
 using Meshia.MeshSimplification.Ndmf.Editor.Preview;
 using nadena.dev.ndmf;
 using nadena.dev.ndmf.platform;
@@ -99,7 +101,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var go = new GameObject("Meshia Cascading Avatar Mesh Simplifier");
             go.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
             go.transform.parent = Selection.activeGameObject.transform;
-            Undo.RegisterCreatedObjectUndo(go, "Create Meshia Cascading Avatar Mesh Simplifier");
+            Undo.RegisterCreatedObjectUndo(go, Tr("Create Meshia Cascading Avatar Mesh Simplifier"));
         }
         private void OnEnable()
         {
@@ -115,7 +117,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             {
                 return;
             }
-            Undo.RecordObject(Target, "Get entries");
+            Undo.RecordObject(Target, Tr("Get entries"));
             try
             {
                 Target.RefreshEntries();
@@ -139,7 +141,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 AssetDatabase.GUIDToAssetPath("89f639b7d364db64283afa25c01d1ae3"));
             if (editorVisualTreeAsset == null || entryEditorVisualTreeAsset == null)
             {
-                return new HelpBox("Meshia cascading inspector UI assets could not be loaded.", HelpBoxMessageType.Error);
+                return new HelpBox(Tr("Meshia cascading inspector UI assets could not be loaded."), HelpBoxMessageType.Error);
             }
 
             VisualElement root = new();
@@ -187,7 +189,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 }
 
                 serializedObject.Update();
-                Undo.SetCurrentGroupName("Change algorithm for all meshes");
+                Undo.SetCurrentGroupName(Tr("Change algorithm for all meshes"));
                 for (var index = 0; index < EntriesProperty.arraySize; index++)
                 {
                     EntriesProperty.GetArrayElementAtIndex(index)
@@ -262,27 +264,27 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var current = GetTotalSimplifiedTriangleCount(true);
                 var sum = GetTotalOriginalTriangleCount();
                 var targetCount = TargetTriangleCountProperty.intValue;
-                EditorGUILayout.LabelField($"Meshia output (before downstream tools): {current:N0} / {sum:N0}");
+                EditorGUILayout.LabelField(Format("Meshia output (before downstream tools): {0:N0} / {1:N0}", current, sum));
 
                 if (DownstreamTriangleEstimator.IsAaoAvailable)
                 {
                     var estimatedFinal = GetTotalEstimatedFinalTriangleCount(true);
                     if (TryGetAnalyzedCalibration(Target, out var calibration, out var calibrationStale))
                     {
-                        EditorGUILayout.LabelField($"AAO estimate: {estimatedFinal:N0} / {targetCount:N0}");
+                        EditorGUILayout.LabelField(Format("AAO estimate: {0:N0} / {1:N0}", estimatedFinal, targetCount));
                         var calibratedFinal = DownstreamTriangleEstimator.ApplyAnalyzedDelta(
                             estimatedFinal,
                             calibration.EstimatedBeforeDownstreamTriangleCount,
                             calibration.TriangleCount);
                         var calibratedOverflow = targetCount < calibratedFinal;
-                        var calibratedLabel = $"Calibrated estimate: {calibratedFinal:N0} / {targetCount:N0}";
+                        var calibratedLabel = Format("Calibrated estimate: {0:N0} / {1:N0}", calibratedFinal, targetCount);
                         if (calibratedOverflow)
                         {
-                            calibratedLabel += " - Potential overflow";
+                            calibratedLabel += Tr(" - Potential overflow");
                         }
                         if (calibrationStale)
                         {
-                            calibratedLabel += " - Stale calibration";
+                            calibratedLabel += Tr(" - Stale calibration");
                         }
                         EditorGUILayout.LabelField(
                             calibratedLabel,
@@ -291,21 +293,21 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     else
                     {
                         var estimateOverflow = targetCount < estimatedFinal;
-                        var estimateLabel = $"AAO estimate: {estimatedFinal:N0} / {targetCount:N0}";
+                        var estimateLabel = Format("AAO estimate: {0:N0} / {1:N0}", estimatedFinal, targetCount);
                         if (estimateOverflow)
                         {
-                            estimateLabel += " - Potential overflow";
+                            estimateLabel += Tr(" - Potential overflow");
                         }
                         EditorGUILayout.LabelField(
                             estimateLabel,
                             estimateOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
                         EditorGUILayout.LabelField(
-                            "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes.");
+                            Tr("Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."));
                     }
                 }
                 else
                 {
-                    EditorGUILayout.LabelField("AAO estimate unavailable; use Analyze NDMF Build for an exact count.");
+                    EditorGUILayout.LabelField(Tr("AAO estimate unavailable; use Analyze NDMF Build for an exact count."));
                 }
 
                 if (TryGetBuildAnalysisResult(Target, out var analysis))
@@ -316,37 +318,37 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         if (analysis.TriangleCount > 0)
                         {
                             var warningLabel =
-                                $"Analyzed NDMF build: {analysis.TriangleCount:N0} / {targetCount:N0} - {analysis.Error}";
+                                Format("Analyzed NDMF build: {0:N0} / {1:N0} - {2}", analysis.TriangleCount, targetCount, Tr(analysis.Error!));
                             if (stale)
                             {
-                                warningLabel += " - Stale";
+                                warningLabel += Tr(" - Stale");
                             }
                             EditorGUILayout.LabelField(
                                 warningLabel);
                         }
                         else
                         {
-                            EditorGUILayout.LabelField($"NDMF analysis failed: {analysis.Error}", GUIStyleHelper.RedStyle);
+                            EditorGUILayout.LabelField(Format("NDMF analysis failed: {0}", Tr(analysis.Error!)), GUIStyleHelper.RedStyle);
                         }
                     }
                     else
                     {
                         var exactOverflow = !stale && targetCount < analysis.TriangleCount;
-                        var exactLabel = $"Analyzed NDMF build: {analysis.TriangleCount:N0} / {targetCount:N0}";
+                        var exactLabel = Format("Analyzed NDMF build: {0:N0} / {1:N0}", analysis.TriangleCount, targetCount);
                         if (stale)
                         {
-                            exactLabel += " - Stale";
+                            exactLabel += Tr(" - Stale");
                         }
                         else if (exactOverflow)
                         {
-                            exactLabel += " - Overflow!";
+                            exactLabel += Tr(" - Overflow!");
                         }
                         EditorGUILayout.LabelField(exactLabel, exactOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
                     }
                 }
                 else
                 {
-                    EditorGUILayout.LabelField("Analyzed NDMF build: not run");
+                    EditorGUILayout.LabelField(Tr("Analyzed NDMF build: not run"));
                 }
             };
             analyzeNdmfBuildButton.clicked += () => AnalyzeNdmfBuild(analyzeNdmfBuildButton);
@@ -355,7 +357,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var target = Target;
                 var entries = target.Entries;
 
-                Undo.RecordObject(target, "Remove Invalid Entries");
+                Undo.RecordObject(target, Tr("Remove Invalid Entries"));
                 for (int i = 0; i < entries.Count;)
                 {
                     var entry = entries[i];
@@ -404,6 +406,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var entry = Target.Entries[index];
                 var entryProperty = EntriesProperty.GetArrayElementAtIndex(index);
                 var itemRoot = (TemplateContainer)itemElement;
+                var algorithmField = itemRoot.Q<DropdownField>("AlgorithmField");
                 var targetObjectField = itemRoot.Q<ObjectField>("TargetObjectField");
                 var targetPathField = itemRoot.Q<TextField>("TargetPathField");
                 var targetTriangleCountSlider = itemRoot.Q<SliderInt>("TargetTriangleCountSlider");
@@ -413,6 +416,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
                 var previewUvsButton = itemRoot.Q<Button>("PreviewUvsButton");
                 itemRoot.BindProperty(entryProperty);
+                LocalizationProvider.BindEnum(algorithmField,
+                    entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Algorithm)));
                 itemRoot.userData = index;
                 UpdateAlgorithmOptionAvailability(itemRoot);
                 var targetRenderer = entry.GetTargetRenderer(Target);
@@ -475,12 +480,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var targetTriangleCountField = itemRoot.Q<IntegerField>("TargetTriangleCountField");
                 var triangleCountDivider = itemRoot.Q<Label>("TriangleCountDivider");
                 var optionsToggle = itemRoot.Q<Toggle>("OptionsToggle");
-                var algorithmField = itemRoot.Q<PropertyField>("AlgorithmField");
+                var algorithmField = itemRoot.Q<DropdownField>("AlgorithmField");
                 var optionsField = itemRoot.Q<PropertyField>("OptionsField");
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
                 var previewUvsButton = itemRoot.Q<Button>("PreviewUvsButton");
                 HelpBox blenderOptionsHelpBox = new(
-                    "Meshia options are not used by the Blender Decimate algorithm.",
+                    "Blender Decimate supports skinning protection. Meshia-specific geometry options are not used.",
                     HelpBoxMessageType.Info)
                 {
                     name = "BlenderOptionsHelpBox",
@@ -544,8 +549,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                 previewUvsButton.clicked += () => PreviewUvs(itemRoot);
 
-                algorithmField.RegisterCallback<SerializedPropertyChangeEvent>(_ =>
+                algorithmField.RegisterValueChangedCallback(evt =>
                 {
+                    if (evt.target != algorithmField) return;
                     itemRoot.schedule.Execute(() => UpdateAlgorithmOptionAvailability(itemRoot));
                 });
 
@@ -579,6 +585,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     preserveBorderEdgesBonesFoldout.Add(preserveBorderEdgesBoneToggle);
                 }
 
+                LocalizationProvider.Bind(itemRoot, () => UpdateAlgorithmOptionAvailability(itemRoot));
                 return itemRoot;
             };
 
@@ -606,6 +613,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             });
 
 
+            LocalizationProvider.Bind(root, () =>
+            {
+                RefreshAllMeshesAlgorithm();
+                targetTriangleCountPresetDropdownField.SetValueWithoutNotify(
+                    TargetTriangleCountPresetValueToName.TryGetValue(TargetTriangleCountProperty.intValue, out var preset)
+                        ? preset : "Custom");
+                Repaint();
+            });
             return root;
         }
 
@@ -721,7 +736,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     : DisplayStyle.Flex;
             }
             optionsField.tooltip = preserveBorderEdgesBonesFoldout.tooltip = !usesMeshiaOptions
-                ? "Not supported by this algorithm. Select Meshia to use these options."
+                ? Tr("Not supported by this algorithm.")
                 : string.Empty;
             blenderOptionsHelpBox.style.display = usesBlenderDecimate && optionsToggle.value
                 ? DisplayStyle.Flex
@@ -909,7 +924,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var entries = target.Entries;
             var entriesProperty = EntriesProperty;
 
-            Undo.RecordObject(target, "Adjust Quality");
+            Undo.RecordObject(target, Tr("Adjust Quality"));
 
             // 比例配分で差分を分配（目標値に到達するまでループ）
             for (int iteration = 0; iteration < 5; iteration++)
@@ -1020,11 +1035,11 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             s_analysisInProgress = true;
             NDMFPreview.DisablePreviewDepth = previousDisablePreviewDepth + 1;
             button.SetEnabled(false);
-            button.text = "Analyzing...";
+            button.text = Tr("Analyzing...");
 
             try
             {
-                EditorUtility.DisplayProgressBar("Meshia", "Analyzing the complete NDMF avatar build...", 0.5f);
+                EditorUtility.DisplayProgressBar("Meshia", Tr("Analyzing the complete NDMF avatar build..."), 0.5f);
                 clone = Instantiate(avatarRoot.gameObject);
                 clone.name = $"{avatarRoot.name} (Meshia Triangle Analysis)";
                 clone.SetActive(true);

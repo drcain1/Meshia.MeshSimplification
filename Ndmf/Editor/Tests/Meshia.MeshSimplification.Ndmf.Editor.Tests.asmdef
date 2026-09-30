@@ -3,6 +3,7 @@
     "rootNamespace": "Meshia.MeshSimplification.Ndmf.Tests",
     "references": [
         "Meshia.MeshSimplification.Runtime",
+        "Meshia.MeshSimplification.Editor",
         "Meshia.MeshSimplification.Ndmf.Runtime",
         "Meshia.MeshSimplification.Ndmf.Editor",
         "Unity.Mathematics",

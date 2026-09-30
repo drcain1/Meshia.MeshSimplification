@@ -1,6 +1,8 @@
 #nullable enable
 using System.Collections.Generic;
 using UnityEditor;
+using Meshia.MeshSimplification.Editor.Localization;
+using static Meshia.MeshSimplification.Editor.Localization.LocalizationProvider;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -32,7 +34,7 @@ namespace Meshia.MeshSimplification.Editor
         [MenuItem("Window/Meshia/UV Preview")]
         static void OpenFromSelection()
         {
-            var window = GetWindow<MeshUvPreviewWindow>("Meshia UV Preview");
+            var window = GetWindow<MeshUvPreviewWindow>(Tr("Meshia UV Preview"));
             window.ReleaseOwnedMesh();
             window.originalMesh = GetSelectedMesh();
             window.simplifiedMesh = null;
@@ -47,7 +49,7 @@ namespace Meshia.MeshSimplification.Editor
         /// <param name="simplified">The temporary simplified mesh, destroyed when the window releases it.</param>
         public static void ShowComparison(Mesh original, Mesh simplified)
         {
-            var window = GetWindow<MeshUvPreviewWindow>("Meshia UV Preview");
+            var window = GetWindow<MeshUvPreviewWindow>(Tr("Meshia UV Preview"));
             window.SetComparison(original, simplified);
             window.viewMode = ViewMode.Overlay;
             window.zoom = 0.9f;
@@ -92,8 +94,8 @@ namespace Meshia.MeshSimplification.Editor
             }
 
             var message = report.UvLoopDissolvePassCount > 0
-                ? $"UV loops: {report.UvLoopDissolvePassCount} pass(es), then Blender fallback."
-                : "No safe UV loops found; using Blender fallback.";
+                ? Format("UV loops: {0} pass(es), then Blender fallback.", report.UvLoopDissolvePassCount)
+                : Tr("No safe UV loops found; using Blender fallback.");
             window.RemoveNotification();
             window.ShowNotification(new GUIContent(message), 2.5);
         }
@@ -120,8 +122,16 @@ namespace Meshia.MeshSimplification.Editor
             simplified.hideFlags = HideFlags.HideAndDontSave;
         }
 
+        void OnEnable()
+        {
+            LocalizationProvider.Localization.LocaleChanged += OnLocaleChanged;
+        }
+
+        void OnLocaleChanged(string _) => Repaint();
+
         void OnDisable()
         {
+            LocalizationProvider.Localization.LocaleChanged -= OnLocaleChanged;
             ReleaseOwnedMesh();
         }
 
@@ -140,6 +150,7 @@ namespace Meshia.MeshSimplification.Editor
 
         void OnGUI()
         {
+            titleContent.text = Tr("Meshia UV Preview");
             DrawToolbar();
             DrawStats();
 
@@ -150,21 +161,21 @@ namespace Meshia.MeshSimplification.Editor
             switch (viewMode)
             {
                 case ViewMode.Original:
-                    DrawUvCanvas(canvas, originalMesh, new Color(0.2f, 0.8f, 1f), "Original");
+                    DrawUvCanvas(canvas, originalMesh, new Color(0.2f, 0.8f, 1f), Tr("Original"));
                     break;
                 case ViewMode.Simplified:
-                    DrawUvCanvas(canvas, simplifiedMesh, new Color(1f, 0.55f, 0.15f), "Simplified");
+                    DrawUvCanvas(canvas, simplifiedMesh, new Color(1f, 0.55f, 0.15f), Tr("Simplified"));
                     break;
                 case ViewMode.Overlay:
-                    DrawGrid(canvas, "Original + Simplified");
+                    DrawGrid(canvas, Tr("Original + Simplified"));
                     DrawMeshUvs(canvas, originalMesh, new Color(0.2f, 0.8f, 1f, 0.65f));
                     DrawMeshUvs(canvas, simplifiedMesh, new Color(1f, 0.55f, 0.15f, 0.9f));
                     break;
                 case ViewMode.SideBySide:
                     var gap = 8f;
                     var width = (canvas.width - gap) * 0.5f;
-                    DrawUvCanvas(new Rect(canvas.x, canvas.y, width, canvas.height), originalMesh, new Color(0.2f, 0.8f, 1f), "Original");
-                    DrawUvCanvas(new Rect(canvas.x + width + gap, canvas.y, width, canvas.height), simplifiedMesh, new Color(1f, 0.55f, 0.15f), "Simplified");
+                    DrawUvCanvas(new Rect(canvas.x, canvas.y, width, canvas.height), originalMesh, new Color(0.2f, 0.8f, 1f), Tr("Original"));
+                    DrawUvCanvas(new Rect(canvas.x + width + gap, canvas.y, width, canvas.height), simplifiedMesh, new Color(1f, 0.55f, 0.15f), Tr("Simplified"));
                     break;
             }
         }
@@ -187,8 +198,8 @@ namespace Meshia.MeshSimplification.Editor
                 }
 
                 uvChannel = EditorGUILayout.IntPopup(uvChannel, new[] { "UV0", "UV1", "UV2", "UV3", "UV4", "UV5", "UV6", "UV7" }, new[] { 0, 1, 2, 3, 4, 5, 6, 7 }, GUILayout.Width(65));
-                viewMode = (ViewMode)EditorGUILayout.EnumPopup(viewMode, EditorStyles.toolbarPopup, GUILayout.Width(95));
-                if (GUILayout.Button("Reset View", EditorStyles.toolbarButton, GUILayout.Width(75)))
+                viewMode = (ViewMode)EditorGUILayout.Popup((int)viewMode, new[] { Tr("Original"), Tr("Simplified"), Tr("Overlay"), Tr("Side by Side") }, EditorStyles.toolbarPopup, GUILayout.Width(110));
+                if (GUILayout.Button(Tr("Reset View"), EditorStyles.toolbarButton, GUILayout.MinWidth(90)))
                 {
                     zoom = 0.9f;
                     pan = Vector2.zero;
@@ -200,15 +211,15 @@ namespace Meshia.MeshSimplification.Editor
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
             {
-                GUILayout.Label(FormatStats("Original", originalMesh), GUILayout.ExpandWidth(true));
-                GUILayout.Label(FormatStats("Simplified", simplifiedMesh), GUILayout.ExpandWidth(true));
-                GUILayout.Label("Cyan: original   Orange: simplified", GUILayout.ExpandWidth(false));
+                GUILayout.Label(FormatStats(Tr("Original"), originalMesh), GUILayout.ExpandWidth(true));
+                GUILayout.Label(FormatStats(Tr("Simplified"), simplifiedMesh), GUILayout.ExpandWidth(true));
+                GUILayout.Label(Tr("Cyan: original   Orange: simplified"), GUILayout.ExpandWidth(false));
             }
         }
 
         static string FormatStats(string label, Mesh? mesh)
         {
-            return mesh == null ? $"{label}: none" : $"{label}: {mesh.vertexCount:N0} verts, {GetTriangleCount(mesh):N0} tris";
+            return mesh == null ? Format("{0}: none", label) : Format("{0}: {1:N0} verts, {2:N0} tris", label, mesh.vertexCount, GetTriangleCount(mesh));
         }
 
         static long GetTriangleCount(Mesh mesh)
@@ -283,7 +294,7 @@ namespace Meshia.MeshSimplification.Editor
             mesh.GetUVs(uvChannel, uvs);
             if (uvs.Count == 0)
             {
-                GUI.Label(new Rect(rect.x + 8, rect.y + 28, rect.width - 16, 20), $"No UV{uvChannel} data", EditorStyles.centeredGreyMiniLabel);
+                GUI.Label(new Rect(rect.x + 8, rect.y + 28, rect.width - 16, 20), Format("No UV{0} data", uvChannel), EditorStyles.centeredGreyMiniLabel);
                 return;
             }
 
