@@ -164,6 +164,27 @@ geometry can exceed them even with deformation protection off, because other gua
 remain active. This beta does not claim a guaranteed 70,000-triangle result or a new
 live VRChat validation of the preset defaults.
 
+Version `1.0.0-beta.7` restores two-way Auto Adjust against the requested
+triangle budget: lowering one mesh raises other unlocked targets, and raising it
+lowers them. The edited mesh and locked allocations are retained. Allocations
+reduced to zero can recover when budget becomes available again. AAO and calibrated
+estimates no longer change the allocation budget, including on Reset; excluded
+meshes reserve their source triangle counts. Actual output can still exceed an
+allocation when geometry guards prevent further reduction.
+
+The compact Triangle budget panel shows allocations and one main result. A current
+successful build takes priority, outdated results are subdued, and unverified
+preview estimates are labeled. Missing preview counts are not replaced by targets.
+Calculation details starts collapsed and retains intermediate counts and diagnostics.
+Current overruns use amber; failed analyses use red. English/Japanese controls,
+tooltips, documentation, and live count updates are included.
+
+Local Unity 2022.3.22f1 validation passed 77 distinct targeted EditMode tests across
+the final regression runs. Twelve distribution tests passed. The live editor
+compiled without errors and the new summary was checked without changing saved
+avatar settings. Hosted Unity test jobs remain separate and can skip when no
+license is configured. This is a prerelease, not a new live VRChat visual validation.
+
 The public repository contains generic synthetic mesh, skinning, inspector,
 serialization, and NDMF regression tests. Avatar-specific manual investigations,
 external animation paths, private reports, and local dependency-patch claims are
