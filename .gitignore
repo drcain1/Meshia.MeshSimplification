@@ -61,6 +61,7 @@ crashlytics-build.properties
 .idea/.idea.vpm-package-maker/.idea
 Assets/PackageMakerWindowData.asset*
 dist/
+/.ci-unity/
 /dist.meta
 __pycache__/
 .idea

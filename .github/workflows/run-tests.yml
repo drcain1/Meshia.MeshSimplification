@@ -17,14 +17,34 @@ on:
      - '.gitignore'
 
 env:
- PROJECT_PATH: .
- PACKAGE_PATH: ./Packages/io.github.drcain1.meshia.mesh-simplification
+ PROJECT_PATH: .ci-unity
+ PACKAGE_PATH: .ci-unity/Packages/io.github.drcain1.meshia.mesh-simplification
  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
  UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+ UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
 
 jobs:
+ license:
+   name: Check Unity license configuration
+   runs-on: ubuntu-latest
+   permissions:
+     contents: read
+   outputs:
+     configured: ${{ steps.license.outputs.configured }}
+   steps:
+     - id: license
+       run: |
+         if [[ -n "$UNITY_LICENSE" || ( -n "$UNITY_SERIAL" && -n "$UNITY_EMAIL" && -n "$UNITY_PASSWORD" ) ]]; then
+           echo 'configured=true' >> "$GITHUB_OUTPUT"
+         else
+           echo 'configured=false' >> "$GITHUB_OUTPUT"
+           echo 'Unity tests skipped: no Unity license credentials are configured for this run. This is not a passing Unity test result. Package validation and release artifacts run separately.' >> "$GITHUB_STEP_SUMMARY"
+         fi
+
  test:
+   needs: license
+   if: needs.license.outputs.configured == 'true'
    name: Test in ${{ matrix.testMode }} on ${{ matrix.unityVersion }}${{ matrix.vpmPackages[0] != null && ' with VPM packages ' || '' }}${{ join(matrix.vpmPackages, ', ') }}
    permissions:
      contents: read
@@ -54,6 +74,12 @@ jobs:
             - com.vrchat.base
 
    steps:
+     # The test runner expects the workspace itself to be a Git checkout.
+     - name: Checkout repository
+       uses: actions/checkout@v4
+       with:
+         lfs: true
+
      - name: Create package testing project
        uses: RamType0/create-unity-project@v0.2.0
        with:
@@ -68,15 +94,17 @@ jobs:
                 "com.unity.modules.androidjni": "1.0.0",
                 "com.unity.modules.animation": "1.0.0",
                 "com.unity.modules.video": "1.0.0",
+                "com.unity.test-framework": "1.4.6",
+                "com.unity.test-framework.performance": "3.0.3",
                 "com.unity.testtools.codecoverage": "1.2.6"
-              }
+              },
+              "testables": ["io.github.drcain1.meshia.mesh-simplification"]
             }
 
-     - name: Checkout repository
-       uses: actions/checkout@v4
-       with:
-         path: ${{ env.PACKAGE_PATH }}
-         submodules: recursive
+     - name: Copy tracked package files into the test project
+       run: |
+         mkdir -p "$PACKAGE_PATH"
+         git ls-files -z | tar --null -T - -cf - | tar -xf - -C "$PACKAGE_PATH"
 
      - name: Setup vrc-get
        uses: anatawa12/sh-actions/setup-vrc-get@master
@@ -101,31 +129,13 @@ jobs:
          VPM_PACKAGES: ${{ join(matrix.vpmPackages, fromJSON('"\n"')) }}
 
      - name: Resolve VPM packages
+       working-directory: ${{ env.PROJECT_PATH }}
        run: vrc-get resolve
 
-     - name: Create LFS file list
-       working-directory: ${{ env.PACKAGE_PATH }}
-       run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
-
-     - name: Restore LFS cache
-       uses: actions/cache@v3
-       with:
-         path: ${{ env.PACKAGE_PATH }}/.git/lfs
-         key: ${{ runner.os }}-lfs-${{ hashFiles('./.lfs-assets-id') }}
-
-     - name: Git LFS Pull
-       working-directory: ${{ env.PACKAGE_PATH }}
-       run: |
-         git lfs pull
-         git add .
-         git reset --hard
-
-     - uses: actions/cache@v3
+     - uses: actions/cache@v4
        with:
          path: ${{ env.PROJECT_PATH }}/Library
-         key: Library-${{ hashFiles('${{ env.PROJECT_PATH }}/Assets/**', '${{ env.PROJECT_PATH }}/Packages/**', '${{ env.PROJECT_PATH }}/ProjectSettings/**') }}
-         restore-keys: |
-           Library-
+         key: Library-${{ runner.os }}-${{ matrix.unityVersion }}-${{ matrix.testMode }}-${{ hashFiles('.ci-unity/Packages/**', '.ci-unity/ProjectSettings/**') }}
 
      - id: tests
        uses: game-ci/unity-test-runner@v4
@@ -142,10 +152,10 @@ jobs:
        if: always() && steps.tests.outputs.artifactsPath != ''
        with:
          name: Test results for ${{ matrix.testMode }} on ${{ matrix.unityVersion }}${{ matrix.vpmPackages[0] != null && ' with VPM packages ' || '' }}${{ join(matrix.vpmPackages, ', ') }}
-         path: ${{ env.PROJECT_PATH }}/${{ steps.tests.outputs.artifactsPath }}
+         path: ${{ steps.tests.outputs.artifactsPath }}
 
      - uses: actions/upload-artifact@v4
        if: always() && steps.tests.outputs.coveragePath != ''
        with:
          name: Coverage results for ${{ matrix.testMode }} on ${{ matrix.unityVersion }}${{ matrix.vpmPackages[0] != null && ' with VPM packages ' || '' }}${{ join(matrix.vpmPackages, ', ') }}
-         path: ${{ env.PROJECT_PATH }}/${{ steps.tests.outputs.coveragePath }}
+         path: ${{ steps.tests.outputs.coveragePath }}
