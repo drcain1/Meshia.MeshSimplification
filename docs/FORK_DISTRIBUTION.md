@@ -101,6 +101,14 @@ source, with no failures or skips. Twelve distribution checks also passed. The
 removed tests covered only the retired private benchmark utilities; algorithm
 regression coverage is retained.
 
+Version `1.0.0-beta.3` adds Japanese translations for the inspectors, FA-QEM and
+skinning controls, algorithm selection, build analysis, and UV preview. Both
+inspectors expose a language selector, and open controls update without changing
+mesh settings. Five targeted Unity EditMode inspector tests passed, including
+language switching, panel reattachment, algorithm selection, Undo, and numeric
+limits. English and Japanese catalogs each contain 196 matching translation keys.
+The geometry algorithms and default protection settings are unchanged from beta.2.
+
 The public repository contains generic synthetic mesh, skinning, inspector,
 serialization, and NDMF regression tests. Avatar-specific manual investigations,
 external animation paths, private reports, and local dependency-patch claims are
