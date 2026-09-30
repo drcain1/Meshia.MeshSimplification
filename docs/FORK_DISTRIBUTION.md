@@ -109,6 +109,15 @@ language switching, panel reattachment, algorithm selection, Undo, and numeric
 limits. English and Japanese catalogs each contain 196 matching translation keys.
 The geometry algorithms and default protection settings are unchanged from beta.2.
 
+Version `1.0.0-beta.4` fixes a missing job dependency when Smart Link is disabled
+and preserves source zero-area faces on meshes with deformation data. Such faces
+can open during skinning or blend-shape animation, so their vertices are locked
+even when optional border/seam protection is disabled. Static zero-area faces
+can still be removed. English and Japanese documentation describes this behavior.
+Local Unity 2022.3.22f1 validation passed 126/126 EditMode tests, with no failures
+or skips. Hosted Unity tests explicitly skip when license credentials are absent;
+that skip is not a passing Unity test result. Package CI remains independent.
+
 The public repository contains generic synthetic mesh, skinning, inspector,
 serialization, and NDMF regression tests. Avatar-specific manual investigations,
 external animation paths, private reports, and local dependency-patch claims are
