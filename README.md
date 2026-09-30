@@ -36,7 +36,7 @@ You can preview the result in EditMode.
 
 Add `Meshia Cascading Avatar Mesh Simplifier` to a child object beneath the avatar. It assigns a shared triangle budget across the avatar's eligible renderers. Use **Adjust** to distribute the current target manually, or enable **Auto Adjust** to update renderer targets automatically.
 
-For skinned meshes, the options include an experimental **Protect joint deformation** setting. The core API keeps it disabled by default. New NDMF components use Auto, which enables protection only when a single anatomical body candidate is detected; existing explicit policies are retained. When enabled, the native Blender-style and FA-QEM candidate jobs compare endpoint skin-weight variation and the simulated discarded influence weight before accepting a collapse. `Strength` controls the graduated cost, `Max Weight Distance` limits endpoint total variation, and `Max Discarded Weight` limits influence loss caused by the fixed output influence width. The protection can reduce the achievable triangle count; the settings do not provide a pose-equivalence guarantee and should be evaluated with representative joint poses.
+For skinned meshes, the options include an experimental **Protect joint deformation** setting. The core API keeps it disabled by default. New NDMF components use **Automatically protect deforming meshes**: each mesh with positive weights on multiple valid bone transforms is protected independently, including clothing, separate limbs, and custom rigs. Rigid one-bone meshes do not need this guard. Saved legacy Auto settings keep the earlier single-body detection; the inspector identifies that mode. Explicit On/Off settings are retained. When enabled, the native Blender-style and FA-QEM candidate jobs compare endpoint skin-weight variation and the simulated discarded influence weight before accepting a collapse. `Strength` controls the graduated cost, `Max Weight Distance` limits endpoint total variation, and `Max Discarded Weight` limits influence loss caused by the fixed output influence width. The protection can reduce the achievable triangle count; the settings do not provide a pose-equivalence guarantee and should be evaluated with representative joint poses.
 
 Each renderer's cogwheel provides an algorithm selector:
 
@@ -45,7 +45,7 @@ Each renderer's cogwheel provides an algorithm selector:
 - **Meshia** — uses Meshia's original simplification algorithm and exposes its existing preservation and interpolation options.
 - **UV Loop Dissolve** — reconstructs quad-like topology and removes safe complete or partial edge-loop segments. UV seams, material boundaries, hard edges, borders, and non-manifold areas are protected. If loop removal cannot reach the target, Blender Decimate finishes the operation and the preview displays a fallback notification.
 
-Existing entries retain their saved algorithms and options. FA-QEM does not automatically switch algorithms when its safety constraints prevent reaching a target; adjust the budget or choose an alternative per mesh. The standalone `MeshiaMeshSimplifier` component and explicit C# targets retain their existing defaults.
+Existing entries retain their saved algorithms and options. FA-QEM does not automatically switch algorithms when its safety constraints prevent reaching a target; adjust the budget or choose an alternative per mesh. New standalone `MeshiaMeshSimplifier` components also select FA-QEM, initially targeting half the source triangles. Existing components and explicit C# targets are unchanged.
 
 The **Algorithm for All Meshes** dropdown at the top of the inspector applies an algorithm to every mesh entry, including disabled entries. It displays **Mixed** when entries use different algorithms. Individual triangle targets, enabled states, and options are retained. Use Unity's **Edit → Undo** (Ctrl+Z on Windows) to undo the whole batch change. You can still override individual algorithms through each renderer's cogwheel.
 
@@ -54,6 +54,14 @@ Use **Preview UVs** inside a renderer's cogwheel to compare the original and sim
 #### Geometry-only FA-QEM
 
 FA-QEM reduces a mesh toward an absolute triangle budget using source surface planes, boundary curvature, original-normal tangent planes, and a separate boundary swept-area penalty to rank edge collapses. Select **FA-QEM** in a renderer's cogwheel, or use **Algorithm for All Meshes** at the top of the cascading inspector.
+
+##### Conservative avatar defaults
+
+New avatar entries use `MeshSimplifierOptions.ConservativeAvatar`: border and seam preservation on, bone-weight protection in per-mesh Auto mode, strength **2**, maximum weight distance **0.10**, maximum discarded weight **0.02**, joint-transition preservation on, and maximum surface deviation **0.0005** (0.05% of each mesh's bounds diagonal). These are conservative starting settings, not a guarantee against intersections or changes in every pose. No pose sampling or collision correction runs automatically.
+
+Saved configurations are not migrated automatically. **Apply Conservative Defaults to All Meshes** replaces protection options and joint-bone selections while preserving algorithms, targets, enabled states, and fixed allocations; Unity Undo restores the change. **Reset Options** applies the conservative option values to one mesh, retaining its separate joint-bone selection. To reduce protection deliberately, adjust the surface tolerance, joint selection, or bone-weight limits on that mesh. Core `MeshSimplifierOptions.Default` remains unchanged for API and serialization compatibility. NDMF resolves the automatic policy; direct API callers must resolve `SkinningProtection` themselves or explicitly enable it.
+
+**Protection takes priority over reaching 70,000 triangles.** Auto Adjust allocates targets; it never relaxes safeguards or guarantees a reachable budget. The inspector lists meshes whose last preview exceeded their allocation, and build warnings report actual FA-QEM output versus requested counts. Preview counts may be stale: use **Analyze NDMF Build** to verify the complete result. A high protected count calls for revised allocations or explicit quality tradeoffs, not automatic removal of protection. Check representative poses, expressions, and layered clothing before upload.
 
 ##### Supported features
 
@@ -76,6 +84,14 @@ Changing algorithms, including through **Algorithm for All Meshes**, retains eac
 
 **Boundary Weight** and **Area Weight** discourage boundary movement but do not lock borders. Likewise, **Preserve Attribute Seams** protects coincident split vertices, not every open edge. Keep **Preserve Border Edges** enabled when exact open-boundary retention is required, and check this setting on older entries. Border, seam, and skinning protection can leave fewer legal collapses and prevent reaching an aggressive triangle target.
 
+##### Preserving finger and joint shape
+
+FA-QEM offers **Preserve Joint Transitions** for joints that lose their shape when bent. It keeps the original vertices where the strongest bone influence changes, together with one neighboring ring. The rest of the mesh can still simplify; this does not preserve the entire hand or finger.
+
+The option is **on for newly configured avatars** and off in the compatibility-oriented core API defaults. It is independent of **Protect joint deformation** and its automatic/manual policy. In a cascading avatar entry, enable it under **FA-QEM Options**, then choose **Joint Protection Bones** below the options. New cascading entries select both hands and all fingers, upper/lower arms, upper/lower legs, and feet. This protects transitions around wrists, elbows, knees, and ankles where the renderer uses those humanoid bones. Saved selections are not expanded automatically. This is a separate selection from **Preserve Border Edges Bones**: it protects interior joint geometry as well as open surfaces. Clearing the selection disables joint-transition protection for that entry; missing humanoid bones are ignored. Existing border selections retain their meaning. Standalone simplifiers apply this option to all bone transitions. The core API can narrow it with the nonserialized mesh-bone indices in `SkinningProtection.JointProtectionBoneIndices` (up to its fixed-list capacity).
+
+The guard preserves source joint/support vertices and their attributes. It may stop above the triangle target, and it does not test every pose, prevent body/clothing intersections, or guarantee unchanged geometry away from the protected rings. Compare open, partly curled, and closed hands before accepting the result, then verify the complete built-avatar count. It currently applies only to FA-QEM.
+
 ##### Hair protection and further reduction
 
 **There is no automatic hair preset or name-based hair detection.** Hair uses the same FA-QEM safeguards as other meshes. Thin hair cards and individual strands often have many open edges and coincident split vertices, including UV and normal seams. **Preserve Border Edges** and **Preserve Attribute Seams** are on by default and can lock much of this geometry. Lowering the triangle target alone does not override these locks, so hair may stop well above its target.
@@ -86,9 +102,9 @@ Start with the defaults and give visually important hair a larger budget. To exp
 | --- | --- | --- |
 | **Preserve Border Edges** | Turn it off to allow open-boundary vertices to move or collapse. Check **Preserve Border Edges Bones** too: selected bones can keep associated boundary vertices locked even with the main toggle off. | Strand tips and card outlines can change; gaps may appear between strands. |
 | **Preserve Attribute Seams** | Turn it off to release coincident split-vertex locks. This does not weld the copies together, and border protection may still lock the same vertices. | Copies can move apart, causing cracks, UV discontinuities, or shading changes. |
-| **Maximum Surface Deviation** (`MaxSurfaceDeviation`) | If enabled, increase the positive tolerance or set it to `0` to disable the guard. Its default is already `0`. | More surface drift and possible intersections with the head or clothing. |
+| **Maximum Surface Deviation** (`MaxSurfaceDeviation`) | If enabled, increase the positive tolerance or set it to `0` to disable the guard. New avatar defaults use `0.0005`; the core API default remains `0`. | More surface drift and possible intersections with the head or clothing. |
 | **Minimum Face Normal Dot** (`MinNormalDot`) | Lower the FA-QEM value within `0`–`1` to allow larger face rotations per collapse. | Sharper folds and changed shading; other topology checks still apply. |
-| **Protect joint deformation** | If active for this mesh, increase **Max Weight Distance** / **Max Discarded Weight**, or turn protection off. Turn off **Automatically protect detected body mesh** first if Auto is selected. Lowering **Strength** only reduces the cost penalty, not the rejection limits. | Check hair-bone motion and blend shapes. Auto selects a single anatomical body candidate; it is not automatic hair protection. |
+| **Protect joint deformation** | If active for this mesh, increase **Max Weight Distance** / **Max Discarded Weight**, or turn protection off. Turn off **Automatically protect deforming meshes** first if Auto is selected. Lowering **Strength** only reduces the cost penalty, not the rejection limits. | Check hair-bone motion and blend shapes. New Auto protects weighted hair using multiple bones too; it does not identify hair by name or test hair physics. |
 
 **Boundary Weight**, **Normal Weight**, and **Area Weight** change collapse ranking; they do not release border or seam locks, and lowering them does not guarantee further reduction. **Smart Link** does not weld disconnected hair pieces for FA-QEM.
 
@@ -109,17 +125,17 @@ These defaults come from `FaQemOptions.Default`:
 | Use Inverse Area Weighting | On | Gives smaller source triangles greater plane weight. |
 | Preserve Attribute Seams | On | Locks coincident split vertex records, including those with matching attributes. |
 | Min Normal Dot | `0.2` | Minimum dot product between a surviving face's normals before and after each collapse. Larger values reject more changes. Range: `0`–`1`. |
-| Max Surface Deviation | `0` (off) | Optional limit on sampled distance from the original surface, expressed as a fraction of the source bounds diagonal. `0.001` means 0.1%. Tighter values may stop above the requested triangle count. |
+| Max Surface Deviation | `0.0005` for new avatars; core `0` | Optional limit on sampled distance from the original surface, expressed as a fraction of the source bounds diagonal. `0.001` means 0.1%. Tighter values may stop above the requested triangle count. |
 
 FA-QEM uses its own **Min Normal Dot** and feature weights. The legacy Meshia **Preserve Surface Curvature** and **Smart Link** controls do not configure FA-QEM's collapse metric or connect disconnected components.
 
 With **Preserve Border Edges** enabled, collapses touching boundary vertices are rejected. The boundary-area penalty is therefore zero for accepted interior collapses, and source boundary quadrics stay attached to the locked vertices. Increasing **Area Weight** or **Boundary Weight** does not protect the interior of close-fitting clothing under this policy.
 
-**Max Surface Deviation** adds a sampled, one-sided envelope around the immutable original mesh. It checks the proposed vertex, surviving triangle edge midpoints, and triangle centroids. If the optimal position fails, FA-QEM tries the endpoints and midpoint and queues a valid alternative at its actual cost. The original surface is indexed once per simplification. This limits accumulated surface drift; it does not guarantee clearance from another mesh, continuous containment between samples, or preservation under every animated pose. Nearby source layers can also satisfy a nearest-surface test. The option defaults to off, including existing serialized settings, so enabling it is an explicit quality/budget tradeoff.
+**Max Surface Deviation** adds a sampled, one-sided envelope around the immutable original mesh. It checks the proposed vertex, surviving triangle edge midpoints, and triangle centroids. If the optimal position fails, FA-QEM tries the endpoints and midpoint and queues a valid alternative at its actual cost. The original surface is indexed once per simplification. This limits accumulated surface drift; it does not guarantee clearance from another mesh, continuous containment between samples, or preservation under every animated pose. Nearby source layers can also satisfy a nearest-surface test. New avatars enable it at `0.0005`; existing saved values and core API defaults are unchanged. Increasing the tolerance or disabling it is an explicit quality/budget tradeoff.
 
 For layered clothing, inspect both sides of an overlap: an inner layer moving outward can poke through an outer layer whose own simplification is acceptable. Apply appropriate surface protection to both layers and compare against the unsimplified outfit in Play Mode, including its visibility toggles and animations. Use the actual built triangle count when checking an avatar budget; a protected mesh can stop above its requested target, and other avatar build steps can change the count.
 
-NDMF preview resolves Legacy, Auto, On, and Off joint-protection policies through the same body-selection logic as the build. Auto preview invalidates when its rig, candidate renderers, meshes, or simplifier configuration changes. Preview still covers only participating preview passes; source geometry and final counts can differ from a complete build, so use **Analyze NDMF Build** or the actual built avatar for the final budget.
+NDMF preview and build use the same per-mesh detection for new Auto settings and retain the same single-body selection for saved legacy Auto settings. Auto preview invalidates when its rig, candidate renderers, meshes, or simplifier configuration changes. Preview still covers only participating preview passes; source geometry and final counts can differ from a complete build, so use **Analyze NDMF Build** or the actual built avatar for the final budget.
 
 All geometric terms and this tolerance use coordinates normalized by the source bounds diagonal. The mixed error terms scale differently, so these weights describe this normalized implementation; equivalence to unnormalized paper weights is not assumed. Edges shorter than `1e-8` of that diagonal are rejected even when seam protection is disabled. Coincident split records are locked when **Preserve Attribute Seams** is enabled; no automatic welding or virtual edges are introduced.
 
@@ -212,7 +228,14 @@ NDMF が導入されたプロジェクトでは、モデルに `MeshiaMeshSimpli
 
 アバター直下の子オブジェクトに **Meshia Cascading Avatar Mesh Simplifier** を追加すると、対象レンダラー全体で共有する三角形数の目標を設定できます。**Adjust** は現在の目標数を各レンダラーに手動で配分し、**Auto Adjust** は各レンダラーの目標数を自動更新します。
 
-ボーンの動きに合わせて変形するメッシュには、実験的な **ボーンによる変形の保護（Skinning Protection）** があります。**関節を動かしたときの形状を保護（Protect joint deformation）** で有効にできます。ボーンウェイトは、各ボーンが頂点の動きに与える影響の強さです。コア API の初期値はオフです。新規 NDMF コンポーネントとメッシュ項目には **Auto** が設定され、ヒューマノイドの身体メッシュ候補が一つに絞れた場合にのみ保護を有効にします。既存の明示的な設定は保持されます。有効時は Blender 方式と FA-QEM の両方で、エッジの両端にあるボーンウェイトの差と、統合時に失われるボーン影響量を確認します。`Strength` は評価コストへの重み、`Max Weight Distance` は両端のウェイト分布の差の上限、`Max Discarded Weight` は出力のボーン影響数制限によって失われるウェイト量の上限です。保護により削減が途中で止まる場合があり、すべてのポーズで同じ見た目になることを保証する機能ではありません。代表的な関節ポーズで確認してください。
+**新規アバター向けの保守的な初期設定：** 境界・属性シームの保持、メッシュごとのボーンウェイト自動保護、関節付近の頂点保持が有効です。保護の強さは **2**、ボーンウェイト差の上限は **0.10**、破棄するウェイトの上限は **0.02**、元の表面からのずれの上限は **0.0005**（各メッシュの境界ボックスの対角線の 0.05%）です。自動でポーズ検査や衝突修正を行う機能ではなく、すべての変形や体と服のめり込みを保証するものではありません。
+
+保存済み設定は自動更新しません。**全メッシュに保守的な初期設定を適用** は保護オプションと関節を保護するボーンの選択を更新し、アルゴリズム・目標数・有効状態・固定配分を維持します。元に戻す操作に対応しています。各メッシュの **設定をリセット（Reset Options）** は保守的なオプション値に戻しますが、別項目のボーン選択は維持します。必要な場合だけ、表面の許容差、関節の選択、ウェイトの上限を個別に緩めてください。コア API の `MeshSimplifierOptions.Default` は互換性のため変更していません。自動判定は NDMF が処理するため、API を直接呼ぶ場合は `SkinningProtection` を解決するか、明示的に有効にしてください。
+
+**7万三角形の目標より保護を優先します。** 自動調整は配分のみを変更し、保護を自動解除しません。直近のプレビューで目標を超えたメッシュをインスペクターに表示し、ビルド時にも FA-QEM の実際の出力数と目標数を警告します。プレビューが古い場合があるため、**NDMFビルド解析（Analyze NDMF Build）** で最終的な数を確認してください。目標に届かない場合は配分か品質上の妥協点を明示的に見直し、アップロード前にポーズ・表情・重なった服を確認してください。
+
+
+ボーンの動きに合わせて変形するメッシュには、実験的な **ボーンによる変形の保護（Skinning Protection）** があります。**関節を動かしたときの形状を保護（Protect joint deformation）** で有効にできます。ボーンウェイトは、各ボーンが頂点の動きに与える影響の強さです。コア API の初期値はオフです。新規 NDMF コンポーネントとメッシュ項目では **変形するメッシュを自動保護** が有効です。複数の有効なボーンに正のウェイトを持つ各メッシュを個別に判定し、服、分割された身体、独自のボーン構成も対象にします。単一ボーンで動く剛体メッシュは対象外です。保存済みの従来の Auto は身体候補を一つに絞る以前の判定を維持し、インスペクターにその旨を表示します。既存の明示的な設定は保持されます。有効時は Blender 方式と FA-QEM の両方で、エッジの両端にあるボーンウェイトの差と、統合時に失われるボーン影響量を確認します。`Strength` は評価コストへの重み、`Max Weight Distance` は両端のウェイト分布の差の上限、`Max Discarded Weight` は出力のボーン影響数制限によって失われるウェイト量の上限です。保護により削減が途中で止まる場合があり、すべてのポーズで同じ見た目になることを保証する機能ではありません。代表的な関節ポーズで確認してください。
 
 各レンダラーの歯車メニューでアルゴリズムを選択できます。
 
@@ -221,7 +244,7 @@ NDMF が導入されたプロジェクトでは、モデルに `MeshiaMeshSimpli
 - **Meshia** — 従来の Meshia の軽量化アルゴリズムです。既存の保持設定や補間設定を利用できます。
 - **UV Loop Dissolve** — 四角形に近い接続構造を再構築し、安全に除去できるエッジループの全体または一部を削減します。UV シーム、マテリアル境界、ハードエッジ、開いた境界、非多様体領域を保護します。ループ削減だけで目標に達しない場合は Blender Decimate に切り替わり、プレビューにフォールバックの通知が表示されます。
 
-**既存のメッシュ項目のアルゴリズムとオプションは変更されません。** FA-QEM は安全上の制約で目標に達しなくても、別のアルゴリズムへ自動で切り替わりません。必要に応じて三角形数の配分を調整するか、メッシュごとに別のアルゴリズムを選択してください。単体の `MeshiaMeshSimplifier` コンポーネントと、C# で明示的に指定するターゲットの既存の初期設定は維持されます。
+**既存のメッシュ項目のアルゴリズムとオプションは変更されません。** FA-QEM は安全上の制約で目標に達しなくても、別のアルゴリズムへ自動で切り替わりません。必要に応じて三角形数の配分を調整するか、メッシュごとに別のアルゴリズムを選択してください。新規の単体 `MeshiaMeshSimplifier` も FA-QEM を使用し、最初の目標は元の三角形数の半分です。既存のコンポーネントと、C# で明示的に指定したターゲットは変更されません。
 
 インスペクター上部の **Algorithm for All Meshes** は、無効な項目も含めて全メッシュのアルゴリズムを一括変更します。複数のアルゴリズムが混在している場合は **Mixed** と表示されます。個別の目標数、有効／無効の状態、オプションは保持されます。Unity の **Edit → Undo**（Windows では Ctrl+Z）で一括変更を取り消せます。一括変更後も、各レンダラーの歯車メニューで個別に選び直せます。
 
@@ -252,6 +275,14 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 
 **Boundary Weight** と **Area Weight** は境界の移動を抑える評価項目であり、境界を固定する設定ではありません。**Preserve Attribute Seams** も同じ位置にある分離頂点を保護するもので、開いた境界すべてを保護するものではありません。境界を厳密に維持したい場合は **Preserve Border Edges** を有効にし、古い項目の設定も確認してください。境界、シーム、ボーンによる変形の保護によって有効な統合候補が減り、厳しい三角形数の目標に達しない場合があります。
 
+##### 指や関節を曲げたときの形状を保つ
+
+FA-QEM の **関節付近の頂点を保持（Preserve Joint Transitions）** は、最も強く影響するボーンが切り替わる部分と、そのすぐ周囲の頂点を元の状態で保持します。他の部分は引き続き軽量化できるため、手や指の全体を固定する機能ではありません。
+
+新規アバター設定では初期値が **オン**、互換性を維持するコア API の初期値はオフです。**関節を動かしたときの形状を保護** や自動・手動の設定とは独立しています。アバター全体の軽量化では、各メッシュの **FA-QEM設定** で有効にし、下の **関節を保護するボーン（Joint Protection Bones）** で対象を選びます。新規項目では両手と全指、両腕の上腕・前腕、両脚の太もも・すね、足を選択し、使用されているヒューマノイドボーンの手首・肘・膝・足首付近を保護します。保存済みの選択は自動で拡張しません。**境界エッジを保持するボーン** とは別の選択で、閉じた指の表面なども保護します。何も選択しなければ、その項目には関節保護を適用しません。存在しないヒューマノイドボーンは無視します。単体の軽量化では、すべてのボーンの切り替わり部分を対象にします。
+
+保護した頂点の位置と属性を保持するため、目標三角形数より多い状態で止まる場合があります。すべてのポーズを検査する機能ではなく、体と服のめり込みや、保護範囲外の変形を完全に防ぐものではありません。手を開いた状態、途中まで曲げた状態、握った状態で比較し、ビルド後のアバター全体の三角形数を確認してください。現在は FA-QEM のみが対応しています。
+
 ##### 髪の保護と、さらに削減するための設定
 
 **髪専用のプリセットの自動適用や、名前による髪の判別は行いません。** 髪にも他のメッシュと同じ FA-QEM の安全策が働きます。薄い板状の髪や独立した毛束には、開いた境界や、UV・法線の継ぎ目などで同じ位置に重なる別々の頂点が多いことがあります。**境界エッジを保持（Preserve Border Edges）** と **属性の継ぎ目を保持（Preserve Attribute Seams）** の初期値はオンで、多くの頂点が固定される場合があります。目標三角形数を下げるだけでは固定を解除できないため、目標数よりかなり多い状態で削減が止まることがあります。
@@ -262,9 +293,9 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 | --- | --- | --- |
 | **境界エッジを保持（Preserve Border Edges）** | オフにすると、開いた境界の頂点を移動・統合できるようになります。**境界エッジを保持するボーン（Preserve Border Edges Bones）** も確認してください。主設定がオフでも、選択したボーンに対応する境界頂点は固定される場合があります。 | 毛先や板状の髪の輪郭の変化、毛束の間の隙間。 |
 | **属性の継ぎ目を保持（Preserve Attribute Seams）** | オフにすると、同じ位置にある分離頂点の固定を解除します。頂点同士を溶接する機能ではなく、同じ頂点が境界保護で固定されている場合もあります。 | 頂点が別々に動くことによる亀裂、UV の不連続、陰影の変化。 |
-| **元の表面からのずれの上限（Maximum Surface Deviation）** | 有効な場合は正の許容値を大きくするか、`0` にして無効にします。初期値はすでに `0` です。 | 元の形状からのずれ、頭や服へのめり込み。 |
+| **元の表面からのずれの上限（Maximum Surface Deviation）** | 有効な場合は正の許容値を大きくするか、`0` にして無効にします。新規アバターの初期値は `0.0005`、コア API は `0` です。 | 元の形状からのずれ、頭や服へのめり込み。 |
 | **面法線の内積の下限（Minimum Face Normal Dot）** | FA-QEM 側の値を `0`～`1` の範囲で下げると、統合時の面の向きの変化をより大きく許容します。 | 鋭い折れ目や陰影の変化。他のトポロジー検査は引き続き適用されます。 |
-| **関節を動かしたときの形状を保護（Protect joint deformation）** | このメッシュで有効な場合は **ボーンウェイト差の上限（Maximum Skin Weight Distance）** / **破棄するボーンウェイトの上限（Maximum Discarded Skin Weight）** を大きくするか、保護をオフにします。Auto が選択されている場合は、先に **Automatically protect detected body mesh** をオフにしてください。**Strength** を下げるだけでは評価コストが変わるだけで、拒否条件は解除されません。 | 髪ボーンの動きやブレンドシェイプを確認してください。Auto は身体メッシュ候補が一つの場合に選択する機能で、髪の自動保護ではありません。 |
+| **関節を動かしたときの形状を保護（Protect joint deformation）** | このメッシュで有効な場合は **ボーンウェイト差の上限（Maximum Skin Weight Distance）** / **破棄するボーンウェイトの上限（Maximum Discarded Skin Weight）** を大きくするか、保護をオフにします。Auto が選択されている場合は、先に **変形するメッシュを自動保護** をオフにしてください。**Strength** を下げるだけでは評価コストが変わるだけで、拒否条件は解除されません。 | 髪ボーンの動きやブレンドシェイプを確認してください。新規の自動保護は複数ボーンで動く髪も対象にしますが、髪の名前による判定や物理挙動の検査は行いません。 |
 
 **Boundary Weight**、**Normal Weight**、**Area Weight** は統合候補の優先順位に関わる重みで、境界やシームの固定を解除する設定ではありません。値を下げても、必ず三角形数が減るとは限りません。**Smart Link** も、FA-QEM で離れた髪のパーツを溶接する機能ではありません。
 
@@ -285,17 +316,17 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 | Use Inverse Area Weighting | オン | 元の小さい三角形ほど平面重みを大きくします。 |
 | Preserve Attribute Seams | オン | 属性が同じものも含め、同じ位置にある分離頂点を固定します。 |
 | Min Normal Dot | `0.2` | 統合前後で残る面の法線同士の内積の下限です。大きいほど多くの変化を拒否します。範囲は `0`～`1` です。 |
-| Max Surface Deviation | `0`（オフ） | 元の表面からサンプル点までの距離の上限です。元のメッシュのバウンディングボックスの対角線長に対する比率で指定し、`0.001` は 0.1% を意味します。厳しくすると目標三角形数より多い状態で止まる場合があります。 |
+| Max Surface Deviation | 新規アバター `0.0005`、コア API `0` | 元の表面からサンプル点までの距離の上限です。元のメッシュのバウンディングボックスの対角線長に対する比率で指定し、`0.001` は 0.1% を意味します。厳しくすると目標三角形数より多い状態で止まる場合があります。 |
 
 FA-QEM は専用の **Min Normal Dot** と特徴量の重みを使います。従来の Meshia の **Preserve Surface Curvature** や **Smart Link** は、FA-QEM の評価基準を変更したり、離れたメッシュ部分を接続したりする設定ではありません。
 
 **Preserve Border Edges** が有効な場合は境界頂点に触れる統合を拒否するため、受け入れられる内部エッジの統合では境界面積ペナルティがゼロになります。元の境界の二次形式も固定された頂点に残ります。この状態で **Area Weight** や **Boundary Weight** を上げても、身体に密着する服の内部領域は保護できません。
 
-**Max Surface Deviation** は、変更しない元のメッシュを基準に、軽量化後のサンプル点から元の表面への距離を制限します。統合先の頂点、残る三角形の各エッジ中点、三角形の重心を検査します。最適位置が条件を満たさなければ、エッジの両端と中点も試し、有効な候補を実際のコストでキューに登録します。元の表面の検索用データは軽量化ごとに一度構築します。累積する表面のずれを抑える機能ですが、別のメッシュとの隙間、サンプル点の間の連続した表面、あらゆるアニメーション中の形状を保証するものではありません。近くにある元の別の層が距離判定を満たす場合もあります。保存済みの設定も含めて初期値はオフです。有効にする際は、品質と達成可能な三角形数のバランスを確認してください。
+**Max Surface Deviation** は、変更しない元のメッシュを基準に、軽量化後のサンプル点から元の表面への距離を制限します。統合先の頂点、残る三角形の各エッジ中点、三角形の重心を検査します。最適位置が条件を満たさなければ、エッジの両端と中点も試し、有効な候補を実際のコストでキューに登録します。元の表面の検索用データは軽量化ごとに一度構築します。累積する表面のずれを抑える機能ですが、別のメッシュとの隙間、サンプル点の間の連続した表面、あらゆるアニメーション中の形状を保証するものではありません。近くにある元の別の層が距離判定を満たす場合もあります。新規アバターでは `0.0005` で有効です。保存済みの値とコア API の初期値は維持します。許容差を緩める場合や無効にする場合は、品質と達成可能な三角形数のバランスを確認してください。
 
 重ね着では、重なる両方の層を確認してください。外側の服の軽量化に問題がなくても、内側の層が外側へ動くと貫通する場合があります。必要な表面保護を両方に設定し、Play Mode で表示切り替えやアニメーションも含めて元の衣装と比較してください。アバター全体の目標を確認するときは、実際にビルドされた三角形数を使用してください。保護によって各メッシュが目標より多い状態で止まる場合があり、後続のビルド処理でも数が変わります。
 
-NDMF プレビューは、ビルドと同じ身体メッシュ選択処理で Legacy、Auto、On、Off の関節保護設定を解決します。Auto のプレビューはリグ、候補レンダラー、メッシュ、軽量化設定の変更に応じて再評価されます。ただし、プレビューが扱うのは参加しているプレビューパスだけです。完全なビルドとは入力形状や最終的な数が異なる場合があるため、最終確認には **Analyze NDMF Build** または実際のビルド結果を使用してください。
+NDMF プレビューとビルドは、新規の自動設定にはメッシュごとの判定を、保存済みの従来の Auto には身体メッシュ選択を同じ方法で適用します。Auto のプレビューはリグ、候補レンダラー、メッシュ、軽量化設定の変更に応じて再評価されます。ただし、プレビューが扱うのは参加しているプレビューパスだけです。完全なビルドとは入力形状や最終的な数が異なる場合があるため、最終確認には **Analyze NDMF Build** または実際のビルド結果を使用してください。
 
 幾何学的な評価項目と許容距離は、元のメッシュのバウンディングボックスの対角線長で正規化した座標を使います。各評価項目のスケール依存性は異なるため、これらの重みが論文の非正規化の重みと等価とは限りません。対角線長の `1e-8` より短いエッジは、シーム保護が無効でも統合を拒否します。同じ位置にある分離頂点は **Preserve Attribute Seams** が有効な場合に固定します。自動溶接や仮想エッジは導入しません。
 

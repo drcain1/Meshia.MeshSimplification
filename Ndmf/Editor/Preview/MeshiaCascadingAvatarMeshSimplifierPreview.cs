@@ -51,7 +51,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
 
             var avatarRoot = context.GetAvatarRoot(original.gameObject);
             var preserveBorderEdgeBoneIndices = MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(avatarRoot, component, cascadingTarget);
-            return (target, cascadingTarget.Options, preserveBorderEdgeBoneIndices);
+            if (original is SkinnedMeshRenderer skinned)
+                context.Observe(skinned, r => r.bones, (a, b) => a.SequenceEqual(b));
+            var animator = context.GetComponent<Animator>(avatarRoot);
+            if (animator != null)
+            {
+                context.Observe(animator);
+                if (animator.avatar != null) context.Observe(animator.avatar);
+            }
+            return (target, MeshiaCascadingAvatarMeshSimplifier.GetJointProtectionOptions(avatarRoot, component, cascadingTarget), preserveBorderEdgeBoneIndices);
         }
 
         

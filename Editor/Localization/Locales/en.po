@@ -601,3 +601,39 @@ msgstr "RightLittleIntermediate"
 
 msgid "RightLittleDistal"
 msgstr "RightLittleDistal"
+
+msgid "Preserve Joint Transitions"
+msgstr "Preserve Joint Transitions"
+
+msgid "Joint Protection Bones"
+msgstr "Joint Protection Bones"
+
+msgid "Select bones for Preserve Joint Transitions. This selection is independent of border preservation. No selected bones means no joint-transition protection."
+msgstr "Select bones for Preserve Joint Transitions. This selection is independent of border preservation. No selected bones means no joint-transition protection."
+
+msgid "Keeps the source vertex rings where the strongest bone influence changes, plus one surrounding ring. Other regions can still simplify. Cascading entries use Joint Protection Bones; standalone simplifiers protect all joints. Independent of the bone-weight protection policy. May stop above the triangle target; test animated poses."
+msgstr "Keeps the source vertex rings where the strongest bone influence changes, plus one surrounding ring. Other regions can still simplify. Cascading entries use Joint Protection Bones; standalone simplifiers protect all joints. Independent of the bone-weight protection policy. May stop above the triangle target; test animated poses."
+
+msgid "Automatically protect deforming meshes"
+msgstr "Automatically protect deforming meshes"
+
+msgid "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh."
+msgstr "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh."
+
+msgid "This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections."
+msgstr "This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections."
+
+msgid "Apply Conservative Defaults to All Meshes"
+msgstr "Apply Conservative Defaults to All Meshes"
+
+msgid "Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported."
+msgstr "Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported."
+
+msgid "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
+msgstr "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
+
+msgid "Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify."
+msgstr "Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify."
+
+msgid "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically."
+msgstr "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically."

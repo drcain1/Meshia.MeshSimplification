@@ -36,9 +36,9 @@ namespace Meshia.MeshSimplification.Tests
                 for (var i = 0; i < 5; i++) yield return null;
                 var before = EditorJsonUtility.ToJson(host);
                 LocalizationProvider.CurrentLocale = "ja";
-                Assert.AreEqual("スキニング保護", root.Q<Foldout>("SkinningProtectionGroup").text);
-                Assert.AreEqual("検出したボディメッシュを自動保護", root.Q<Toggle>("SkinningProtectionAuto").label);
-                Assert.AreEqual("メッシュの端の辺を保持", root.Q<Toggle>("PreserveBorderEdgesToggle").label);
+                Assert.AreEqual("ボーンによる変形の保護", root.Q<Foldout>("SkinningProtectionGroup").text);
+                Assert.AreEqual("変形するメッシュを自動保護", root.Q<Toggle>("SkinningProtectionAuto").label);
+                Assert.AreEqual("境界エッジを保持", root.Q<Toggle>("PreserveBorderEdgesToggle").label);
                 var deviation = root.Query<Slider>().Where(f => f.bindingPath.EndsWith("FaQem.MaxSurfaceDeviation")).First();
                 Assert.AreEqual("元の表面からのずれの上限", deviation.label);
                 Assert.AreEqual("元の表面からのずれの上限", deviation.labelElement.text);
@@ -49,7 +49,7 @@ namespace Meshia.MeshSimplification.Tests
 
                 root.RemoveFromHierarchy();
                 LocalizationProvider.CurrentLocale = "en";
-                Assert.AreEqual("スキニング保護", root.Q<Foldout>("SkinningProtectionGroup").text);
+                Assert.AreEqual("ボーンによる変形の保護", root.Q<Foldout>("SkinningProtectionGroup").text);
                 window.rootVisualElement.Add(root);
                 for (var i = 0; i < 5; i++) yield return null;
                 Assert.AreEqual("Skinning Protection", root.Q<Foldout>("SkinningProtectionGroup").text);

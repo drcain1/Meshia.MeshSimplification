@@ -14,7 +14,8 @@
         </ui:GroupBox>
     </ui:VisualElement>
     <ui:Foldout text="Skinning Protection" name="SkinningProtectionGroup">
-        <ui:Toggle label="Automatically protect detected body mesh" name="SkinningProtectionAuto" tooltip="Selects protection only when exactly one humanoid body candidate is detected during the build." />
+        <ui:Toggle label="Automatically protect deforming meshes" name="SkinningProtectionAuto" tooltip="Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh." />
+        <ui:HelpBox name="LegacyAutomaticProtectionHelp" message-type="Info" text="This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections." style="display:none" />
         <ui:Toggle label="Protect joint deformation" name="SkinningProtectionEnabled" tooltip="Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses." />
         <uie:PropertyField binding-path="SkinningProtection.Policy" name="SkinningProtectionPolicyField" style="display:none" />
         <!-- Explicit fields keep localized labels when Unity binds the serialized values. -->
@@ -24,6 +25,7 @@
         <ui:HelpBox message-type="Info" text="Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence." />
     </ui:Foldout>
     <ui:Foldout text="FA-QEM Options" name="FaQemOptionsGroup">
+        <ui:Toggle label="Preserve Joint Transitions" name="PreserveJointTransitionsToggle" binding-path="SkinningProtection.PreserveJointTransitions" tooltip="Keeps the source vertex rings where the strongest bone influence changes, plus one surrounding ring. Other regions can still simplify. Cascading entries use Joint Protection Bones; standalone simplifiers protect all joints. Independent of the bone-weight protection policy. May stop above the triangle target; test animated poses." />
         <ui:FloatField label="Plane Area Divisor" tooltip="Positive divisor applied to source triangle areas in the plane metric." binding-path="FaQem.PlaneAreaWeight" />
         <ui:FloatField label="Boundary Weight" tooltip="Weight of boundary curvature constraints." binding-path="FaQem.BoundaryWeight" />
         <ui:FloatField label="Normal Weight" tooltip="Weight of tangent planes derived from the original normals." binding-path="FaQem.NormalWeight" />

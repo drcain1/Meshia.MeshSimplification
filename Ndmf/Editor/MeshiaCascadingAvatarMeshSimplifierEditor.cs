@@ -164,6 +164,20 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var entriesListView = root.Q<ListView>("EntriesListView");
             var ndmfPreviewToggle = root.Q<Toggle>("NdmfPreviewToggle");
 
+            root.Q<Button>("ConservativeDefaultsButton").clicked += () =>
+            {
+                serializedObject.ApplyModifiedProperties();
+                Undo.RecordObject(Target, Tr("Apply Conservative Defaults to All Meshes"));
+                foreach (var entry in Target.Entries)
+                {
+                    entry.Options = MeshSimplifierOptions.ConservativeAvatar;
+                    entry.PreserveJointTransitionsBones = MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones;
+                }
+                EditorUtility.SetDirty(Target);
+                serializedObject.Update();
+                entriesListView.Rebuild();
+            };
+
             var allMeshesAlgorithmField = root.Q<DropdownField>("AllMeshesAlgorithmField");
             var algorithms = (MeshiaCascadingSimplificationAlgorithm[])Enum.GetValues(typeof(MeshiaCascadingSimplificationAlgorithm));
             var algorithmNames = algorithms.Select(algorithm => ObjectNames.NicifyVariableName(algorithm.ToString())).ToList();
@@ -264,6 +278,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var current = GetTotalSimplifiedTriangleCount(true);
                 var sum = GetTotalOriginalTriangleCount();
                 var targetCount = TargetTriangleCountProperty.intValue;
+                foreach (var entry in Target.Entries)
+                {
+                    if (!entry.Enabled || !entry.IsValid(Target) || entry.GetTargetRenderer(Target) is not { } renderer ||
+                        !MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.TryGetValue(renderer, out var count) ||
+                        count.simplified <= entry.TargetTriangleCount + 1) continue;
+                    EditorGUILayout.HelpBox(Format("Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify.",
+                        renderer.name, count.simplified, entry.TargetTriangleCount), MessageType.Warning);
+                }
                 EditorGUILayout.LabelField(Format("Meshia output (before downstream tools): {0:N0} / {1:N0}", current, sum));
 
                 if (DownstreamTriangleEstimator.IsAaoAvailable)
@@ -459,6 +481,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                 }
 
+                RefreshJointBoneSelection(itemRoot);
                 var humanBodyBoneIndex = 0;
                 var preserveBorderEdgesBonesProperty = EntriesProperty.GetArrayElementAtIndex(index).FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.PreserveBorderEdgesBones));
                 var preserveBorderEdgesBones = preserveBorderEdgesBonesProperty.ulongValue;
@@ -585,6 +608,22 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     preserveBorderEdgesBonesFoldout.Add(preserveBorderEdgesBoneToggle);
                 }
 
+                var jointFoldout = itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout");
+                for (var i = 0; i < (int)HumanBodyBones.LastBone; i++)
+                {
+                    var bit = 1ul << i;
+                    var toggle = new Toggle(((HumanBodyBones)i).ToString());
+                    toggle.RegisterValueChangedCallback(evt =>
+                    {
+                        if (evt.target != toggle || itemRoot.userData is not int itemIndex) return;
+                        serializedObject.Update();
+                        var property = EntriesProperty.GetArrayElementAtIndex(itemIndex)
+                            .FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.PreserveJointTransitionsBones));
+                        property.ulongValue = evt.newValue ? property.ulongValue | bit : property.ulongValue & ~bit;
+                        serializedObject.ApplyModifiedProperties();
+                    });
+                    jointFoldout.Add(toggle);
+                }
                 LocalizationProvider.Bind(itemRoot, () => UpdateAlgorithmOptionAvailability(itemRoot));
                 return itemRoot;
             };
@@ -605,9 +644,17 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 MeshiaCascadingAvatarMeshSimplifierPreview.PreviewControlNode.IsEnabled.OnChange -= onNdmfPreviewEnabledChanged;
             });
 
+            void RefreshJointBoneSelections()
+            {
+                root.Query<TemplateContainer>().ForEach(RefreshJointBoneSelection);
+            }
+            root.RegisterCallback<AttachToPanelEvent>(_ => Undo.undoRedoPerformed += RefreshJointBoneSelections);
+            root.RegisterCallback<DetachFromPanelEvent>(_ => Undo.undoRedoPerformed -= RefreshJointBoneSelections);
+
             IVisualElementScheduledItem? scheduledUvPreviewRefresh = null;
             root.TrackSerializedObjectValue(serializedObject, _ =>
             {
+                RefreshJointBoneSelections();
                 scheduledUvPreviewRefresh?.Pause();
                 scheduledUvPreviewRefresh = root.schedule.Execute(RefreshOpenUvPreview).StartingIn(150);
             });
@@ -622,6 +669,17 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 Repaint();
             });
             return root;
+        }
+
+        private void RefreshJointBoneSelection(TemplateContainer itemRoot)
+        {
+            if (target == null || itemRoot.userData is not int index || index < 0 || index >= Target.Entries.Count) return;
+            var foldout = itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout");
+            if (foldout == null) return;
+            var mask = Target.Entries[index].PreserveJointTransitionsBones;
+            var bone = 0;
+            foreach (var toggle in foldout.Children().OfType<Toggle>())
+                toggle.SetValueWithoutNotify((mask & (1ul << bone++)) != 0);
         }
 
         private void PreviewUvs(VisualElement itemRoot)
@@ -686,7 +744,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 report = MeshSimplifier.SimplifyWithReport(
                     sourceMesh,
                     simplificationTarget,
-                    entry.Options,
+                    NdmfPlugin.ResolveOptions(avatarRoot, entry.GetTargetRenderer(Target)!,
+                        MeshiaCascadingAvatarMeshSimplifier.GetJointProtectionOptions(avatarRoot, Target, entry)),
                     preserveBorderEdgesBoneIndices,
                     simplifiedMesh);
                 return simplifiedMesh;
@@ -724,6 +783,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var optionsToggle = itemRoot.Q<Toggle>("OptionsToggle");
             var preserveBorderEdgesToggle = optionsField.Q<Toggle>("PreserveBorderEdgesToggle");
 
+            itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout").style.display = usesFaQem && optionsToggle.value
+                ? DisplayStyle.Flex : DisplayStyle.None;
             optionsField.SetEnabled(usesMeshiaOptions);
             preserveBorderEdgesBonesFoldout.SetEnabled(supportsSelectedBorderBones);
             preserveBorderEdgesBonesFoldout.style.display = supportsSelectedBorderBones && optionsToggle.value

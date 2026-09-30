@@ -596,3 +596,39 @@ msgstr "右小指（中間）"
 
 msgid "RightLittleDistal"
 msgstr "右小指（先端）"
+
+msgid "Preserve Joint Transitions"
+msgstr "関節付近の頂点を保持"
+
+msgid "Joint Protection Bones"
+msgstr "関節を保護するボーン"
+
+msgid "Select bones for Preserve Joint Transitions. This selection is independent of border preservation. No selected bones means no joint-transition protection."
+msgstr "「関節付近の頂点を保持」の対象ボーンを選択します。境界エッジの保護とは別の選択です。何も選択しない場合、この関節保護は適用されません。"
+
+msgid "Keeps the source vertex rings where the strongest bone influence changes, plus one surrounding ring. Other regions can still simplify. Cascading entries use Joint Protection Bones; standalone simplifiers protect all joints. Independent of the bone-weight protection policy. May stop above the triangle target; test animated poses."
+msgstr "最も強く影響するボーンが切り替わる部分と、そのすぐ周囲の頂点を保持します。他の部分は引き続き軽量化できます。アバター全体の軽量化では「関節を保護するボーン」の選択を使い、単体の軽量化ではすべての関節を対象にします。ボーンウェイトの保護設定とは独立しています。目標三角形数より多い状態で止まる場合があるため、関節を動かして確認してください。"
+
+msgid "Automatically protect deforming meshes"
+msgstr "変形するメッシュを自動保護"
+
+msgid "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh."
+msgstr "服や独自のボーン構成を含め、複数のボーンで動く各メッシュを保護します。身体メッシュを一つに特定する必要はありません。"
+
+msgid "This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections."
+msgstr "この保存済みメッシュは、身体のみを対象とする従来の自動保護を使用しています。自動保護を一度オフにしてからオンにするとメッシュごとの判定に切り替わります。保護設定全体を更新するには、保守的な初期設定を適用してください。"
+
+msgid "Apply Conservative Defaults to All Meshes"
+msgstr "全メッシュに保守的な初期設定を適用"
+
+msgid "Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported."
+msgstr "各メッシュの保護設定と関節を保護するボーンの選択を、保守的な初期設定に置き換えます。アルゴリズム、目標三角形数、有効・固定の選択は維持されます。元に戻す操作に対応しています。"
+
+msgid "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
+msgstr "三角形数の目標より保護を優先します。自動調整は配分のみを変更し、保護を解除しません。プレビューの数値が古い場合があるため、NDMFビルド解析で最終的な数を確認してください。"
+
+msgid "Last preview: {0} retained {1:N0} triangles; requested {2:N0}. Constraints limited reduction. Run Analyze NDMF Build to verify."
+msgstr "直近のプレビュー：{0} は目標 {2:N0} に対して {1:N0} 三角形を保持しました。制約により削減が制限されています。NDMFビルド解析で確認してください。"
+
+msgid "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically."
+msgstr "Meshia:「{0}」は目標 {2:N0} に対して {1:N0} 三角形を保持しました。保護と接続構造の制約を目標より優先します。他のメッシュの配分か、このメッシュの保護設定を見直してください。保護を自動で解除することはありません。"

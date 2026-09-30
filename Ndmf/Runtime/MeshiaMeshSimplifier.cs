@@ -20,8 +20,13 @@ namespace Meshia.MeshSimplification.Ndmf
 
         void Reset()
         {
-            options = MeshSimplifierOptions.Default;
-            options.SkinningProtection.Policy = SkinningProtectionPolicy.Auto;
+            options = MeshSimplifierOptions.ConservativeAvatar;
+            var mesh = RendererUtility.GetMesh(GetComponent<Renderer>());
+            target = new MeshSimplificationTarget
+            {
+                Kind = MeshSimplificationTargetKind.FaQemTriangleCount,
+                Value = mesh != null ? Mathf.Max(1, mesh.GetTriangleCount() / 2) : 70000,
+            };
         }
 
         void Start() { } // To show enabled checkbox in inspector

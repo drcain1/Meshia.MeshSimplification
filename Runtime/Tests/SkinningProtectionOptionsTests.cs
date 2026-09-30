@@ -8,6 +8,24 @@ namespace Meshia.MeshSimplification.Tests
     public sealed class SkinningProtectionOptionsTests
     {
         [Test]
+        public void ConservativeAvatarDefaultsPreserveLegacyCoreDefaults()
+        {
+            var options = MeshSimplifierOptions.ConservativeAvatar;
+            Assert.That(options.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.AutoDeforming));
+            Assert.That(options.SkinningProtection.PreserveJointTransitions, Is.True);
+            Assert.That(options.SkinningProtection.Strength, Is.EqualTo(2f));
+            Assert.That(options.SkinningProtection.MaxWeightDistance, Is.EqualTo(.1f));
+            Assert.That(options.SkinningProtection.MaxDiscardedWeight, Is.EqualTo(.02f));
+            Assert.That(options.FaQem.MaxSurfaceDeviation, Is.EqualTo(.0005f));
+            Assert.That(options.PreserveBorderEdges && options.FaQem.PreserveAttributeSeams, Is.True);
+            Assert.That(options.SkinningProtection.Resolve(true).Enabled, Is.True);
+            Assert.That(options.SkinningProtection.Resolve(false).Enabled, Is.False);
+            Assert.That(MeshSimplifierOptions.Default.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.Legacy));
+            Assert.That(MeshSimplifierOptions.Default.SkinningProtection.PreserveJointTransitions, Is.False);
+            Assert.That(MeshSimplifierOptions.Default.FaQem.MaxSurfaceDeviation, Is.Zero);
+        }
+
+        [Test]
         public void LegacyZeroBlockRemainsDisabledAndValid()
         {
             var options = new SkinningProtectionOptions();

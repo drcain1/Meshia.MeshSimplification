@@ -67,7 +67,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         if (!component.enabled || !component.TryGetComponent<Renderer>(out var renderer)) continue;
                         var source = RendererUtility.GetRequiredMesh(renderer);
                         var options = component.options;
-                        options.SkinningProtection = options.SkinningProtection.Resolve(autoProtectedRenderers.Contains(renderer));
+                        options.SkinningProtection = options.SkinningProtection.Resolve(options.SkinningProtection.Policy == SkinningProtectionPolicy.AutoDeforming
+                            ? HasDeformingSkinning(renderer as SkinnedMeshRenderer) : autoProtectedRenderers.Contains(renderer));
                         var work = new Work(renderer, source, component.target, options, null);
                         works.Add(work);
                     }
@@ -80,8 +81,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                             var renderer = entry.GetTargetRenderer(component)!;
                             var source = RendererUtility.GetRequiredMesh(renderer);
                             var target = entry.CreateTarget(source.GetTriangleCount());
-                            var options = entry.Options;
-                            options.SkinningProtection = options.SkinningProtection.Resolve(autoProtectedRenderers.Contains(renderer));
+                            var options = MeshiaCascadingAvatarMeshSimplifier.GetJointProtectionOptions(context.AvatarRootObject, component, entry);
+                            options.SkinningProtection = options.SkinningProtection.Resolve(options.SkinningProtection.Policy == SkinningProtectionPolicy.AutoDeforming
+                                ? HasDeformingSkinning(renderer as SkinnedMeshRenderer) : autoProtectedRenderers.Contains(renderer));
                             var work = new Work(renderer, source, target,
                                 options,
                                 MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(context.AvatarRootObject, component, entry));
@@ -117,13 +119,54 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
         }
 
+        internal static MeshSimplifierOptions ResolveOptions(GameObject avatarRoot, Renderer renderer,
+            MeshSimplifierOptions options)
+        {
+            var automatic = options.SkinningProtection.Policy == SkinningProtectionPolicy.AutoDeforming
+                ? HasDeformingSkinning(renderer as SkinnedMeshRenderer)
+                : options.SkinningProtection.Policy == SkinningProtectionPolicy.Auto && avatarRoot != null &&
+                  SelectAutomaticSkinningProtection(avatarRoot).Contains(renderer);
+            options.SkinningProtection = options.SkinningProtection.Resolve(automatic);
+            return options;
+        }
+
         internal static MeshSimplifierOptions ResolvePreviewOptions(ComputeContext context,
             GameObject avatarRoot, Renderer renderer, MeshSimplifierOptions options)
         {
-            var autoSelected = options.SkinningProtection.Policy == SkinningProtectionPolicy.Auto &&
-                avatarRoot != null && SelectAutomaticSkinningProtection(avatarRoot, context).Contains(renderer);
+            var autoSelected = false;
+            if (options.SkinningProtection.Policy == SkinningProtectionPolicy.AutoDeforming)
+            {
+                context.Observe(renderer);
+                if (renderer is SkinnedMeshRenderer skinned)
+                {
+                    context.Observe(skinned, r => r.bones, (a, b) => System.Linq.Enumerable.SequenceEqual(a, b));
+                    if (skinned.sharedMesh != null) context.Observe(skinned.sharedMesh);
+                    autoSelected = HasDeformingSkinning(skinned);
+                }
+            }
+            else if (options.SkinningProtection.Policy == SkinningProtectionPolicy.Auto && avatarRoot != null)
+                autoSelected = SelectAutomaticSkinningProtection(avatarRoot, context).Contains(renderer);
             options.SkinningProtection = options.SkinningProtection.Resolve(autoSelected);
             return options;
+        }
+
+        // Bone influences, not renderer names or a unique body classification, determine eligibility.
+        internal static bool HasDeformingSkinning(SkinnedMeshRenderer? renderer)
+        {
+            if (renderer == null || renderer.sharedMesh == null) return false;
+            var bones = renderer.bones;
+            Transform? first = null;
+            using var weights = renderer.sharedMesh.GetAllBoneWeights();
+            foreach (var weight in weights)
+            {
+                if (!(weight.weight > 0f) || float.IsInfinity(weight.weight) ||
+                    weight.boneIndex < 0 || weight.boneIndex >= bones.Length) continue;
+                var bone = bones[weight.boneIndex];
+                if (bone == null) continue;
+                if (first == null) first = bone;
+                else if (bone != first) return true;
+            }
+            return false;
         }
 
         private static HashSet<Renderer> SelectAutomaticSkinningProtection(GameObject avatarRoot,
@@ -220,6 +263,11 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
         private static void Commit(BuildContext context, Work work)
         {
+            if (work.Target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount &&
+                work.Simplified.GetTriangleCount() > work.Target.Value + 1)
+                Debug.LogWarning(Meshia.MeshSimplification.Editor.Localization.LocalizationProvider.Format(
+                    "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically.",
+                    work.Renderer.name, work.Simplified.GetTriangleCount(), work.Target.Value), work.Renderer);
             context.AssetSaver.SaveAsset(work.Simplified);
             if (work.Simplified != work.Source)
             {

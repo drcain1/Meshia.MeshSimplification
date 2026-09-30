@@ -7,6 +7,14 @@ namespace Meshia.MeshSimplification.Tests
     public sealed class SkinningCollapseMetricsTests
     {
         [Test]
+        public void DominantBoneAggregatesDuplicateSlotsAndIgnoresPadding()
+        {
+            Assert.That(SkinningCollapseMetrics.DominantBone(new uint[] { 3, 2, 2, 0 }, new[] { .4f, .3f, .3f, 0f }), Is.EqualTo(2));
+            Assert.That(SkinningCollapseMetrics.DominantBone(new uint[] { 3, 2 }, new[] { .5f, .5f }), Is.EqualTo(2));
+            Assert.That(SkinningCollapseMetrics.DominantBone(new uint[] { 0, 9 }, new[] { 0f, 0f }), Is.EqualTo(-1));
+        }
+
+        [Test]
         public void TotalVariationIsSymmetricAndOrderIndependent()
         {
             var aIndices = new uint[] { 1, 4, 7, 9 }; var aWeights = new[] { .5f, .3f, .15f, .05f };

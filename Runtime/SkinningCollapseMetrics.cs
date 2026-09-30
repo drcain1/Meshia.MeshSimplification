@@ -5,6 +5,27 @@ namespace Meshia.MeshSimplification
 {
     internal static class SkinningCollapseMetrics
     {
+        // Aggregate duplicate slots and break ties by bone index so influence ordering
+        // cannot move the protected transition ring.
+        internal static int DominantBone(ReadOnlySpan<uint> indices, ReadOnlySpan<float> weights)
+        {
+            var best = -1;
+            var maximum = 0f;
+            for (var i = 0; i < indices.Length; i++)
+            {
+                var weight = 0f;
+                for (var j = 0; j < indices.Length; j++)
+                    if (indices[j] == indices[i]) weight += MathF.Max(0f, weights[j]);
+                var bone = (int)indices[i];
+                if (weight > maximum || (weight == maximum && weight > 0f && bone < best))
+                {
+                    best = bone;
+                    maximum = weight;
+                }
+            }
+            return best;
+        }
+
         internal static float TotalVariation(ReadOnlySpan<uint> indicesA, ReadOnlySpan<float> weightsA,
             ReadOnlySpan<uint> indicesB, ReadOnlySpan<float> weightsB)
         {

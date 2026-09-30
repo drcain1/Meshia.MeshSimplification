@@ -27,7 +27,7 @@ namespace Meshia.MeshSimplification.Tests
             {
                 window.Show();
                 foreach (var policy in new[] { SkinningProtectionPolicy.Auto, SkinningProtectionPolicy.On,
-                    SkinningProtectionPolicy.Off, SkinningProtectionPolicy.Legacy })
+                    SkinningProtectionPolicy.Off, SkinningProtectionPolicy.Legacy, SkinningProtectionPolicy.AutoDeforming })
                 foreach (var enabled in new[] { false, true })
                 {
                     window.rootVisualElement.Clear();
@@ -41,7 +41,7 @@ namespace Meshia.MeshSimplification.Tests
 
                     Assert.That(host.Options.SkinningProtection.Policy, Is.EqualTo(policy), "Opening or rebinding the inspector must not change policy.");
                     Assert.That(host.Options.SkinningProtection.Enabled, Is.EqualTo(enabled));
-                    Assert.That(root.Q<Toggle>("SkinningProtectionAuto").value, Is.EqualTo(policy == SkinningProtectionPolicy.Auto));
+                    Assert.That(root.Q<Toggle>("SkinningProtectionAuto").value, Is.EqualTo(policy == SkinningProtectionPolicy.Auto || policy == SkinningProtectionPolicy.AutoDeforming));
                     Assert.That(root.Q<Toggle>("SkinningProtectionEnabled").value,
                         Is.EqualTo(policy == SkinningProtectionPolicy.On || (policy == SkinningProtectionPolicy.Legacy && enabled)));
                     root.Unbind();
@@ -76,7 +76,7 @@ namespace Meshia.MeshSimplification.Tests
 
                 Undo.IncrementCurrentGroup();
                 automatic.value = true;
-                Assert.That(host.Options.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.Auto));
+                Assert.That(host.Options.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.AutoDeforming));
                 Assert.That(manual.enabledSelf, Is.False);
                 Undo.FlushUndoRecordObjects();
                 Undo.PerformUndo();

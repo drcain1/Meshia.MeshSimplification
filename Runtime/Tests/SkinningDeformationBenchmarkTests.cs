@@ -90,6 +90,96 @@ namespace Meshia.MeshSimplification.Tests
             }
         }
 
+        [Test]
+        public void JointTransitionProtectionKeepsBendRingsButSimplifiesRigidSegments()
+        {
+            var source = CreateJointTube();
+            var output = new Mesh();
+            var unselected = new Mesh();
+            try
+            {
+                var options = MeshSimplifierOptions.Default;
+                options.PreserveBorderEdges = false;
+                options.FaQem.PreserveAttributeSeams = false;
+                options.SkinningProtection.PreserveJointTransitions = true;
+                options.SkinningProtection.JointProtectionBoneIndices.Add(0);
+                var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 20 };
+                var history = MeshSimplifier.SimplifyWithHistory(source, target, options, null, output);
+                Assert.That(output.triangles.Length, Is.LessThan(source.triangles.Length), "Rigid regions must remain reducible.");
+                var originalVertices = source.vertices;
+                var originalWeights = source.boneWeights;
+                var vertices = output.vertices;
+                var weights = output.boneWeights;
+                for (var ring = 7; ring <= 10; ring++)
+                for (var side = 0; side < 12; side++)
+                {
+                    var sourceIndex = ring * 12 + side;
+                    var index = Array.IndexOf(history.OutputVertexToSourceVertex, sourceIndex);
+                    Assert.That(index, Is.GreaterThanOrEqualTo(0), $"Missing joint/support vertex {sourceIndex}");
+                    Assert.That(Vector3.Distance(vertices[index], originalVertices[sourceIndex]), Is.LessThan(1e-6f));
+                    Assert.That(weights[index], Is.EqualTo(originalWeights[sourceIndex]));
+                }
+                options.SkinningProtection.JointProtectionBoneIndices.Clear();
+                options.SkinningProtection.JointProtectionBoneIndices.Add(99);
+                MeshSimplifier.Simplify(source, target, options, unselected);
+                Assert.That(unselected.triangles.Length, Is.LessThan(output.triangles.Length), "Unselected joints must not be frozen.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+                Object.DestroyImmediate(output);
+                Object.DestroyImmediate(unselected);
+            }
+        }
+
+        [Test]
+        public async System.Threading.Tasks.Task JointTransitionProtectionMatchesAsyncAndBatch()
+        {
+            var source = CreateJointTube(); var sync = new Mesh(); var asyncMesh = new Mesh(); var batch = new Mesh();
+            try
+            {
+                var options = MeshSimplifierOptions.Default;
+                options.PreserveBorderEdges = false;
+                options.SkinningProtection.PreserveJointTransitions = true;
+                var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 20 };
+                MeshSimplifier.Simplify(source, target, options, sync);
+                await MeshSimplifier.SimplifyAsync(source, target, options, asyncMesh);
+                MeshSimplifier.SimplifyBatch(new[] { (source, target, options, batch) });
+                Assert.That(asyncMesh.vertices, Is.EqualTo(sync.vertices));
+                Assert.That(asyncMesh.triangles, Is.EqualTo(sync.triangles));
+                Assert.That(batch.vertices, Is.EqualTo(sync.vertices));
+                Assert.That(batch.boneWeights, Is.EqualTo(sync.boneWeights));
+            }
+            finally { Object.DestroyImmediate(source); Object.DestroyImmediate(sync); Object.DestroyImmediate(asyncMesh); Object.DestroyImmediate(batch); }
+        }
+
+        static Mesh CreateJointTube()
+        {
+            const int rings = 17, sides = 12;
+            var vertices = new Vector3[rings * sides];
+            var weights = new BoneWeight[vertices.Length];
+            var triangles = new int[(rings - 1) * sides * 6];
+            for (var ring = 0; ring < rings; ring++)
+            for (var side = 0; side < sides; side++)
+            {
+                var i = ring * sides + side;
+                var x = ring / 16f;
+                var angle = side * Mathf.PI * 2 / sides;
+                vertices[i] = new Vector3(x, .1f * Mathf.Cos(angle), .1f * Mathf.Sin(angle));
+                var right = Mathf.Clamp01((x - .35f) / .3f);
+                weights[i] = new BoneWeight { boneIndex0 = 0, weight0 = 1 - right, boneIndex1 = 1, weight1 = right };
+                if (ring == rings - 1) continue;
+                var next = ring * sides + (side + 1) % sides;
+                var offset = (ring * sides + side) * 6;
+                triangles[offset] = i; triangles[offset + 1] = next; triangles[offset + 2] = i + sides;
+                triangles[offset + 3] = next; triangles[offset + 4] = next + sides; triangles[offset + 5] = i + sides;
+            }
+            var mesh = new Mesh { vertices = vertices, triangles = triangles, boneWeights = weights,
+                bindposes = new[] { Matrix4x4.identity, Matrix4x4.identity } };
+            mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            return mesh;
+        }
+
         static Mesh CreateJointStrip()
         {
             const int columns = 5;

@@ -6,7 +6,8 @@
         "VRC.SDKBase",
         "nadena.dev.modular-avatar.core",
         "nadena.dev.ndmf.runtime",
-        "Unity.Mathematics"
+        "Unity.Mathematics",
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

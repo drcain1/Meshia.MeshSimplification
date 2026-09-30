@@ -3,6 +3,8 @@
     <ui:HelpBox name="AttachedToRootWarning" message-type="Warning" text="This component should not be attached to root GameObject." style="display: none;" />
     <ui:VisualElement name="MainElement" style="flex-grow: 1;">
         <ui:DropdownField label="Algorithm for All Meshes" name="AllMeshesAlgorithmField" tooltip="Choose an algorithm to apply to every mesh entry. Individual mesh options and triangle targets are retained." />
+        <ui:Button text="Apply Conservative Defaults to All Meshes" name="ConservativeDefaultsButton" tooltip="Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported." />
+        <ui:HelpBox text="Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget." message-type="Info" />
         <ui:GroupBox style="flex-direction: row;">
             <ui:IntegerField label="Target Triangle Count" value="70000" name="TargetTriangleCountField" binding-path="TargetTriangleCount" />
             <ui:DropdownField name="TargetTriangleCountPresetDropdownField" />

@@ -11,6 +11,7 @@ using UnityEngine.Pool;
 using System.Diagnostics.CodeAnalysis;
 using System.Collections;
 using Unity.Mathematics;
+using Unity.Collections;
 
 namespace Meshia.MeshSimplification.Ndmf
 {
@@ -148,6 +149,39 @@ namespace Meshia.MeshSimplification.Ndmf
                 target.ResolveReference(this);
             }
         }
+        /// <summary>Resolves the independent humanoid joint selection into this renderer's mesh bone indices.</summary>
+        public static MeshSimplifierOptions GetJointProtectionOptions(GameObject avatarRoot,
+            MeshiaCascadingAvatarMeshSimplifier component, MeshiaCascadingAvatarMeshSimplifierRendererEntry entry)
+        {
+            var options = entry.Options;
+            options.SkinningProtection.JointProtectionBoneIndices.Clear();
+            if (!options.SkinningProtection.PreserveJointTransitions) return options;
+            var animator = avatarRoot != null ? avatarRoot.GetComponent<Animator>() : null;
+            var renderer = entry.GetTargetRenderer(component) as SkinnedMeshRenderer;
+            if (animator != null && animator.isHuman && renderer != null)
+            {
+                var bones = renderer.bones;
+                for (var i = 0; i < (int)HumanBodyBones.LastBone; i++)
+                {
+                    if ((entry.PreserveJointTransitionsBones & (1ul << i)) == 0) continue;
+                    var bone = animator.GetBoneTransform((HumanBodyBones)i);
+                    if (bone == null) continue;
+                    // A renderer may contain multiple slots for the same transform.
+                    for (var slot = 0; slot < bones.Length; slot++)
+                        if (bones[slot] == bone && !options.SkinningProtection.JointProtectionBoneIndices.Contains(slot))
+                        {
+                            if (options.SkinningProtection.JointProtectionBoneIndices.Length == options.SkinningProtection.JointProtectionBoneIndices.Capacity)
+                                throw new InvalidOperationException("Too many mesh bone slots selected for joint protection. Select fewer Joint Protection Bones.");
+                            options.SkinningProtection.JointProtectionBoneIndices.Add(slot);
+                        }
+                }
+            }
+            // An empty humanoid selection must never fall back to protecting every joint.
+            if (options.SkinningProtection.JointProtectionBoneIndices.Length == 0)
+                options.SkinningProtection.PreserveJointTransitions = false;
+            return options;
+        }
+
         public static BitArray? GetPreserveBorderEdgesBoneIndices(GameObject avatarRoot, MeshiaCascadingAvatarMeshSimplifier avatarMeshSimplifier, MeshiaCascadingAvatarMeshSimplifierRendererEntry entry)
         {
             if (avatarRoot.TryGetComponent(out Animator avatarAnimator) && entry.GetTargetRenderer(avatarMeshSimplifier) is SkinnedMeshRenderer skinnedMeshRenderer)
@@ -188,7 +222,9 @@ namespace Meshia.MeshSimplification.Ndmf
         // Newly created entries select FA-QEM in the renderer constructor below.
         public MeshiaCascadingSimplificationAlgorithm Algorithm = MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;
         public MeshSimplifierOptions Options = MeshSimplifierOptions.Default;
-        public ulong PreserveBorderEdgesBones =
+        public ulong PreserveBorderEdgesBones = DefaultHandBones;
+        public ulong PreserveJointTransitionsBones = DefaultHandBones;
+        public const ulong DefaultHandBones =
             (1ul << (int)HumanBodyBones.LeftHand) |
             (1ul << (int)HumanBodyBones.RightHand) |
             (1ul << (int)HumanBodyBones.LeftThumbProximal) |
@@ -221,6 +257,14 @@ namespace Meshia.MeshSimplification.Ndmf
             (1ul << (int)HumanBodyBones.RightLittleProximal) |
             (1ul << (int)HumanBodyBones.RightLittleIntermediate) |
             (1ul << (int)HumanBodyBones.RightLittleDistal);
+        /// <summary>Humanoid limb joints protected on new entries. Unmapped bones are ignored.</summary>
+        public const ulong DefaultJointBones = DefaultHandBones |
+            (1ul << (int)HumanBodyBones.LeftUpperArm) | (1ul << (int)HumanBodyBones.RightUpperArm) |
+            (1ul << (int)HumanBodyBones.LeftLowerArm) | (1ul << (int)HumanBodyBones.RightLowerArm) |
+            (1ul << (int)HumanBodyBones.LeftUpperLeg) | (1ul << (int)HumanBodyBones.RightUpperLeg) |
+            (1ul << (int)HumanBodyBones.LeftLowerLeg) | (1ul << (int)HumanBodyBones.RightLowerLeg) |
+            (1ul << (int)HumanBodyBones.LeftFoot) | (1ul << (int)HumanBodyBones.RightFoot);
+
         public bool Enabled = true;
         public bool Fixed = false;
 
@@ -237,7 +281,8 @@ namespace Meshia.MeshSimplification.Ndmf
             RendererObjectReference = new AvatarObjectReference();
             RendererObjectReference.Set(renderer.gameObject);
             TargetTriangleCount = RendererUtility.GetMesh(renderer)?.GetTriangleCount() ?? 0;
-            Options.SkinningProtection.Policy = SkinningProtectionPolicy.Auto;
+            Options = MeshSimplifierOptions.ConservativeAvatar;
+            PreserveJointTransitionsBones = DefaultJointBones;
         }
 
         /// <summary>

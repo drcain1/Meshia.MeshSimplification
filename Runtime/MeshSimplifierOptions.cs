@@ -25,6 +25,22 @@ namespace Meshia.MeshSimplification
             FaQem = FaQemOptions.Default,
         };
 
+        /// <summary>Conservative defaults for newly configured avatars. Saved options and core defaults are unchanged.</summary>
+        public static MeshSimplifierOptions ConservativeAvatar
+        {
+            get
+            {
+                var options = Default;
+                options.SkinningProtection.Policy = SkinningProtectionPolicy.AutoDeforming;
+                options.SkinningProtection.PreserveJointTransitions = true;
+                options.SkinningProtection.Strength = 2f;
+                options.SkinningProtection.MaxWeightDistance = .1f;
+                options.SkinningProtection.MaxDiscardedWeight = .02f;
+                options.FaQem.MaxSurfaceDeviation = .0005f;
+                return options;
+            }
+        }
+
         /// <summary>
         /// If you want to suppress hole generation during simplification, enable this option.
         /// </summary>

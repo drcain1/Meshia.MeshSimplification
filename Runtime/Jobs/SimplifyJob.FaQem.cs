@@ -11,6 +11,7 @@ namespace Meshia.MeshSimplification
         public bool RecordFaQemHistory;
 
         const byte FaQemDeformableDegenerateVertex = 2;
+        const byte FaQemJointTransitionVertex = 4;
 
         struct FaQemCandidate : IComparable<FaQemCandidate>
         {
@@ -60,6 +61,7 @@ namespace Meshia.MeshSimplification
                     if (!VertexContainingTriangles.ContainsKey(degenerate.z)) DiscardVertex(degenerate.z);
                     DiscardTriangle(ti);
                 }
+            InitializeFaQemJointTransitions(seamFlags);
             InitializeFaQemSourceQuadrics(sourceQuadrics, center, scale, settings);
             using var envelope = new FaQemSurfaceEnvelope(VertexPositionBuffer, Triangles, DiscardedTriangle,
                 center, scale, settings.MaxSurfaceDeviation);
@@ -360,9 +362,50 @@ namespace Meshia.MeshSimplification
             return result;
         }
 
+        void InitializeFaQemJointTransitions(NativeArray<byte> flags)
+        {
+            if (!Options.SkinningProtection.PreserveJointTransitions || VertexBlendIndicesBuffer.Length == 0) return;
+            var dimension = VertexBlendIndicesBuffer.Length / VertexPositionBuffer.Length;
+            if (dimension == 0 || VertexBlendWeightBuffer.Length != VertexBlendIndicesBuffer.Length) return;
+            using var dominant = new NativeArray<int>(flags.Length, Allocator.Temp);
+            for (var vertex = 0; vertex < flags.Length; vertex++)
+            {
+                dominant.ElementAt(vertex) = SkinningCollapseMetrics.DominantBone(
+                    VertexBlendIndicesBuffer.AsSpan().Slice(vertex * dimension, dimension),
+                    VertexBlendWeightBuffer.AsSpan().Slice(vertex * dimension, dimension));
+            }
+            for (var ti = 0; ti < Triangles.Length; ti++)
+            {
+                if (IsDiscardedTriangle(ti)) continue;
+                var triangle = Triangles[ti];
+                for (var edge = 0; edge < 3; edge++)
+                {
+                    var a = triangle[edge];
+                    var b = triangle[(edge + 1) % 3];
+                    if (dominant[a] < 0 || dominant[b] < 0 || dominant[a] == dominant[b]) continue;
+                    var selected = Options.SkinningProtection.JointProtectionBoneIndices;
+                    if (selected.Length > 0 && !selected.Contains(dominant[a]) && !selected.Contains(dominant[b])) continue;
+                    flags.ElementAt(a) |= FaQemJointTransitionVertex;
+                    flags.ElementAt(b) |= FaQemJointTransitionVertex;
+                }
+            }
+            // Freeze only one source support ring: do not grow this region as collapses
+            // proceed, or the whole rigid segment would eventually become protected.
+            using var transitionFlags = new NativeArray<byte>(flags, Allocator.Temp);
+            for (var ti = 0; ti < Triangles.Length; ti++)
+            {
+                if (IsDiscardedTriangle(ti)) continue;
+                var t = Triangles[ti];
+                if (((transitionFlags[t.x] | transitionFlags[t.y] | transitionFlags[t.z]) & FaQemJointTransitionVertex) == 0) continue;
+                flags.ElementAt(t.x) |= FaQemJointTransitionVertex;
+                flags.ElementAt(t.y) |= FaQemJointTransitionVertex;
+                flags.ElementAt(t.z) |= FaQemJointTransitionVertex;
+            }
+        }
+
         readonly bool IsFaQemProtected(int a, int b, NativeArray<byte> seamFlags, FaQemOptions settings)
         {
-            if (((seamFlags[a] | seamFlags[b]) & FaQemDeformableDegenerateVertex) != 0) return true;
+            if (((seamFlags[a] | seamFlags[b]) & (FaQemDeformableDegenerateVertex | FaQemJointTransitionVertex)) != 0) return true;
             if (IsFaQemPreservedBoundary(a) || IsFaQemPreservedBoundary(b)) return true;
             if (VertexContainingSubMeshIndices.Length == VertexPositionBuffer.Length && VertexContainingSubMeshIndices[a] != VertexContainingSubMeshIndices[b]) return true;
             return settings.PreserveAttributeSeams && (IsFaQemSeamVertex(a, seamFlags) || IsFaQemSeamVertex(b, seamFlags));

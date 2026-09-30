@@ -74,8 +74,8 @@ namespace Meshia.MeshSimplification.Editor
                     protection.FindPropertyRelative(nameof(SkinningProtectionOptions.MaxDiscardedWeight)).floatValue = defaults.MaxDiscardedWeight;
                 }
                 skinningProtectionPolicy.enumValueIndex = changeEvent.newValue
-                    ? (int)SkinningProtectionPolicy.Auto
-                    : (skinningProtectionPolicy.enumValueIndex == (int)SkinningProtectionPolicy.Auto
+                    ? (int)SkinningProtectionPolicy.AutoDeforming
+                    : ((skinningProtectionPolicy.enumValueIndex == (int)SkinningProtectionPolicy.Auto || skinningProtectionPolicy.enumValueIndex == (int)SkinningProtectionPolicy.AutoDeforming)
                         ? (int)SkinningProtectionPolicy.Off
                         : (skinningProtectionEnabled.value ? (int)SkinningProtectionPolicy.On : (int)SkinningProtectionPolicy.Off));
                 skinningProtectionEnabled.SetEnabled(!changeEvent.newValue);
@@ -88,7 +88,8 @@ namespace Meshia.MeshSimplification.Editor
             {
                 var protection = property.FindPropertyRelative(nameof(MeshSimplifierOptions.SkinningProtection));
                 var policy = (SkinningProtectionPolicy)skinningProtectionPolicy.enumValueIndex;
-                var automatic = policy == SkinningProtectionPolicy.Auto;
+                var automatic = policy == SkinningProtectionPolicy.Auto || policy == SkinningProtectionPolicy.AutoDeforming;
+                root.Q<HelpBox>("LegacyAutomaticProtectionHelp").style.display = policy == SkinningProtectionPolicy.Auto ? DisplayStyle.Flex : DisplayStyle.None;
                 skinningProtectionAuto.SetValueWithoutNotify(automatic);
                 skinningProtectionEnabled.SetValueWithoutNotify(policy == SkinningProtectionPolicy.On ||
                     (policy == SkinningProtectionPolicy.Legacy &&
@@ -125,8 +126,7 @@ namespace Meshia.MeshSimplification.Editor
 
             resetOptionsButton.clicked += () =>
             {
-                var defaults = MeshSimplifierOptions.Default;
-                defaults.SkinningProtection.Policy = SkinningProtectionPolicy.Auto;
+                var defaults = MeshSimplifierOptions.ConservativeAvatar;
                 property.boxedValue = defaults;
                 property.serializedObject.ApplyModifiedProperties();
             };
