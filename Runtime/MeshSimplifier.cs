@@ -699,7 +699,7 @@ namespace Meshia.MeshSimplification
 
             triangleErrorQuadrics.Dispose(constructVertexErrorQuadrics);
 
-            var constructVertexMerges = ScheduleInitializeVertexMerges(mergePairs, preserveBorderEdgesBoneIndices, constructVertexPositionBuffer, constructVertexBlendIndicesBuffer, constructVertexErrorQuadrics, constructTriangleNormalsAndErrorQuadrics, constructVertexContainingTrianglesAndTriangleDiscardedBits, constructVertexIsBorderEdgeBits, constructMergePairs);
+            var constructVertexMerges = ScheduleInitializeVertexMerges(mergePairs, preserveBorderEdgesBoneIndices, constructVertexPositionBuffer, constructVertexNormalBuffer, constructVertexBlendIndicesBuffer, constructVertexErrorQuadrics, constructTriangleNormalsAndErrorQuadrics, constructVertexContainingTrianglesAndTriangleDiscardedBits, constructVertexIsBorderEdgeBits, constructMergePairs);
 
             mergePairs.Dispose(constructVertexMerges);
 
@@ -1332,6 +1332,7 @@ namespace Meshia.MeshSimplification
             NativeList<int2> edges,
             NativeBitArray preserveBorderEdgesBoneIndices,
             JobHandle vertexPositionBufferDependency,
+            JobHandle vertexNormalBufferDependency,
             JobHandle vertexBlendIndicesBufferDependency,
             JobHandle vertexErrorQuadricsDependency,
             JobHandle triangleNormalsDependency,
@@ -1368,6 +1369,8 @@ namespace Meshia.MeshSimplification
             stackalloc[]
             {
                 vertexPositionBufferDependency,
+                // Smart linking may be disabled, so its jobs cannot provide this dependency.
+                vertexNormalBufferDependency,
                 vertexBlendIndicesBufferDependency,
                 vertexErrorQuadricsDependency,
                 triangleNormalsDependency,

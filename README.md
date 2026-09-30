@@ -62,6 +62,7 @@ FA-QEM reduces a mesh toward an absolute triangle budget using source surface pl
 - **Split-vertex seam protection:** **Preserve Attribute Seams** is on by default. It locks coincident vertex records within a scale-dependent tolerance, including split records whose attributes match, so independently simplified face groups do not pull those copies apart. This also protects coincident splits used for UV seams and hard normals. It does not weld or repair the source mesh.
 - **Material boundaries:** rejects collapses between vertices with different submesh memberships.
 - **Topology and face checks:** checks the local edge-collapse link condition and rejects unsafe non-manifold configurations, degenerate surviving faces, and excessive face-normal changes. These are local safeguards, not a global self-intersection or mesh-repair guarantee.
+- **Flat faces in animated meshes:** source triangles with distinct vertex indices can have zero area at rest and open under animation. On meshes with blend shapes or skin weights, FA-QEM retains these faces and locks their vertices, even if border or seam protection is disabled. Static zero-area faces can still be removed. This conservative protection may limit reduction near those faces.
 - **Optional border locking:** **Preserve Border Edges** fixes vertices on topological open boundaries. Selected-bone border protection is also supported for skinned meshes when only specific regions need protection.
 - **Experimental skinning protection:** **Protect joint deformation** adds a skin-weight cost and rejection limits for endpoint weight differences and discarded influences. The core API defaults to off; new NDMF entries use the Auto policy described above. Check representative poses and blend shapes after reduction.
 - **Editor and build integration:** supports per-renderer budgets, cascading budget allocation, NDMF previews/builds, and the original/simplified **Preview UVs** overlay.
@@ -217,6 +218,7 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 - **分離頂点のシーム保護：** **Preserve Attribute Seams** の初期値はオンです。メッシュの大きさに応じた許容誤差内で同じ位置にある別々の頂点を固定し、独立して軽量化される面同士が離れるのを防ぎます。属性が同じ頂点や、UV シーム・ハード法線のために分離された頂点も対象です。元のメッシュの溶接や修復は行いません。
 - **マテリアル境界：** 所属するサブメッシュの組み合わせが異なる頂点同士の統合を拒否します。
 - **トポロジーと面の検査：** エッジ統合の局所的なリンク条件を確認し、危険な非多様体構造、残る面の退化、過度な面法線の変化を拒否します。局所的な安全策であり、メッシュ全体の自己交差防止や修復を保証するものではありません。
+- **アニメーションで開く面の保護：** 頂点インデックスが互いに異なる三角形は、初期状態では面積がゼロでも、変形によって面が開く場合があります。ブレンドシェイプまたはスキンウェイトを持つメッシュでは、FA-QEM はその面を保持し、境界・シーム保護が無効でも頂点を固定します。変形データのないメッシュの面積ゼロの面は引き続き削除できます。この安全策により、該当する面の周辺では削減が制限される場合があります。
 - **境界の固定：** **Preserve Border Edges** で、トポロジー上の開いた境界の頂点を固定できます。スキンメッシュでは、特定の領域だけを保護するために選択したボーンに基づく境界保護も利用できます。
 - **実験的なスキニング保護：** **Protect joint deformation** でウェイト差の評価コストと制限を追加します。コア API の初期値はオフ、新規 NDMF 項目は上記の Auto です。軽量化後の代表的なポーズとブレンドシェイプを確認してください。
 - **エディターとビルドの連携：** レンダラーごとの目標数、アバター全体への配分、NDMF プレビュー／ビルド、**Preview UVs** の比較表示に対応します。

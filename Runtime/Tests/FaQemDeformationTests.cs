@@ -9,6 +9,77 @@ namespace Meshia.MeshSimplification.Tests
 {
     public class FaQemDeformationTests
     {
+        [TestCase(true, false, 0f)]
+        [TestCase(true, false, 0.01f)]
+        [TestCase(false, true, 0f)]
+        [TestCase(true, true, 0f)]
+        [TestCase(false, false, 0f)]
+        public void ShouldKeepFlatSourceFacesThatCanOpenUnderDeformation(
+            bool blendShape, bool skinning, float surfaceDeviation)
+        {
+            var source = new Mesh
+            {
+                vertices = new[] { Vector3.zero, Vector3.right, Vector3.right * 2, Vector3.up },
+                triangles = new[] { 0, 1, 2, 0, 2, 3 },
+            };
+            var destination = new Mesh();
+            try
+            {
+                if (blendShape)
+                {
+                    source.AddBlendShapeFrame("Open flat face", 100,
+                        new[] { Vector3.zero, Vector3.up, Vector3.zero, Vector3.zero }, null, null);
+                }
+                if (skinning)
+                {
+                    source.bindposes = new[] { Matrix4x4.identity, Matrix4x4.identity };
+                    source.boneWeights = new[]
+                    {
+                        new BoneWeight { boneIndex0 = 0, weight0 = 1 },
+                        new BoneWeight { boneIndex0 = 1, weight0 = 1 },
+                        new BoneWeight { boneIndex0 = 0, weight0 = 1 },
+                        new BoneWeight { boneIndex0 = 0, weight0 = 1 },
+                    };
+                }
+                var options = MeshSimplifierOptions.Default;
+                options.EnableSmartLink = false;
+                options.PreserveBorderEdges = false;
+                options.FaQem.PreserveAttributeSeams = false;
+                options.FaQem.MaxSurfaceDeviation = surfaceDeviation;
+                var history = MeshSimplifier.SimplifyWithHistory(source,
+                    new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 0 },
+                    options, null, destination);
+                var flatFace = Array.IndexOf(history.OutputTriangleToSourceTriangle, 0);
+                if (!blendShape && !skinning)
+                {
+                    Assert.That(flatFace, Is.EqualTo(-1), "Static zero-area faces can still be removed.");
+                    return;
+                }
+
+                Assert.That(flatFace, Is.GreaterThanOrEqualTo(0), "The animated source face must survive.");
+                var positions = destination.vertices;
+                var delta = new Vector3[destination.vertexCount];
+                if (blendShape) destination.GetBlendShapeFrameVertices(0, 0, delta, null, null);
+                var weights = destination.boneWeights;
+                var face = new Vector3[3];
+                for (var corner = 0; corner < 3; corner++)
+                {
+                    var index = destination.triangles[flatFace * 3 + corner];
+                    var sourceIndex = history.OutputVertexToSourceVertex[index];
+                    Assert.That(positions[index], Is.EqualTo(source.vertices[sourceIndex]));
+                    face[corner] = positions[index] + delta[index];
+                    if (skinning && weights[index].boneIndex0 == 1) face[corner] += Vector3.up;
+                }
+                Assert.That(Vector3.Cross(face[1] - face[0], face[2] - face[0]).sqrMagnitude,
+                    Is.GreaterThan(0), "The retained face must open when its deformation is applied.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+                Object.DestroyImmediate(destination);
+            }
+        }
+
         static Mesh MakeSkinnedCube()
         {
             var mesh = new Mesh { name = "FA-QEM skinned deformation fixture" };

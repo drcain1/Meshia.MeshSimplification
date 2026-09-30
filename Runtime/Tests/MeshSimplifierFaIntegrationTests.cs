@@ -59,13 +59,15 @@ namespace Meshia.MeshSimplification.Tests
             finally { UnityEngine.Object.DestroyImmediate(source); UnityEngine.Object.DestroyImmediate(destination); }
         }
 
-        [Test]
-        public async Task ShouldMatchSynchronousAsynchronousAndBatchFaOutput()
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task ShouldMatchSynchronousAsynchronousAndBatchFaOutput(bool enableSmartLink)
         {
             var source = Grid();
             var sync = new Mesh(); var asyncMesh = new Mesh(); var batch = new Mesh();
             var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 30 };
             var options = MeshSimplifierOptions.Default;
+            options.EnableSmartLink = enableSmartLink;
             options.FaQem.MaxSurfaceDeviation = 0.001f;
             try
             {

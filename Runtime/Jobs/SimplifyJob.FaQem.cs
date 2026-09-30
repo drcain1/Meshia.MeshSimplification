@@ -10,6 +10,8 @@ namespace Meshia.MeshSimplification
         public NativeList<FaQemAffectedFace> FaQemAffectedFaces;
         public bool RecordFaQemHistory;
 
+        const byte FaQemDeformableDegenerateVertex = 2;
+
         struct FaQemCandidate : IComparable<FaQemCandidate>
         {
             public int A, B;
@@ -34,10 +36,22 @@ namespace Meshia.MeshSimplification
             var settings = Options.FaQem.Effective;
             using var sourceQuadrics = new NativeArray<FaQemQuadric>(VertexPositionBuffer.Length, Allocator.Temp);
             if (!TryGetFaQemNormalization(out var center, out var scale)) return;
+            using var seamFlags = new NativeArray<byte>(VertexPositionBuffer.Length, Allocator.Temp, NativeArrayOptions.ClearMemory);
+            var hasDeformation = BlendShapes.Length > 0 || VertexBlendWeightBuffer.Length > 0;
             for (var ti = 0; ti < Triangles.Length; ti++)
                 if (!IsDiscardedTriangle(ti) && !FaQemTopology.IsGeometricallyValid(Triangles[ti], VertexPositionBuffer))
                 {
                     var degenerate = Triangles[ti];
+                    // A flat rest-pose face can open under a blend shape or skinning.
+                    // Keep its vertices fixed even when optional seam/border guards are off.
+                    if (hasDeformation && degenerate.x != degenerate.y &&
+                        degenerate.y != degenerate.z && degenerate.z != degenerate.x)
+                    {
+                        seamFlags.ElementAt(degenerate.x) |= FaQemDeformableDegenerateVertex;
+                        seamFlags.ElementAt(degenerate.y) |= FaQemDeformableDegenerateVertex;
+                        seamFlags.ElementAt(degenerate.z) |= FaQemDeformableDegenerateVertex;
+                        continue;
+                    }
                     VertexContainingTriangles.Remove(degenerate.x, ti);
                     VertexContainingTriangles.Remove(degenerate.y, ti);
                     VertexContainingTriangles.Remove(degenerate.z, ti);
@@ -49,7 +63,6 @@ namespace Meshia.MeshSimplification
             InitializeFaQemSourceQuadrics(sourceQuadrics, center, scale, settings);
             using var envelope = new FaQemSurfaceEnvelope(VertexPositionBuffer, Triangles, DiscardedTriangle,
                 center, scale, settings.MaxSurfaceDeviation);
-            using var seamFlags = new NativeArray<byte>(VertexPositionBuffer.Length, Allocator.Temp, NativeArrayOptions.ClearMemory);
             InitializeFaQemSeamFlags(seamFlags, settings.PreserveAttributeSeams, scale);
             UseFaQem = true;
             using var revisions = new NativeArray<int>(VertexPositionBuffer.Length, Allocator.Temp, NativeArrayOptions.ClearMemory);
@@ -349,6 +362,7 @@ namespace Meshia.MeshSimplification
 
         readonly bool IsFaQemProtected(int a, int b, NativeArray<byte> seamFlags, FaQemOptions settings)
         {
+            if (((seamFlags[a] | seamFlags[b]) & FaQemDeformableDegenerateVertex) != 0) return true;
             if (IsFaQemPreservedBoundary(a) || IsFaQemPreservedBoundary(b)) return true;
             if (VertexContainingSubMeshIndices.Length == VertexPositionBuffer.Length && VertexContainingSubMeshIndices[a] != VertexContainingSubMeshIndices[b]) return true;
             return settings.PreserveAttributeSeams && (IsFaQemSeamVertex(a, seamFlags) || IsFaQemSeamVertex(b, seamFlags));
@@ -405,8 +419,8 @@ namespace Meshia.MeshSimplification
                         // when every appearance attribute matches. FA-QEM does
                         // not collapse those fans together, so moving either
                         // copy independently opens a crack. Keep both fixed.
-                        flags.ElementAt(vertex) = 1;
-                        flags.ElementAt(other) = 1;
+                        flags.ElementAt(vertex) |= 1;
+                        flags.ElementAt(other) |= 1;
                     }
             }
         }
