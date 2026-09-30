@@ -140,6 +140,30 @@ builds, with the tuned configuration's serialized settings unchanged. Local Unit
 regression runs. Twelve distribution tests also passed. This beta is the candidate
 for final validation before a stable release; it remains a prerelease.
 
+Version `1.0.0-beta.6` improves budget editing and makes deformation protection
+an explicit choice for new avatar entries. New entries start with deformation
+protection off; existing saved settings are preserved. Conservative and Aggressive
+preset buttons apply broad protection or focus it on detected hands, hair, and
+named face meshes. The aggressive selection is approximate and applies to whole
+meshes. Neither preset relaxes border, seam, or surface-deviation guards. New
+entries named `Body` (case-insensitive) start excluded; this is a naming convention,
+not a guarantee of face detection.
+
+Lowering a mesh slider or number field now keeps the savings instead of raising
+other allocations. Auto Adjust only reduces other unlocked targets when needed;
+the explicit Adjust button can redistribute spare budget. Locks, exclusions,
+inspector refresh, and Undo are covered by regression tests. A deformation shortcut
+beside each row's lock/cog shows configured options consistently. Compact budget
+guidance replaces repeated preview warnings, with collapsible details and advice
+for removing geometry hidden beneath clothing. English and Japanese UI and README
+content cover the changes.
+
+Local Unity 2022.3.22f1 validation passed 67 targeted EditMode tests, with no failures.
+Twelve distribution tests passed. Triangle targets remain allocation goals: retained
+geometry can exceed them even with deformation protection off, because other guards
+remain active. This beta does not claim a guaranteed 70,000-triangle result or a new
+live VRChat validation of the preset defaults.
+
 The public repository contains generic synthetic mesh, skinning, inspector,
 serialization, and NDMF regression tests. Avatar-specific manual investigations,
 external animation paths, private reports, and local dependency-patch claims are
