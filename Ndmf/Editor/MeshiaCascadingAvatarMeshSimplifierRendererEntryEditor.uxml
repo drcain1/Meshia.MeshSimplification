@@ -1,5 +1,5 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
-    <Style src="project://database/Packages/com.ramtype0.meshia.mesh-simplification/Ndmf/Editor/MeshiaCascadingAvatarMeshSimplifierRendererEntryEditor.uss?fileID=7433441132597879392&amp;guid=1e71cbaead4b73f438e66638a2c95bdf&amp;type=3#MeshiaCascadingAvatarMeshSimplifierRendererEntryEditor" />
+    <Style src="project://database/Packages/io.github.drcain1.meshia.mesh-simplification/Ndmf/Editor/MeshiaCascadingAvatarMeshSimplifierRendererEntryEditor.uss?fileID=7433441132597879392&amp;guid=1e71cbaead4b73f438e66638a2c95bdf&amp;type=3#MeshiaCascadingAvatarMeshSimplifierRendererEntryEditor" />
     <ui:VisualElement name="VisualElement" style="flex-grow: 1; flex-direction: row;">
         <ui:Toggle name="EnabledToggle" binding-path="Enabled" />
         <uie:ObjectField name="TargetObjectField" class="editor-only" style="width: 100px;" />
@@ -12,6 +12,8 @@
         <ui:Toggle name="FixedToggle" binding-path="Fixed" style="align-self: center;" />
         <ui:Toggle name="OptionsToggle" style="align-self: center;" />
     </ui:VisualElement>
+    <uie:PropertyField label="Algorithm" binding-path="Algorithm" name="AlgorithmField" style="display: none;" />
+    <ui:Button text="Preview UVs" name="PreviewUvsButton" tooltip="Compare this renderer's original and simplified UV layout." style="display: none;" />
     <uie:PropertyField binding-path="Options" name="OptionsField" style="display: none;" />
     <ui:Foldout text="Preserve Border Edges Bones" name="PreserveBorderEdgesBonesFoldout" value="false" style="display: none;" />
 </ui:UXML>

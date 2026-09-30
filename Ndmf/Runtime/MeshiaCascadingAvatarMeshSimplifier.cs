@@ -14,6 +14,26 @@ using Unity.Mathematics;
 
 namespace Meshia.MeshSimplification.Ndmf
 {
+    /// <summary>
+    /// Selects the collapse policy used by the cascading avatar simplifier.
+    /// </summary>
+    public enum MeshiaCascadingSimplificationAlgorithm
+    {
+        /// <summary>Use Blender's decimate collapse policy while retaining the allocated triangle count.</summary>
+        BlenderDecimate,
+        /// <summary>Use Meshia's standard absolute-triangle-count simplifier.</summary>
+        Meshia,
+        /// <summary>
+        /// Reconstruct and dissolve UV-aware quad loops before using Blender Decimate
+        /// to reach the allocated triangle count.
+        /// </summary>
+        UvLoopDissolve,
+        /// <summary>
+        /// Use FA-QEM geometry simplification with the existing UV layout and materials.
+        /// </summary>
+        FaQem,
+    }
+
     [AddComponentMenu("Meshia Mesh Simplification/Meshia Cascading Avatar Mesh Simplifier")]
     public class MeshiaCascadingAvatarMeshSimplifier : MonoBehaviour
 #if ENABLE_VRCHAT_BASE
@@ -23,7 +43,7 @@ namespace Meshia.MeshSimplification.Ndmf
         public List<MeshiaCascadingAvatarMeshSimplifierRendererEntry> Entries = new();
         public int TargetTriangleCount = 70000;
         public bool AutoAdjustEnabled = true;
-        
+
         public void RefreshEntries()
         {
             using (ListPool<Renderer>.Get(out var ownedRenderers))
@@ -35,7 +55,7 @@ namespace Meshia.MeshSimplification.Ndmf
                 Entries.AddRange(addedEntries);
             }
 
-            
+
         }
 
         private void GetOwnedRenderers(List<Renderer> ownedRenderers)
@@ -118,7 +138,7 @@ namespace Meshia.MeshSimplification.Ndmf
                 }
             }
 
-            
+
         }
 
         public void ResolveReferences()
@@ -164,6 +184,9 @@ namespace Meshia.MeshSimplification.Ndmf
     {
         public AvatarObjectReference RendererObjectReference;
         public int TargetTriangleCount;
+        // Preserve the legacy value when deserializing data without an algorithm field.
+        // Newly created entries select FA-QEM in the renderer constructor below.
+        public MeshiaCascadingSimplificationAlgorithm Algorithm = MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;
         public MeshSimplifierOptions Options = MeshSimplifierOptions.Default;
         public ulong PreserveBorderEdgesBones =
             (1ul << (int)HumanBodyBones.LeftHand) |
@@ -210,9 +233,51 @@ namespace Meshia.MeshSimplification.Ndmf
         }
         public MeshiaCascadingAvatarMeshSimplifierRendererEntry(Renderer renderer)
         {
+            Algorithm = MeshiaCascadingSimplificationAlgorithm.FaQem;
             RendererObjectReference = new AvatarObjectReference();
             RendererObjectReference.Set(renderer.gameObject);
             TargetTriangleCount = RendererUtility.GetMesh(renderer)?.GetTriangleCount() ?? 0;
+            Options.SkinningProtection.Policy = SkinningProtectionPolicy.Auto;
+        }
+
+        /// <summary>
+        /// Converts this entry's allocated triangle count to its selected simplification target.
+        /// </summary>
+        public MeshSimplificationTarget CreateTarget(int sourceTriangleCount)
+        {
+            if (Algorithm == MeshiaCascadingSimplificationAlgorithm.UvLoopDissolve)
+            {
+                return new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.UvLoopDissolveTriangleCount,
+                    Value = TargetTriangleCount,
+                };
+            }
+
+            if (Algorithm == MeshiaCascadingSimplificationAlgorithm.FaQem)
+            {
+                return new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.FaQemTriangleCount,
+                    Value = TargetTriangleCount,
+                };
+            }
+
+            if (Algorithm == MeshiaCascadingSimplificationAlgorithm.BlenderDecimate)
+            {
+                var ratio = sourceTriangleCount > 0 ? TargetTriangleCount / (float)sourceTriangleCount : 1f;
+                return new MeshSimplificationTarget
+                {
+                    Kind = MeshSimplificationTargetKind.BlenderDecimateRatio,
+                    Value = math.saturate(ratio),
+                };
+            }
+
+            return new MeshSimplificationTarget
+            {
+                Kind = MeshSimplificationTargetKind.AbsoluteTriangleCount,
+                Value = TargetTriangleCount,
+            };
         }
 
         internal static bool IsValidTarget([NotNullWhen(true)] Renderer? renderer)

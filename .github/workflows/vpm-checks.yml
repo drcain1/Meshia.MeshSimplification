@@ -1,0 +1,24 @@
+name: Check VPM Distribution
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python .github/scripts/vpm.py validate
+      - run: python -m unittest discover -s .github/scripts -p 'test_*.py'
+      - run: python .github/scripts/vpm.py pack
+      - run: python .github/scripts/vpm.py listing --empty --out dist/vpm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meshia-source-packages
+          path: dist/*.zip
+          if-no-files-found: error

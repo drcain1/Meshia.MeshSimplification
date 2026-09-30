@@ -1,0 +1,44 @@
+{
+    "name": "Meshia.MeshSimplification.Ndmf.Editor.Tests",
+    "rootNamespace": "Meshia.MeshSimplification.Ndmf.Tests",
+    "references": [
+        "Meshia.MeshSimplification.Runtime",
+        "Meshia.MeshSimplification.Ndmf.Runtime",
+        "Meshia.MeshSimplification.Ndmf.Editor",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "nadena.dev.ndmf",
+        "nadena.dev.ndmf.runtime"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "ENABLE_NDMF",
+        "ENABLE_MODULAR_AVATAR"
+    ],
+    "versionDefines": [
+        {
+            "name": "nadena.dev.ndmf",
+            "expression": "",
+            "define": "ENABLE_NDMF"
+        },
+        {
+            "name": "nadena.dev.modular-avatar",
+            "expression": "",
+            "define": "ENABLE_MODULAR_AVATAR"
+        }
+    ],
+    "noEngineReferences": false
+}

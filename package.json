@@ -1,13 +1,15 @@
 {
-  "name": "com.ramtype0.meshia.mesh-simplification",
-  "displayName": "Meshia Mesh Simplification",
-  "version": "3.2.0",
+  "name": "io.github.drcain1.meshia.mesh-simplification",
+  "displayName": "Meshia \u00e2\u20ac\u201d drcain fork",
+  "version": "1.0.0-beta.2",
   "unity": "2022.3",
-  "description": "Burst accelerated mesh simplification.",
+  "description": "Independent Meshia fork maintained by drcain1, with geometry-only FA-QEM, cascading avatar budgets, and NDMF integration. Based on Meshia by Ram.Type-0. Replaces upstream Meshia; install only one variant per project.",
+  "documentationUrl": "https://github.com/drcain1/Meshia.MeshSimplification#readme",
+  "changelogUrl": "https://github.com/drcain1/Meshia.MeshSimplification/releases",
   "vrchatVersion": "2022.1.1",
   "author": {
-    "name": "Ram.Type-0",
-    "url": "https://github.com/RamType0"
+    "name": "drcain1",
+    "url": "https://github.com/drcain1"
   },
   "keywords": [
     "mesh",
@@ -20,7 +22,11 @@
     "com.unity.collections": "2.5.7",
     "com.unity.mathematics": "1.3.2"
   },
+  "legacyPackages": [
+    "com.ramtype0.meshia.mesh-simplification"
+  ],
   "vpmDependencies": {
     "com.anatawa12.custom-localization-for-editor-extension": "^1.2.1"
-  }
+  },
+  "license": "GPL-2.0-or-later"
 }

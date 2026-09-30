@@ -1,21 +1,19 @@
-# MIT License
+# Fork distribution license
 
-Copyright (c) 2025 Ram.Type-0
+This fork's combined source distribution is offered under the GNU General Public
+License, version 2 or (at your option) any later version (GPL-2.0-or-later).
+See [the full GPL version 2 text](Licenses/GPL-2.0.txt).
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Original Meshia contributions by Ram.Type-0 retain their MIT license and copyright
+notice, reproduced unchanged in [UPSTREAM-MIT.txt](Licenses/UPSTREAM-MIT.txt).
+Those original contributions remain available under MIT independently; this fork's
+combined distribution must not be represented as MIT-only.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The Blender-derived code and adaptations carry GPL-2.0-or-later terms. See
+[BLENDER_PORT_NOTICE.md](BLENDER_PORT_NOTICE.md) for source attribution and changes.
+Fork contributions by drcain1 are distributed under GPL-2.0-or-later.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This license notice does not relicense Unity, VRChat, or any other external dependency,
+and does not grant a linking exception on behalf of Blender's copyright holders.
+Review external dependency compatibility before distributing compiled combinations.
+The prepared release contains source rather than compiled assemblies.

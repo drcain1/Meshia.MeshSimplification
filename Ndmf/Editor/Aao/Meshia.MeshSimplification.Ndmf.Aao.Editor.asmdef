@@ -1,0 +1,33 @@
+{
+    "name": "Meshia.MeshSimplification.Ndmf.Aao.Editor",
+    "rootNamespace": "Meshia.MeshSimplification.Ndmf.Editor.Aao",
+    "references": [
+        "Meshia.MeshSimplification.Ndmf.Editor",
+        "com.anatawa12.avatar-optimizer.api.editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "ENABLE_AVATAR_OPTIMIZER",
+        "ENABLE_MODULAR_AVATAR"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.anatawa12.avatar-optimizer",
+            "expression": "1.8.0",
+            "define": "ENABLE_AVATAR_OPTIMIZER"
+        },
+        {
+            "name": "nadena.dev.modular-avatar",
+            "expression": "",
+            "define": "ENABLE_MODULAR_AVATAR"
+        }
+    ],
+    "noEngineReferences": false
+}

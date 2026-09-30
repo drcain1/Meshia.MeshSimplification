@@ -68,3 +68,6 @@ msgstr "SmartLink処理時に、通常と異なる許容誤差を指定できま
 
 msgid "locale:ja"
 msgstr "日本語"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.FaQemOptions"
+msgstr "FA-QEM設定"

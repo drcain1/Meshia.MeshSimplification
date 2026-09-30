@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Meshia.MeshSimplification.Editor;
 
 namespace Meshia.MeshSimplification.Ndmf.Editor
 {
@@ -14,9 +15,16 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
     {
         [SerializeField]
         VisualTreeAsset visualTreeAsset = null!;
-        
+
         public override VisualElement CreateInspectorGUI()
         {
+            visualTreeAsset ??= AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(
+                AssetDatabase.GUIDToAssetPath("8132ade07e7e2b14dba6ea4ee4ef0867"));
+            if (visualTreeAsset == null)
+            {
+                return new HelpBox("Meshia inspector UI asset could not be loaded.", HelpBoxMessageType.Error);
+            }
+
             VisualElement root = new();
             visualTreeAsset.CloneTree(root);
             root.Bind(serializedObject);
@@ -31,6 +39,39 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             ndmfNotImportedWarning.style.display = warningDisplayStyle;
 
             var bakeMeshButtonContainer = root.Q<IMGUIContainer>("BakeMeshButtonContainer");
+            var previewUvsButton = root.Q<Button>("PreviewUvsButton");
+            previewUvsButton.SetEnabled(targets.Length == 1 && TryGetTargetMesh((MeshiaMeshSimplifier)target, out _));
+            previewUvsButton.clicked += () =>
+            {
+                if (targets.Length != 1)
+                {
+                    return;
+                }
+
+                var component = (MeshiaMeshSimplifier)target;
+                if (!TryGetTargetMesh(component, out var sourceMesh))
+                {
+                    return;
+                }
+
+                serializedObject.ApplyModifiedProperties();
+                var simplifiedMesh = new Mesh { name = $"{sourceMesh.name}-UV-Preview" };
+                try
+                {
+                    var report = MeshSimplifier.SimplifyWithReport(
+                        sourceMesh,
+                        component.target,
+                        component.options,
+                        simplifiedMesh);
+                    MeshUvPreviewWindow.ShowComparison(sourceMesh, simplifiedMesh);
+                    MeshUvPreviewWindow.ShowFallbackNotification(sourceMesh, report);
+                }
+                catch
+                {
+                    DestroyImmediate(simplifiedMesh);
+                    throw;
+                }
+            };
             bakeMeshButtonContainer.onGUIHandler = () =>
             {
                 // TODO: Replace this with non-IMGUI implementation
@@ -61,7 +102,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                 }
             };
-            
+
             return root;
         }
 
@@ -71,14 +112,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             if (ndmfMeshSimplifier.TryGetComponent<MeshFilter>(out var meshFilter))
             {
                 targetMesh = meshFilter.sharedMesh;
-                if (targetMesh != null) 
+                if (targetMesh != null)
                 {
                     return true;
                 }
             }
             if (ndmfMeshSimplifier.TryGetComponent<SkinnedMeshRenderer>(out var skinnedMeshRenderer))
             {
-                targetMesh = skinnedMeshRenderer.sharedMesh; 
+                targetMesh = skinnedMeshRenderer.sharedMesh;
                 if (targetMesh != null)
                 {
                     return true;

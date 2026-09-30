@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 
 namespace Meshia.MeshSimplification
@@ -33,6 +33,20 @@ namespace Meshia.MeshSimplification
         /// The value is the target triangle count as an absolute number.
         /// </summary>
         AbsoluteTriangleCount,
+        /// <summary>
+        /// The value is the target triangle-count ratio, using Blender 5.2's
+        /// Mesh &gt; Clean Up &gt; Decimate Geometry edge-collapse policy.
+        /// A value of 1 keeps the current triangle count and 0 decimates as far as topology allows.
+        /// </summary>
+        BlenderDecimateRatio,
+        /// <summary>
+        /// The value is an absolute target triangle count. Before falling back to the
+        /// Blender-compatible collapse policy, the simplifier removes conservative,
+        /// alternating edge-loop batches reconstructed from the triangulated mesh.
+        /// </summary>
+        UvLoopDissolveTriangleCount,
+        /// <summary>Absolute triangle budget using feature-aware quadric edge collapse.</summary>
+        FaQemTriangleCount = 8,
     }
 }
 

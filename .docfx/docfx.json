@@ -8,7 +8,7 @@
           "files": [
             "Runtime/**/*.cs"
           ],
-          "exclude":[
+          "exclude": [
             "Runtime/Tests/**/*.cs"
           ]
         }
@@ -41,8 +41,8 @@
       "modern"
     ],
     "globalMetadata": {
-      "_appName": "Meshia.MeshSimplification",
-      "_appTitle": "Meshia.MeshSimplification",
+      "_appName": "Meshia — drcain fork",
+      "_appTitle": "Meshia — drcain fork",
       "_appLogoPath": "images/logo.svg",
       "_appFaviconPath": "images/logo.svg",
       "_enableSearch": true

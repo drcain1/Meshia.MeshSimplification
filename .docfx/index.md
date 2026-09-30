@@ -2,7 +2,7 @@
 _layout: landing
 ---
 
-# Meshia Mesh Simplification
+# Meshia — drcain fork
 
 - [English](#english)
 - [日本語](#日本語)
@@ -19,7 +19,7 @@ Can be executed at runtime or in the editor.
 
 ### VPM
 
-Add [my VPM repository](https://ramtype0.github.io/VpmRepository/) to VCC, then add Meshia Mesh Simplification package to your projects.
+This independent fork is maintained by drcain1. Add its VPM repository to VCC or ALCOM and enable prerelease packages for the beta. The [fork repository](vpm/index.html) will distribute `io.github.drcain1.meshia.mesh-simplification`. Install only one Meshia variant per project. See the [migration and distribution guide](https://github.com/drcain1/Meshia.MeshSimplification/blob/main/docs/FORK_DISTRIBUTION.md) before switching.
 
 
 ### How to use
@@ -59,7 +59,7 @@ Unity Job Systemで動作するため、Burstと合わせて高速、かつ非�
 
 ### VPM
 
-[VPM repository](https://ramtype0.github.io/VpmRepository/)をVCCに追加してから、Manage Project > Manage PackagesからMeshia Mesh Simplificationをプロジェクトに追加してください。
+[このフォークの VPM リポジトリ](https://drcain1.github.io/Meshia.MeshSimplification/vpm/index.json) を VCC または ALCOM に追加し、プレリリースを有効にしてください。上流版と同時にインストールしないでください。[移行手順と公開状況](https://github.com/drcain1/Meshia.MeshSimplification/blob/main/docs/FORK_DISTRIBUTION.md) を参照してください。
 
 ### 使い方
 

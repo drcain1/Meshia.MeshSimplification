@@ -1,15 +1,36 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
     <ui:DropdownField label="Language" name="LanguagePicker" />
-    <ui:Toggle label="Preserve Border Edges" binding-path="PreserveBorderEdges" />
-    <ui:Toggle label="Preserve Surface Curvature" binding-path="PreserveSurfaceCurvature" />
-    <ui:Toggle label="Use Barycentric Coordinate Interpolation" binding-path="UseBarycentricCoordinateInterpolation" />
-    <ui:Slider label="Min Normal Dot" high-value="1" binding-path="MinNormalDot" low-value="-1" show-input-field="true" />
-    <ui:Toggle label="Enable Smart Link" binding-path="EnableSmartLink" value="true" name="EnableSmartLinkToggle" />
-    <ui:GroupBox text="Smart Link Options" name="SmartLinkOptionsGroup">
-        <ui:FloatField label="Vertex Link Distance" value="0.001" binding-path="VertexLinkDistance" name="FloatField" />
-        <ui:Slider label="Vertex Link Min Normal Dot" high-value="1" binding-path="VertexLinkMinNormalDot" low-value="-1" show-input-field="true" />
-        <ui:FloatField label="Vertex Link Color Distance" value="0.01" binding-path="VertexLinkColorDistance" />
-        <ui:Slider label="Vertex Link UV Distance" high-value="1.414214" binding-path="VertexLinkUvDistance" low-value="0" show-input-field="true" />
-    </ui:GroupBox>
+    <ui:Toggle label="Preserve Border Edges" binding-path="PreserveBorderEdges" name="PreserveBorderEdgesToggle" />
+    <ui:VisualElement name="LegacyOptionsGroup">
+        <ui:Toggle label="Preserve Surface Curvature" binding-path="PreserveSurfaceCurvature" />
+        <ui:Toggle label="Use Barycentric Coordinate Interpolation" binding-path="UseBarycentricCoordinateInterpolation" />
+        <ui:Slider label="Min Normal Dot" high-value="1" binding-path="MinNormalDot" low-value="-1" show-input-field="true" />
+        <ui:Toggle label="Enable Smart Link" binding-path="EnableSmartLink" value="true" name="EnableSmartLinkToggle" />
+        <ui:GroupBox text="Smart Link Options" name="SmartLinkOptionsGroup">
+            <ui:FloatField label="Vertex Link Distance" value="0.001" binding-path="VertexLinkDistance" name="FloatField" />
+            <ui:Slider label="Vertex Link Min Normal Dot" high-value="1" binding-path="VertexLinkMinNormalDot" low-value="-1" show-input-field="true" />
+            <ui:FloatField label="Vertex Link Color Distance" value="0.01" binding-path="VertexLinkColorDistance" />
+            <ui:Slider label="Vertex Link UV Distance" high-value="1.414214" binding-path="VertexLinkUvDistance" low-value="0" show-input-field="true" />
+        </ui:GroupBox>
+    </ui:VisualElement>
+    <ui:Foldout text="Skinning Protection" name="SkinningProtectionGroup">
+        <ui:Toggle label="Automatically protect detected body mesh" name="SkinningProtectionAuto" tooltip="Selects protection only when exactly one humanoid body candidate is detected during the build." />
+        <ui:Toggle label="Protect joint deformation" name="SkinningProtectionEnabled" tooltip="Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses." />
+        <uie:PropertyField binding-path="SkinningProtection.Policy" name="SkinningProtectionPolicyField" style="display:none" />
+        <uie:PropertyField binding-path="SkinningProtection.Strength" />
+        <uie:PropertyField binding-path="SkinningProtection.MaxWeightDistance" />
+        <uie:PropertyField binding-path="SkinningProtection.MaxDiscardedWeight" />
+        <ui:HelpBox message-type="Info" text="Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence." />
+    </ui:Foldout>
+    <ui:Foldout text="FA-QEM Options" name="FaQemOptionsGroup">
+        <uie:PropertyField binding-path="FaQem.PlaneAreaWeight" />
+        <uie:PropertyField binding-path="FaQem.BoundaryWeight" />
+        <uie:PropertyField binding-path="FaQem.NormalWeight" />
+        <uie:PropertyField binding-path="FaQem.AreaWeight" />
+        <uie:PropertyField binding-path="FaQem.UseInverseAreaWeighting" />
+        <uie:PropertyField binding-path="FaQem.PreserveAttributeSeams" />
+        <uie:PropertyField binding-path="FaQem.MinNormalDot" />
+        <uie:PropertyField binding-path="FaQem.MaxSurfaceDeviation" tooltip="Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target." />
+    </ui:Foldout>
     <ui:Button text="Reset Options" parse-escape-sequences="true" display-tooltip-when-elided="true" name="ResetOptionsButton" enable-rich-text="false" />
 </ui:UXML>

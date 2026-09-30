@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 namespace Meshia.MeshSimplification

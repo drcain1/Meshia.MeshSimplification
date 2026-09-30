@@ -3,11 +3,14 @@ name: Run Tests
 on:
  workflow_dispatch:
  push:
+   # Source release snapshots use VPM checks; this matrix needs Unity license secrets.
+   branches-ignore:
+     - 'release/**'
    paths-ignore:
      - '.docfx/**'
      - '*.md'
      - '.gitignore'
- pull_request_target:
+ pull_request:
    paths-ignore:
      - '.docfx/**'
      - '*.md'
@@ -15,15 +18,16 @@ on:
 
 env:
  PROJECT_PATH: .
- PACKAGE_PATH: ./Packages/${{ github.event.repository.name }}
+ PACKAGE_PATH: ./Packages/io.github.drcain1.meshia.mesh-simplification
  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
  UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
- 
+
 jobs:
  test:
    name: Test in ${{ matrix.testMode }} on ${{ matrix.unityVersion }}${{ matrix.vpmPackages[0] != null && ' with VPM packages ' || '' }}${{ join(matrix.vpmPackages, ', ') }}
    permissions:
+     contents: read
      checks: write
    runs-on: ubuntu-latest
    strategy:
@@ -40,24 +44,24 @@ jobs:
        include:
          - unityVersion: 2022.3.22f1
            testMode: editmode
-           vpmPackages: 
+           vpmPackages:
             - com.vrchat.base
             - nadena.dev.ndmf
          - unityVersion: 2022.3.22f1
            testMode: editmode
-           vpmPackages: 
+           vpmPackages:
             - nadena.dev.modular-avatar
             - com.vrchat.base
-           
+
    steps:
      - name: Create package testing project
        uses: RamType0/create-unity-project@v0.2.0
-       with: 
+       with:
          projectPath: ${{ env.PROJECT_PATH }}
          unityVersion: ${{ matrix.unityVersion }}
          # com.vrchat.base is missing dependency to com.unity.modules.video
          # com.unity.xr.oculus (Referenced by com.vrchat.base) is missing dependency to com.unity.modules.androidjni
-         # Until https://github.com/bdunderscore/ndmf/pull/655 is merged into stable version, we need to define com.unity.modules.animation dependency explicitly. 
+         # Until https://github.com/bdunderscore/ndmf/pull/655 is merged into stable version, we need to define com.unity.modules.animation dependency explicitly.
          manifest: |
             {
               "dependencies": {
@@ -67,22 +71,22 @@ jobs:
                 "com.unity.testtools.codecoverage": "1.2.6"
               }
             }
-            
+
      - name: Checkout repository
        uses: actions/checkout@v4
        with:
          path: ${{ env.PACKAGE_PATH }}
          submodules: recursive
-         
+
      - name: Setup vrc-get
        uses: anatawa12/sh-actions/setup-vrc-get@master
-       
-     - name: Add Ram.Type-0 VPM repo
-       run: vrc-get repo add https://ramtype0.github.io/VpmRepository/index.json
-       
+
+     - name: Add localization dependency VPM repo
+       run: vrc-get repo add https://vpm.anatawa12.com/vpm.json
+
      - name: Add bd_ VPM repo
        run: vrc-get repo add https://vpm.nadena.dev/vpm.json
-       
+
      - name: Install VPM packages
        working-directory: ${{ env.PROJECT_PATH }}
        run: |
@@ -95,10 +99,10 @@ jobs:
        shell: bash
        env:
          VPM_PACKAGES: ${{ join(matrix.vpmPackages, fromJSON('"\n"')) }}
-         
+
      - name: Resolve VPM packages
        run: vrc-get resolve
-       
+
      - name: Create LFS file list
        working-directory: ${{ env.PACKAGE_PATH }}
        run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
@@ -123,7 +127,8 @@ jobs:
          restore-keys: |
            Library-
 
-     - uses: game-ci/unity-test-runner@v4
+     - id: tests
+       uses: game-ci/unity-test-runner@v4
        with:
          unityVersion: ${{ matrix.unityVersion }}
          testMode: ${{ matrix.testMode }}
@@ -134,13 +139,13 @@ jobs:
          projectPath: ${{ env.PROJECT_PATH }}
 
      - uses: actions/upload-artifact@v4
-       if: always()
+       if: always() && steps.tests.outputs.artifactsPath != ''
        with:
          name: Test results for ${{ matrix.testMode }} on ${{ matrix.unityVersion }}${{ matrix.vpmPackages[0] != null && ' with VPM packages ' || '' }}${{ join(matrix.vpmPackages, ', ') }}
          path: ${{ env.PROJECT_PATH }}/${{ steps.tests.outputs.artifactsPath }}
 
      - uses: actions/upload-artifact@v4
-       if: always()
+       if: always() && steps.tests.outputs.coveragePath != ''
        with:
          name: Coverage results for ${{ matrix.testMode }} on ${{ matrix.unityVersion }}${{ matrix.vpmPackages[0] != null && ' with VPM packages ' || '' }}${{ join(matrix.vpmPackages, ', ') }}
          path: ${{ env.PROJECT_PATH }}/${{ steps.tests.outputs.coveragePath }}

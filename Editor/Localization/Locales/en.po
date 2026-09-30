@@ -73,3 +73,6 @@ msgstr "Use different tolerance for normal angle for Smart Link. The stricter of
 
 msgid "locale:en"
 msgstr "English"
+
+msgid "Meshia.MeshSimplification.MeshSimplifierOptions.FaQemOptions"
+msgstr "FA-QEM Options"

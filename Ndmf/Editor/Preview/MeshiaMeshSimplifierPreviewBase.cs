@@ -41,6 +41,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             var proxyMesh = RendererUtility.GetRequiredMesh(proxy);
 
             var (target, options, preserveBorderEdgesBoneIndices) = QueryTarget(context, group, original, proxy);
+            options = NdmfPlugin.ResolvePreviewOptions(context, context.GetAvatarRoot(original.gameObject), original, options);
 
             Mesh simplifiedMesh = new();
             try

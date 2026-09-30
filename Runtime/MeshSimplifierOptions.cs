@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using UnityEngine;
 using Unity.Collections;
@@ -12,7 +12,7 @@ namespace Meshia.MeshSimplification
     {
         public static MeshSimplifierOptions Default => new()
         {
-            PreserveBorderEdges = false,
+            PreserveBorderEdges = true,
             PreserveSurfaceCurvature = false,
             UseBarycentricCoordinateInterpolation = false,
             MinNormalDot = 0.2f,
@@ -21,6 +21,8 @@ namespace Meshia.MeshSimplification
             VertexLinkMinNormalDot = 0.95f,
             VertexLinkColorDistance = 0.01f,
             VertexLinkUvDistance = 0.001f,
+            SkinningProtection = SkinningProtectionOptions.Default,
+            FaQem = FaQemOptions.Default,
         };
 
         /// <summary>
@@ -56,6 +58,11 @@ namespace Meshia.MeshSimplification
         public float VertexLinkColorDistance;
         [Range(0, 1.41421356237f)]
         public float VertexLinkUvDistance;
+        /// <summary>Optional experimental protection for skinned joint deformation.</summary>
+        public SkinningProtectionOptions SkinningProtection;
+
+        /// <summary>Settings used by the geometry-only FA-QEM target.</summary>
+        public FaQemOptions FaQem;
 
 
         public readonly override bool Equals(object obj)
@@ -73,12 +80,14 @@ namespace Meshia.MeshSimplification
                    VertexLinkDistance == other.VertexLinkDistance &&
                    VertexLinkMinNormalDot == other.VertexLinkMinNormalDot &&
                    VertexLinkColorDistance == other.VertexLinkColorDistance &&
-                   VertexLinkUvDistance == other.VertexLinkUvDistance;
+                   VertexLinkUvDistance == other.VertexLinkUvDistance &&
+                   SkinningProtection.Equals(other.SkinningProtection) &&
+                   FaQem.Equals(other.FaQem);
         }
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(PreserveBorderEdges, PreserveSurfaceCurvature, MinNormalDot);
+            return HashCode.Combine(PreserveBorderEdges, PreserveSurfaceCurvature, MinNormalDot, SkinningProtection, FaQem);
         }
 
         public static bool operator ==(MeshSimplifierOptions left, MeshSimplifierOptions right)

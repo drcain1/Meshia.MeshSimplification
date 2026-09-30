@@ -1,0 +1,9 @@
+{
+  "name": "Meshia — drcain fork",
+  "id": "io.github.drcain1.meshia.repository",
+  "author": "drcain1",
+  "url": "https://drcain1.github.io/Meshia.MeshSimplification/vpm/index.json",
+  "repository": "drcain1/Meshia.MeshSimplification",
+  "packageId": "io.github.drcain1.meshia.mesh-simplification",
+  "distributionReady": true
+}

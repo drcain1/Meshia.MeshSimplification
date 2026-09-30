@@ -3,7 +3,10 @@
     "rootNamespace": "Meshia.MeshSimplification.Ndmf.Editor",
     "references": [
         "Meshia.MeshSimplification.Runtime",
+        "Meshia.MeshSimplification.Editor",
         "Meshia.MeshSimplification.Ndmf.Runtime",
+        "Unity.Mathematics",
+        "Unity.Collections",
         "nadena.dev.ndmf",
         "nadena.dev.ndmf.runtime",
         "nadena.dev.modular-avatar.core"

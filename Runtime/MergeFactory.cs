@@ -1,4 +1,4 @@
-﻿using Unity.Burst;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -8,6 +8,7 @@ namespace Meshia.MeshSimplification
     struct MergeFactory
     {
         public NativeArray<float3> VertexPositionBuffer;
+        public NativeArray<float4> VertexNormalBuffer;
         public NativeArray<uint> VertexBlendIndicesBuffer;
         public NativeArray<ErrorQuadric> VertexErrorQuadrics;
         public NativeParallelMultiHashMap<int, int> VertexContainingTriangles;

@@ -18,8 +18,13 @@ namespace Meshia.MeshSimplification.Ndmf
         };
         public MeshSimplifierOptions options = MeshSimplifierOptions.Default;
 
+        void Reset()
+        {
+            options = MeshSimplifierOptions.Default;
+            options.SkinningProtection.Policy = SkinningProtectionPolicy.Auto;
+        }
+
         void Start() { } // To show enabled checkbox in inspector
     }
 
 }
-

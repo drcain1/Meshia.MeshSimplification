@@ -46,7 +46,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             var index = data.Item2;
 
             var cascadingTarget = context.Observe(component, c => c.Entries[index] with { }, (a, b) => a.Equals(b));
-            var target = new MeshSimplificationTarget() { Kind = MeshSimplificationTargetKind.AbsoluteTriangleCount, Value = cascadingTarget.TargetTriangleCount };
+            var proxyMesh = RendererUtility.GetRequiredMesh(proxy);
+            var target = cascadingTarget.CreateTarget(proxyMesh.GetTriangleCount());
 
             var avatarRoot = context.GetAvatarRoot(original.gameObject);
             var preserveBorderEdgeBoneIndices = MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(avatarRoot, component, cascadingTarget);

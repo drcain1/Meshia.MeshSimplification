@@ -1,4 +1,4 @@
-﻿using Unity.Burst;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -9,6 +9,8 @@ namespace Meshia.MeshSimplification
     {
         [ReadOnly]
         public NativeArray<float3> VertexPositionBuffer;
+        [ReadOnly]
+        public NativeArray<float4> VertexNormalBuffer;
         [ReadOnly]
         public NativeArray<ErrorQuadric> VertexErrorQuadrics;
         [ReadOnly]
@@ -33,6 +35,7 @@ namespace Meshia.MeshSimplification
             var mergeFactory = new MergeFactory
             {
                 VertexPositionBuffer = VertexPositionBuffer,
+                VertexNormalBuffer = VertexNormalBuffer,
                 VertexErrorQuadrics = VertexErrorQuadrics,
                 VertexContainingTriangles = VertexContainingTriangles,
                 VertexIsBorderEdgeBits = VertexIsBorderEdgeBits,

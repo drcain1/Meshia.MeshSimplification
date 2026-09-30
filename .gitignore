@@ -60,5 +60,8 @@ crashlytics-build.properties
 
 .idea/.idea.vpm-package-maker/.idea
 Assets/PackageMakerWindowData.asset*
+dist/
+/dist.meta
+__pycache__/
 .idea
 .vscode
