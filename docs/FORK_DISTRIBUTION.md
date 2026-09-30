@@ -60,7 +60,8 @@ Packages that depend on upstream's ID must be assessed separately before switchi
 
 The first release is a source-only beta. Check the GitHub Releases page and feed
 for availability. Client installation checks remain distinct from Unity local-package
-validation; this document does not claim that VCC/ALCOM GUI installation has passed.
+validation. ALCOM GUI installation has been manually validated; VCC GUI installation
+has not yet been independently confirmed.
 
 The combined fork source is now offered under GPL-2.0-or-later. `LICENSE.md`
 describes that scope; `Licenses/GPL-2.0.txt` supplies the full text and
@@ -81,8 +82,10 @@ Source beta release scope:
 
 Before calling the first release stable, validate installation through the published
 feed in both VCC and ALCOM, including each client's upstream replacement behavior,
-dependency resolution, and a representative avatar build. The current validation
-covers local-package migration and Unity compilation, not a deployed feed.
+dependency resolution, and a representative avatar build. ALCOM installation from
+the published feed and a tuned avatar built and tested in a live VRChat session
+have been manually validated. VCC GUI replacement and dependency resolution remain
+to be checked separately.
 
 `release-check` blocks the GitHub release workflow while `distributionReady` is
 false. This is a release safeguard, not a legal determination. The packager separately
@@ -117,6 +120,25 @@ can still be removed. English and Japanese documentation describes this behavior
 Local Unity 2022.3.22f1 validation passed 126/126 EditMode tests, with no failures
 or skips. Hosted Unity tests explicitly skip when license credentials are absent;
 that skip is not a passing Unity test result. Package CI remains independent.
+
+Version `1.0.0-beta.5` adds optional joint-transition protection to FA-QEM, including
+an adjacent ring of vertices around changes in dominant bone influence. New avatar
+configurations use conservative defaults: per-mesh automatic bone-weight protection
+for deforming meshes, joint protection, border/seam preservation, and a small surface
+deviation limit. Existing saved settings and the core library default are retained.
+The cascading inspector offers an undoable action to apply conservative defaults
+to existing entries without changing their algorithms, targets, or enabled/fixed
+states. Preview and build policy resolution agree, and English/Japanese controls
+and documentation explain protection and target shortfalls.
+
+Protection takes priority over the requested triangle target. These defaults do
+not guarantee 70,000 triangles or eliminate every possible clothing intersection;
+inspect animated poses and tune mesh budgets before uploading an avatar. A fresh
+default configuration and an existing tuned configuration passed full local NDMF
+builds, with the tuned configuration's serialized settings unchanged. Local Unity
+2022.3.22f1 validation passed 94 distinct targeted EditMode tests across the final
+regression runs. Twelve distribution tests also passed. This beta is the candidate
+for final validation before a stable release; it remains a prerelease.
 
 The public repository contains generic synthetic mesh, skinning, inspector,
 serialization, and NDMF regression tests. Avatar-specific manual investigations,
