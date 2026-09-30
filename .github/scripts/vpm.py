@@ -205,6 +205,8 @@ def build_listing(out, empty=False):
 Install only one Meshia variant per project. Enable prerelease packages to see beta versions.</p>
 <p>Add <a href="https://vpm.anatawa12.com/vpm.json">anatawa12's repository</a> for the localization dependency.
 For avatar integration, install NDMF and Modular Avatar from <a href="https://vpm.nadena.dev/vpm.json">nadena's repository</a>.</p>
+<p><a href="../comparisons/70k/">View the 70k avatar comparison / 7万ポリゴンの比較を見る</a><br>
+Compare original and simplified renders, with the measured build count and visual tradeoffs.</p>
 <p><a href="https://github.com/{html.escape(settings["repository"])}/blob/main/docs/FORK_DISTRIBUTION.md">Migration and release status</a>
  · <a href="https://github.com/{html.escape(settings["repository"])}">Source and attribution</a></p>
 </html>'''
