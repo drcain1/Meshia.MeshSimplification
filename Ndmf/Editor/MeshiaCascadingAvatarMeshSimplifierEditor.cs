@@ -157,7 +157,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var targetTriangleCountPresetDropdownField = root.Q<DropdownField>("TargetTriangleCountPresetDropdownField");
             var adjustButton = root.Q<Button>("AdjustButton");
             var autoAdjustEnabledToggle = root.Q<Toggle>("AutoAdjustEnabledToggle");
-            var triangleCountLabel = root.Q<IMGUIContainer>("TriangleCountLabel");
             var analyzeNdmfBuildButton = root.Q<Button>("AnalyzeNdmfBuildButton");
 
             var removeInvalidEntriesButton = root.Q<Button>("RemoveInvalidEntriesButton");
@@ -170,6 +169,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 RefreshBudgetGuidance(root);
             };
             root.Q<Foldout>("BudgetBreakdown").RegisterValueChangedCallback(_ => RefreshBudgetGuidance(root));
+            root.Q<Foldout>("CalculationDetails").RegisterValueChangedCallback(_ => RefreshBudgetGuidance(root));
             root.Q<Button>("AaoRemovalGuideButton").clicked += () => Application.OpenURL(
                 "https://vpm.anatawa12.com/avatar-optimizer/" + (CurrentLocale == "ja" ? "ja" : "en") + "/docs/reference/remove-mesh-by-blendshape/");
             root.Q<Button>("ShapeChangerGuideButton").clicked += () => Application.OpenURL(
@@ -254,7 +254,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 targetTriangleCountPresetDropdownField.SetValueWithoutNotify(name);
                 if (AutoAdjustEnabledProperty.boolValue)
                 {
-                    AdjustQuality(allowIncrease: false);
+                    AdjustQuality();
                     serializedObject.ApplyModifiedProperties();
                 }
             });
@@ -282,105 +282,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                 if (autoAdjustEnabled)
                 {
-                    AdjustQuality(allowIncrease: false);
+                    AdjustQuality();
                     serializedObject.ApplyModifiedProperties();
                 }
             });
 
 
-            triangleCountLabel.onGUIHandler = () =>
-            {
-                RefreshPreviewShortfalls(root);
-                var current = GetTotalSimplifiedTriangleCount(true);
-                var sum = GetTotalOriginalTriangleCount();
-                var targetCount = TargetTriangleCountProperty.intValue;
-                EditorGUILayout.LabelField(Format("Meshia output (before downstream tools): {0:N0} / {1:N0}", current, sum));
-
-                if (DownstreamTriangleEstimator.IsAaoAvailable)
-                {
-                    var estimatedFinal = GetTotalEstimatedFinalTriangleCount(true);
-                    if (TryGetAnalyzedCalibration(Target, out var calibration, out var calibrationStale))
-                    {
-                        EditorGUILayout.LabelField(Format("AAO estimate: {0:N0} / {1:N0}", estimatedFinal, targetCount));
-                        var calibratedFinal = DownstreamTriangleEstimator.ApplyAnalyzedDelta(
-                            estimatedFinal,
-                            calibration.EstimatedBeforeDownstreamTriangleCount,
-                            calibration.TriangleCount);
-                        var calibratedOverflow = targetCount < calibratedFinal;
-                        var calibratedLabel = Format("Calibrated estimate: {0:N0} / {1:N0}", calibratedFinal, targetCount);
-                        if (calibratedOverflow)
-                        {
-                            calibratedLabel += Tr(" - Potential overflow");
-                        }
-                        if (calibrationStale)
-                        {
-                            calibratedLabel += Tr(" - Stale calibration");
-                        }
-                        EditorGUILayout.LabelField(
-                            calibratedLabel,
-                            calibratedOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
-                    }
-                    else
-                    {
-                        var estimateOverflow = targetCount < estimatedFinal;
-                        var estimateLabel = Format("AAO estimate: {0:N0} / {1:N0}", estimatedFinal, targetCount);
-                        if (estimateOverflow)
-                        {
-                            estimateLabel += Tr(" - Potential overflow");
-                        }
-                        EditorGUILayout.LabelField(
-                            estimateLabel,
-                            estimateOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
-                        EditorGUILayout.LabelField(
-                            Tr("Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."));
-                    }
-                }
-                else
-                {
-                    EditorGUILayout.LabelField(Tr("AAO estimate unavailable; use Analyze NDMF Build for an exact count."));
-                }
-
-                if (TryGetBuildAnalysisResult(Target, out var analysis))
-                {
-                    var stale = analysis.Revision != CurrentAnalysisRevision;
-                    if (!string.IsNullOrEmpty(analysis.Error))
-                    {
-                        if (analysis.TriangleCount > 0)
-                        {
-                            var warningLabel =
-                                Format("Analyzed NDMF build: {0:N0} / {1:N0} - {2}", analysis.TriangleCount, targetCount, Tr(analysis.Error!));
-                            if (stale)
-                            {
-                                warningLabel += Tr(" - Stale");
-                            }
-                            EditorGUILayout.LabelField(
-                                warningLabel);
-                        }
-                        else
-                        {
-                            EditorGUILayout.LabelField(Format("NDMF analysis failed: {0}", Tr(analysis.Error!)), GUIStyleHelper.RedStyle);
-                        }
-                    }
-                    else
-                    {
-                        var exactOverflow = !stale && targetCount < analysis.TriangleCount;
-                        var exactLabel = Format("Analyzed NDMF build: {0:N0} / {1:N0}", analysis.TriangleCount, targetCount);
-                        if (stale)
-                        {
-                            exactLabel += Tr(" - Stale");
-                        }
-                        else if (exactOverflow)
-                        {
-                            exactLabel += Tr(" - Overflow!");
-                        }
-                        EditorGUILayout.LabelField(exactLabel, exactOverflow ? GUIStyleHelper.RedStyle : EditorStyles.label);
-                    }
-                }
-                else
-                {
-                    EditorGUILayout.LabelField(Tr("Analyzed NDMF build: not run"));
-                }
-            };
             analyzeNdmfBuildButton.clicked += () =>
             {
                 AnalyzeNdmfBuild(analyzeNdmfBuildButton);
@@ -410,16 +317,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             };
             resetButton.clicked += () =>
             {
-                var originalTriangleCount = GetTotalEstimatedOriginalTriangleCount();
+                var originalTriangleCount = GetTotalOriginalTriangleCount();
                 var resetTargetTriangleCount = TargetTriangleCountProperty.intValue;
-                if (TryGetAnalyzedCalibration(Target, out var calibration, out _))
-                {
-                    resetTargetTriangleCount = DownstreamTriangleEstimator.GetPreDownstreamTarget(
-                        resetTargetTriangleCount,
-                        calibration.EstimatedBeforeDownstreamTriangleCount,
-                        calibration.TriangleCount);
-                }
-
                 var excludedTriangleCount = 0;
                 foreach (var entry in Target.Entries)
                 {
@@ -427,7 +326,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     if (renderer != null && entry.IsValid(Target) &&
                         !MeshiaCascadingAvatarMeshSimplifierRendererEntry.IsEnabledByDefault(renderer) &&
                         TryGetOriginalTriangleCount(entry, false, out var triangles))
-                        excludedTriangleCount += DownstreamTriangleEstimator.EstimateFinalTriangleCount(renderer, triangles);
+                        excludedTriangleCount += triangles;
                 }
                 var adjustableTriangleCount = originalTriangleCount - excludedTriangleCount;
                 var quality = adjustableTriangleCount > 0
@@ -599,7 +498,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
                     if (AutoAdjustEnabledProperty.boolValue)
                     {
-                        AdjustQuality(allowIncrease: false);
+                        AdjustQuality();
                         serializedObject.ApplyModifiedProperties();
                     }
                 });
@@ -612,6 +511,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         itemIndex >= Target.Entries.Count) return;
                     SetManualAllocation(itemIndex, value);
                     root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
+                    RefreshBudgetGuidance(root);
                 }
                 targetTriangleCountSlider.RegisterValueChangedCallback(evt =>
                 {
@@ -716,6 +616,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             root.TrackSerializedObjectValue(serializedObject, _ =>
             {
                 RefreshJointBoneSelections();
+                RefreshBudgetGuidance(root);
                 scheduledUvPreviewRefresh?.Pause();
                 scheduledUvPreviewRefresh = root.schedule.Execute(RefreshOpenUvPreview).StartingIn(150);
             });
@@ -762,32 +663,94 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 "{0} meshes exceeded their allocations in the last preview. This does not confirm the final avatar is over budget. Analyze NDMF Build to check the current total.", details.Count);
         }
 
+        private bool HasCompletePreviewCounts()
+        {
+            var entries = Target.Entries.Where(e => e.Enabled && e.IsValid(Target)).ToList();
+            return entries.Count > 0 && entries.All(e => e.GetTargetRenderer(Target) is { } renderer &&
+                MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.ContainsKey(renderer));
+        }
+
         private void RefreshBudgetGuidance(VisualElement root)
         {
             var budget = Target.TargetTriangleCount;
-            var summary = root.Q<HelpBox>("BudgetSummary");
-            summary.messageType = HelpBoxMessageType.Info;
-            if (!TryGetBuildAnalysisResult(Target, out var analysis))
+            root.Q<Label>("AllocationSummary").text = Format("Allocated: {0:N0} / {1:N0}",
+                GetTotalSimplifiedTriangleCount(false), budget);
+            var result = root.Q<Label>("BuildResultSummary");
+            var summary = root.Q<Label>("BudgetSummary");
+            var warning = false;
+            var failed = false;
+            var outOfDate = false;
+            if (TryGetBuildAnalysisResult(Target, out var analysis))
             {
-                summary.text = Format("Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below.", budget);
-            }
-            else if (!string.IsNullOrEmpty(analysis.Error))
-            {
-                summary.messageType = HelpBoxMessageType.Warning;
-                summary.text = Format("Build analysis failed or was incomplete: {0}. Analyze again before judging the budget.", Tr(analysis.Error!));
-            }
-            else if (analysis.Revision != CurrentAnalysisRevision)
-            {
-                summary.text = Format("Requested budget: {0:N0}. Previous analyzed result: {1:N0} triangles (out of date). Analyze again to check the current result.", budget, analysis.TriangleCount);
-            }
-            else if (analysis.TriangleCount > budget)
-            {
-                summary.messageType = HelpBoxMessageType.Warning;
-                summary.text = Format("Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - {2:N0} over budget. Review mesh allocations, excluded meshes, and hidden geometry below. Protection and downstream processing can affect the final count.", budget, analysis.TriangleCount, analysis.TriangleCount - budget);
+                failed = !string.IsNullOrEmpty(analysis.Error);
+                outOfDate = analysis.Revision != CurrentAnalysisRevision;
+                if (failed)
+                {
+                    result.text = Tr("Build result: unavailable");
+                    summary.text = Tr("Analysis failed or was incomplete. See calculation details and try again.");
+                }
+                else if (outOfDate)
+                {
+                    result.text = Format("Last build: {0:N0} - Out of date", analysis.TriangleCount);
+                    summary.text = Tr("Settings changed. Analyze again to update the result.");
+                }
+                else
+                {
+                    result.text = Format("Build result: {0:N0}", analysis.TriangleCount);
+                    warning = analysis.TriangleCount > budget;
+                    summary.text = warning
+                        ? Format("{0:N0} triangles over budget", analysis.TriangleCount - budget)
+                        : Format("Within budget - {0:N0} triangles remaining", budget - analysis.TriangleCount);
+                }
             }
             else
             {
-                summary.text = Format("Requested budget: {0:N0}. Analyzed result: {1:N0} triangles - within budget ({2:N0} remaining).", budget, analysis.TriangleCount, budget - analysis.TriangleCount);
+                // This cache has no freshness marker. Never present it as a measured
+                // current build, and don't fill missing previews with target guesses.
+                var hasPreview = HasCompletePreviewCounts();
+                if (hasPreview)
+                {
+                    var estimate = GetTotalEstimatedFinalTriangleCount(true);
+                    result.text = Format("Last preview estimate: {0:N0}", estimate);
+                    warning = estimate > budget;
+                    summary.text = warning
+                        ? Format("Estimated {0:N0} over budget. Analyze to verify.", estimate - budget)
+                        : Tr("Unverified estimate. Analyze to check the final count.");
+                }
+                else
+                {
+                    result.text = Tr("Build result: not analyzed");
+                    summary.text = Tr("Analyze to check the final triangle count.");
+                }
+            }
+            summary.EnableInClassList("budget-warning", warning);
+            summary.EnableInClassList("budget-error", failed);
+            result.EnableInClassList("budget-out-of-date", outOfDate);
+            result.style.opacity = outOfDate ? .65f : 1f;
+            summary.style.color = failed
+                ? new StyleColor(EditorGUIUtility.isProSkin ? new Color(1f, .45f, .4f) : new Color(.7f, .12f, .08f))
+                : warning
+                    ? new StyleColor(EditorGUIUtility.isProSkin ? new Color(1f, .75f, .3f) : new Color(.55f, .32f, .02f))
+                    : new StyleColor(StyleKeyword.Null);
+
+            if (root.Q<Foldout>("CalculationDetails").value)
+            {
+                var details = new List<string> { Format("Original triangles: {0:N0}", GetTotalOriginalTriangleCount()),
+                    HasCompletePreviewCounts()
+                        ? Format("Meshia output (last preview): {0:N0}", GetTotalSimplifiedTriangleCount(true))
+                        : Tr("Preview counts are not available for every mesh.") };
+                var estimatedFinal = GetTotalEstimatedFinalTriangleCount(true);
+                if (DownstreamTriangleEstimator.IsAaoAvailable && HasCompletePreviewCounts())
+                    details.Add(Format("AAO estimate: {0:N0}", estimatedFinal));
+                if (HasCompletePreviewCounts() && TryGetAnalyzedCalibration(Target, out var calibration, out var calibrationStale))
+                {
+                    var calibratedFinal = DownstreamTriangleEstimator.ApplyAnalyzedDelta(estimatedFinal,
+                        calibration.EstimatedBeforeDownstreamTriangleCount, calibration.TriangleCount);
+                    details.Add(Format("Calibrated estimate: {0:N0}", calibratedFinal) +
+                        (calibrationStale ? Tr(" - Out of date") : string.Empty));
+                }
+                if (failed) details.Add(Format("NDMF analysis failed: {0}", Tr(analysis.Error!)));
+                root.Q<Label>("TriangleCountLabel").text = string.Join("\n", details);
             }
 
             if (!root.Q<Foldout>("BudgetBreakdown").value) return;
@@ -1101,23 +1064,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             return totalCount;
         }
 
-        private int GetTotalEstimatedOriginalTriangleCount()
-        {
-            var totalCount = 0;
-            var target = Target;
-            foreach (var entry in target.Entries)
-            {
-                if (!entry.IsValid(target) || !TryGetOriginalTriangleCount(entry, false, out var triangleCount) ||
-                    entry.GetTargetRenderer(target) is not { } renderer)
-                {
-                    continue;
-                }
-
-                totalCount += DownstreamTriangleEstimator.EstimateFinalTriangleCount(renderer, triangleCount);
-            }
-            return totalCount;
-        }
-
         private bool TryGetEstimatedFinalTriangleCount(
             MeshiaCascadingAvatarMeshSimplifierRendererEntry entry,
             bool preferPreview,
@@ -1217,25 +1163,19 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 .FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.TargetTriangleCount))
                 .intValue = value;
             serializedObject.ApplyModifiedProperties();
-            if (value > previous && Target.AutoAdjustEnabled)
+            if (Target.AutoAdjustEnabled)
             {
-                AdjustQuality(index, allowIncrease: false);
+                AdjustQuality(index);
             }
             InvalidateTriangleAnalysis();
         }
 
-        private void AdjustQuality(int fixedIndex = -1, bool allowIncrease = true)
+        private void AdjustQuality(int fixedIndex = -1)
         {
             serializedObject.ApplyModifiedProperties();
-            var finalTargetTotalCount = TargetTriangleCountProperty.intValue;
-            var targetTotalCount = finalTargetTotalCount;
-            if (TryGetAnalyzedCalibration(Target, out var calibration, out _))
-            {
-                targetTotalCount = DownstreamTriangleEstimator.GetPreDownstreamTarget(
-                    finalTargetTotalCount,
-                    calibration.EstimatedBeforeDownstreamTriangleCount,
-                    calibration.TriangleCount);
-            }
+            // Allocate the user's requested count. Downstream/analysis estimates are
+            // informational and must not silently replace the slider budget.
+            var targetTotalCount = Math.Max(0, TargetTriangleCountProperty.intValue);
 
             var target = Target;
             var entries = target.Entries;
@@ -1258,7 +1198,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     }
                     var entryProperty = entriesProperty.GetArrayElementAtIndex(i);
 
-                    if (!TryGetEstimatedFinalTriangleCount(entry, false, out var triangleCount)) continue;
+                    if (!TryGetSimplifiedTriangleCount(entry, false, out var triangleCount)) continue;
 
                     currentTotal += triangleCount;
 
@@ -1268,14 +1208,28 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     }
                 }
 
-                if (adjustableTotal <= 0 || (!allowIncrease && currentTotal <= targetTotalCount)) break;
+                // If a previous edit used the whole budget, allow zeroed peers to
+                // recover when it is returned, using their source sizes as weights.
+                var useSourceWeights = adjustableTotal == 0;
+                var allocationWeight = adjustableTotal;
+                if (useSourceWeights)
+                {
+                    for (var i = 0; i < entries.Count; i++)
+                    {
+                        var entry = entries[i];
+                        if (i != fixedIndex && entry.Enabled && !entry.Fixed && entry.IsValid(target) &&
+                            TryGetOriginalTriangleCount(entry, false, out var sourceCount))
+                            allocationWeight += sourceCount;
+                    }
+                }
+                if (allocationWeight <= 0) break;
 
                 // Excluded/locked meshes can consume the whole budget. Remaining
                 // allocations may reach zero; the simplifier still retains its guards.
                 var adjustableTargetCount = Math.Max(0, targetTotalCount - (currentTotal - adjustableTotal));
 
                 // 比例配分で調整
-                var proportion = (float)adjustableTargetCount / adjustableTotal;
+                var proportion = (float)adjustableTargetCount / allocationWeight;
                 for (int i = 0; i < entries.Count; i++)
                 {
                     if (i == fixedIndex) continue;
@@ -1293,8 +1247,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         TryGetSimplifiedTriangleCount(entry, false, out var currentValue);
                         TryGetOriginalTriangleCount(entry, false, out var maxTriangleCount);
 
-                        var upperBound = allowIncrease ? maxTriangleCount : Math.Min(currentValue, maxTriangleCount);
-                        var newValue = Mathf.Clamp((int)(currentValue * proportion), 0, upperBound);
+                        var weight = useSourceWeights ? maxTriangleCount : currentValue;
+                        var newValue = Mathf.Clamp((int)(weight * proportion), 0, maxTriangleCount);
                         entry.TargetTriangleCount = newValue;
                     }
                 }
@@ -1321,7 +1275,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 {
                     var entryProperty = entriesProperty.GetArrayElementAtIndex(i);
 
-                    TryGetOriginalTriangleCount(entry, true, out var originalTriangleCount);
+                    TryGetOriginalTriangleCount(entry, false, out var originalTriangleCount);
                     var targetTriangleCountProperty = entryProperty.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.TargetTriangleCount));
 
 

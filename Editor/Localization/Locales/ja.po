@@ -324,8 +324,8 @@ msgstr " - 再解析が必要です"
 msgid " - Overflow!"
 msgstr " - 目標を超過しています！"
 
-msgid "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."
-msgstr "「NDMFビルドを解析」を一度実行すると、後続ツールによる変化を考慮して自動調整を補正できます。"
+msgid "Run Analyze NDMF Build to improve the final-count estimate. Estimates do not change the allocation budget."
+msgstr "NDMFビルド解析で最終三角形数の推定を改善できます。推定値によって配分予算が変わることはありません。"
 
 msgid "AAO estimate unavailable; use Analyze NDMF Build for an exact count."
 msgstr "AAOの推定値を取得できません。正確な数を確認するには「NDMFビルドを解析」を実行してください。"
@@ -648,8 +648,8 @@ msgstr "配分の目標であり、最終的な数の上限を保証するもの
 msgid "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
 msgstr "ロックされていないメッシュに予算を再配分します。手動で下げた目標数が上がる場合があります。最終的な三角形数は保証されません。"
 
-msgid "Only reduce other unlocked targets when needed. Lowering a mesh keeps the savings; spare budget is not redistributed. Protection is unchanged."
-msgstr "必要な場合に、他のロックされていない目標数を下げます。メッシュの目標数を下げても、余った予算を他に再配分しません。保護設定は変更しません。"
+msgid "Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget."
+msgstr "指定した予算を双方向に再配分します。メッシュの目標数を下げると他のロックされていない目標数が上がり、上げると他が下がります。編集中のメッシュと固定配分は維持します。推定値や保護設定によって予算は変わりません。"
 
 msgid "Find ways to reduce"
 msgstr "削減方法を確認"
@@ -767,3 +767,75 @@ msgstr "全メッシュに保守的な保護設定を適用します。アルゴ
 
 msgid "Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
 msgstr "検出した手・髪・顔の名前を持つメッシュには変形の保護を適用し、それ以外はオフにします。境界・継ぎ目・表面の保護は保守的な設定を維持します。判定は完全ではないため、ポーズと服を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
+
+msgid "Allocated triangles (including excluded meshes): {0:N0} / {1:N0}"
+msgstr "配分三角形数（対象外メッシュを含む）: {0:N0} / {1:N0}"
+
+msgid "Triangle budget"
+msgstr "三角形数の予算"
+
+msgid "Calculation details"
+msgstr "計算の詳細"
+
+msgid "Analyze Build"
+msgstr "ビルド解析"
+
+msgid "The triangle counts requested by your sliders, including meshes excluded from reduction. Geometry protection can make the actual result higher."
+msgstr "スライダーで指定した三角形数と、軽量化の対象外メッシュの三角形数の合計です。形状の保護によって、実際の結果はこれより多くなる場合があります。"
+
+msgid "Allocated: {0:N0} / {1:N0}"
+msgstr "配分: {0:N0} / {1:N0}"
+
+msgid "Build result: unavailable"
+msgstr "ビルド結果: 取得できません"
+
+msgid "Analysis failed or was incomplete. See calculation details and try again."
+msgstr "解析に失敗したか、完了しませんでした。計算の詳細を確認して再実行してください。"
+
+msgid "Last build: {0:N0} - Out of date"
+msgstr "前回のビルド: {0:N0} - 更新が必要です"
+
+msgid "Settings changed. Analyze again to update the result."
+msgstr "設定が変更されています。再解析して結果を更新してください。"
+
+msgid "Build result: {0:N0}"
+msgstr "ビルド結果: {0:N0}"
+
+msgid "{0:N0} triangles over budget"
+msgstr "予算を {0:N0} 三角形超過"
+
+msgid "Within budget - {0:N0} triangles remaining"
+msgstr "予算内 - 残り {0:N0} 三角形"
+
+msgid "Last preview estimate: {0:N0}"
+msgstr "前回のプレビューからの推定: {0:N0}"
+
+msgid "Estimated {0:N0} over budget. Analyze to verify."
+msgstr "推定で予算を {0:N0} 超過しています。解析して確認してください。"
+
+msgid "Unverified estimate. Analyze to check the final count."
+msgstr "未検証の推定値です。解析して最終的な数を確認してください。"
+
+msgid "Build result: not analyzed"
+msgstr "ビルド結果: 未解析"
+
+msgid "Analyze to check the final triangle count."
+msgstr "解析して最終的な三角形数を確認してください。"
+
+msgid "Original triangles: {0:N0}"
+msgstr "元の三角形数: {0:N0}"
+
+msgid "Meshia output (last preview): {0:N0}"
+msgstr "Meshia の出力（前回のプレビュー）: {0:N0}"
+
+msgid "AAO estimate: {0:N0}"
+msgstr "AAO の推定値: {0:N0}"
+
+msgid "Calibrated estimate: {0:N0}"
+msgstr "補正後の推定値: {0:N0}"
+
+msgid " - Out of date"
+msgstr " - 更新が必要です"
+
+msgid "Preview counts are not available for every mesh."
+msgstr "一部のメッシュのプレビュー数をまだ取得できていません。"

@@ -14,8 +14,77 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
     {
         public class TestWindow : EditorWindow { }
 
+        [TestCase(false, false, -6)]
+        [TestCase(false, false, 6)]
+        [TestCase(false, true, -6)]
+        [TestCase(false, true, 6)]
+        [TestCase(true, false, -6)]
+        [TestCase(true, false, 6)]
+        [TestCase(true, true, -6)]
+        [TestCase(true, true, 6)]
+        public void AllocationUsesRequestedBudgetRegardlessOfAaoOrCalibration(bool reset, bool stale, int delta)
+        {
+            var avatar = new GameObject("Allocation test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            foreach (var name in new[] { "Body", "Clothing" })
+            {
+                var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                cube.name = name; cube.transform.SetParent(avatar.transform);
+                var mesh = cube.GetComponent<MeshFilter>().sharedMesh;
+                Object.DestroyImmediate(cube.GetComponent<MeshRenderer>());
+                cube.AddComponent<SkinnedMeshRenderer>().sharedMesh = mesh;
+            }
+            var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.RefreshEntries(); component.AutoAdjustEnabled = false; component.TargetTriangleCount = 18;
+            UnityEditor.Editor inspector = null;
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var counterField = typeof(Editor.DownstreamTriangleEstimator).GetField("s_aaoCounter", flags);
+            var oldCounter = counterField.GetValue(null);
+            System.Collections.IDictionary cache = null;
+            string key = null;
+            try
+            {
+                // AAO predicts half the triangles survive. This is useful information,
+                // but must not cause 36 raw triangles to be allocated to an 18 budget.
+                Editor.DownstreamTriangleEstimator.RegisterAaoCounter(_ => 6);
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                var type = inspector.GetType();
+                cache = (System.Collections.IDictionary)type.GetField("BuildAnalysisCache", flags).GetValue(null);
+                key = (string)type.GetMethod("GetBuildAnalysisResultKey", flags).Invoke(null, new object[] { component });
+                var revision = (int)type.GetProperty("CurrentAnalysisRevision", flags).GetValue(null);
+                var result = System.Activator.CreateInstance(type.GetNestedType("BuildAnalysisResult", System.Reflection.BindingFlags.NonPublic),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                    new object[] { 18 + delta, 18, stale ? revision - 1 : revision, null }, null);
+                type.GetMethod("StoreBuildAnalysisResult", flags).Invoke(null, new object[] { component, result });
+                if (reset)
+                {
+                    foreach (var entry in component.Entries) { entry.Enabled = true; entry.Fixed = true; }
+                    var button = inspector.CreateInspectorGUI().Q<Button>("ResetButton");
+                    typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        .Invoke(button.clickable, new object[] { null, 0 });
+                }
+                else
+                {
+                    type.GetMethod("AdjustQuality", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        .Invoke(inspector, new object[] { -1 });
+                }
+                Assert.IsFalse(component.Entries[0].Enabled);
+                Assert.AreEqual(6, component.Entries[1].TargetTriangleCount, "Reserve the face's 12 raw triangles and allocate the remaining 6, regardless of estimates.");
+                Assert.AreEqual(18, (int)type.GetMethod("GetTotalSimplifiedTriangleCount", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(inspector, new object[] { false }));
+            }
+            finally
+            {
+                counterField.SetValue(null, oldCounter); Editor.DownstreamTriangleEstimator.Invalidate();
+                if (key != null) { cache.Remove(key); SessionState.EraseString(key); }
+                Undo.ClearUndo(component);
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar);
+            }
+        }
+
         [UnityTest]
-        public IEnumerator ManualReductionsKeepSavingsAndAutoAdjustNeverRefillsOtherMeshes()
+        public IEnumerator AutoAdjustRedistributesBothWaysAndPreservesEditedAndLockedMeshes()
         {
             var avatar = new GameObject("Budget test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
             for (var i = 0; i < 3; i++)
@@ -38,30 +107,33 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Assert.AreEqual(3, rows.Length);
                 CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
                 Undo.IncrementCurrentGroup();
-                rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 3;
+                rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 2;
                 for (var i = 0; i < 10; i++) yield return null;
-                CollectionAssert.AreEqual(new[] { 3, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Saved triangles must not be spent elsewhere.");
-                Assert.AreEqual(3, rows[0].Q<IntegerField>("TargetTriangleCountField").value);
+                CollectionAssert.AreEqual(new[] { 2, 8, 8 }, component.Entries.Select(e => e.TargetTriangleCount), "Lowering one target returns its budget to unlocked peers.");
+                Assert.AreEqual(2, rows[0].Q<IntegerField>("TargetTriangleCountField").value);
+                StringAssert.Contains("18", root.Q<Label>("AllocationSummary").text);
                 Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
                 for (var i = 0; i < 10; i++) yield return null;
                 CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
-                rows[0].Q<IntegerField>("TargetTriangleCountField").value = 3;
-                rows[1].Q<SliderInt>("TargetTriangleCountSlider").value = 4;
+                rows[0].Q<IntegerField>("TargetTriangleCountField").value = 10;
                 for (var i = 0; i < 10; i++) yield return null;
-                CollectionAssert.AreEqual(new[] { 3, 4, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Sequential edits must keep previous savings.");
+                CollectionAssert.AreEqual(new[] { 10, 4, 4 }, component.Entries.Select(e => e.TargetTriangleCount), "Raising a target takes budget from unlocked peers.");
                 // Rebinding/reopening an inspector is not a request to refill the budget.
                 root.Q<ListView>("EntriesListView").Rebuild();
                 for (var i = 0; i < 10; i++) yield return null;
-                CollectionAssert.AreEqual(new[] { 3, 4, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
+                CollectionAssert.AreEqual(new[] { 10, 4, 4 }, component.Entries.Select(e => e.TargetTriangleCount));
                 rows = root.Query<TemplateContainer>().ToList().Where(x => x.userData is int).ToArray();
-                component.Entries[2].Fixed = true; EditorUtility.SetDirty(component);
+                component.Entries[2].TargetTriangleCount = 6; component.Entries[2].Fixed = true; EditorUtility.SetDirty(component);
                 rows[0].Q<IntegerField>("TargetTriangleCountField").value = 12;
                 for (var i = 0; i < 10; i++) yield return null;
                 CollectionAssert.AreEqual(new[] { 12, 0, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Raising a target may reduce unlocked peers, never the edited or locked row.");
+                rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 6;
+                for (var i = 0; i < 10; i++) yield return null;
+                CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Returning budget must revive a zero allocation while preserving the lock.");
                 component.Entries[2].Fixed = false; component.AutoAdjustEnabled = false; EditorUtility.SetDirty(component);
                 rows[1].Q<IntegerField>("TargetTriangleCountField").value = 12;
                 for (var i = 0; i < 10; i++) yield return null;
-                CollectionAssert.AreEqual(new[] { 12, 12, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Auto Adjust off must leave peers alone.");
+                CollectionAssert.AreEqual(new[] { 6, 12, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Auto Adjust off must leave peers alone.");
             }
             finally
             {
@@ -71,22 +143,22 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             }
         }
 
-        [TestCase(false, 6)]
-        [TestCase(true, 12)]
-        public void OnlyExplicitAdjustMaySpendSpareBudget(bool allowIncrease, int expected)
+        [TestCase(0)]
+        [TestCase(6)]
+        public void AdjustSpendsSpareBudgetEvenFromZero(int initial)
         {
             var avatar = new GameObject("Budget test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
             var mesh = GameObject.CreatePrimitive(PrimitiveType.Cube); mesh.transform.SetParent(avatar.transform);
             var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
             var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
-            component.RefreshEntries(); component.TargetTriangleCount = 12; component.Entries[0].TargetTriangleCount = 6;
+            component.RefreshEntries(); component.TargetTriangleCount = 12; component.Entries[0].TargetTriangleCount = initial;
             UnityEditor.Editor inspector = null;
             try
             {
                 inspector = UnityEditor.Editor.CreateEditor(component);
                 inspector.GetType().GetMethod("AdjustQuality", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                    .Invoke(inspector, new object[] { -1, allowIncrease });
-                Assert.AreEqual(expected, component.Entries[0].TargetTriangleCount);
+                    .Invoke(inspector, new object[] { -1 });
+                Assert.AreEqual(12, component.Entries[0].TargetTriangleCount);
             }
             finally
             {
@@ -232,7 +304,9 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         [TestCase("ja", false, false, null, 0, true)]
         [TestCase("en", true, false, null, 10, false)]
         [TestCase("ja", true, false, null, 90000, false)]
-        [TestCase("en", true, true, null, 10, true)]
+        [TestCase("en", true, true, null, 90000, true)]
+        [TestCase("ja", true, true, null, 90000, true)]
+        [TestCase("en", true, false, "Build reported errors; count may be incomplete.", 0, true)]
         [TestCase("ja", true, false, "Build reported errors; count may be incomplete.", 10, true)]
         public void PreviewShortfallsAreCompactAndSupersededOnlyByCurrentSuccessfulAnalysis(
             string language, bool analyzed, bool stale, string error, int triangles, bool showPreview)
@@ -290,14 +364,43 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Assert.AreEqual(showPreview ? DisplayStyle.Flex : DisplayStyle.None, root.Q("PreviewShortfalls").style.display.value);
                 type.GetMethod("RefreshBudgetGuidance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     .Invoke(inspector, new object[] { root });
-                var summary = root.Q<HelpBox>("BudgetSummary");
-                Assert.AreEqual(analyzed && (error != null || (!stale && triangles > component.TargetTriangleCount))
-                    ? HelpBoxMessageType.Warning : HelpBoxMessageType.Info, summary.messageType);
+                var summary = root.Q<Label>("BudgetSummary");
+                var resultLabel = root.Q<Label>("BuildResultSummary");
+                Assert.IsTrue(root.Q<Foldout>("EstimatesAndBuildDetails").value);
+                Assert.IsFalse(root.Q<Foldout>("CalculationDetails").value);
+                Assert.AreEqual(language == "ja" ? "三角形数の予算" : "Triangle budget", root.Q<Foldout>("EstimatesAndBuildDetails").text);
+                Assert.AreEqual(language == "ja" ? "計算の詳細" : "Calculation details", root.Q<Foldout>("CalculationDetails").text);
+                Assert.AreEqual(2, root.Q<Foldout>("EstimatesAndBuildDetails").Query<Button>().ToList().Count(b => b.name == "AnalyzeNdmfBuildButton" || b.name == "FindBudgetReductionsButton"));
+                Assert.AreEqual(analyzed && error == null && !stale && triangles > component.TargetTriangleCount,
+                    summary.ClassListContains("budget-warning"));
+                Assert.AreEqual(analyzed && error != null, summary.ClassListContains("budget-error"));
+                Assert.AreEqual(analyzed && stale, resultLabel.ClassListContains("budget-out-of-date"));
+                StringAssert.Contains("4", root.Q<Label>("AllocationSummary").text);
                 if (analyzed && error == null)
                 {
-                    StringAssert.Contains(triangles.ToString("N0"), summary.text);
-                    if (!stale && triangles > component.TargetTriangleCount)
+                    StringAssert.Contains(triangles.ToString("N0"), resultLabel.text);
+                    if (stale) StringAssert.Contains(language == "ja" ? "更新が必要" : "Out of date", resultLabel.text);
+                    else if (triangles > component.TargetTriangleCount)
                         StringAssert.Contains((triangles - component.TargetTriangleCount).ToString("N0"), summary.text);
+                }
+                else if (!analyzed)
+                {
+                    StringAssert.Contains("10", resultLabel.text);
+                    StringAssert.Contains(language == "ja" ? "推定" : "estimate", resultLabel.text);
+                }
+                root.Q<Foldout>("CalculationDetails").value = true;
+                type.GetMethod("RefreshBudgetGuidance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    .Invoke(inspector, new object[] { root });
+                StringAssert.Contains("12", root.Q<Label>("TriangleCountLabel").text);
+                if (error != null) StringAssert.Contains(LocalizationProvider.Tr(error), root.Q<Label>("TriangleCountLabel").text);
+                // A missing preview must not be replaced by a target and called measured.
+                if (!analyzed)
+                {
+                    cache.Remove(renderer);
+                    type.GetMethod("RefreshBudgetGuidance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                        .Invoke(inspector, new object[] { root });
+                    Assert.AreEqual(language == "ja" ? "ビルド結果: 未解析" : "Build result: not analyzed", resultLabel.text);
+                    cache[renderer] = (12, 10);
                 }
 
                 // Disabled entries and absent cached previews must not leave a notice behind.
@@ -527,7 +630,12 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 LocalizationProvider.CurrentLocale = "ja";
                 var all = root.Q<DropdownField>("AllMeshesAlgorithmField");
                 Assert.AreEqual("全メッシュのアルゴリズム", all.label);
-                Assert.AreEqual("NDMFビルドを解析", root.Q<Button>("AnalyzeNdmfBuildButton").text);
+                Assert.AreEqual("ビルド解析", root.Q<Button>("AnalyzeNdmfBuildButton").text);
+                Assert.AreEqual("三角形数の予算", root.Q<Foldout>("EstimatesAndBuildDetails").text);
+                Assert.IsFalse(root.Q<Foldout>("CalculationDetails").value);
+                root.Q<Foldout>("CalculationDetails").value = true;
+                StringAssert.Contains("元の三角形数:", root.Q<Label>("TriangleCountLabel").text);
+                root.Q<Foldout>("CalculationDetails").value = false;
                 var row = root.Q<DropdownField>("AlgorithmField");
                 Assert.IsNotNull(row);
                 Assert.AreEqual("アルゴリズム", row.label);

@@ -14,25 +14,27 @@
         </ui:GroupBox>
         <ui:GroupBox style="flex-direction: row;">
             <ui:Button text="Adjust" tooltip="Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count." name="AdjustButton" />
-            <ui:Toggle label="Enable Auto Adjust" tooltip="Only reduce other unlocked targets when needed. Lowering a mesh keeps the savings; spare budget is not redistributed. Protection is unchanged." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
+            <ui:Toggle label="Enable Auto Adjust" tooltip="Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
         </ui:GroupBox>
-        <ui:GroupBox style="flex-direction: row; flex-wrap: wrap;">
-            <ui:Button text="Analyze NDMF Build" tooltip="Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count." name="AnalyzeNdmfBuildButton" />
-            <ui:Button text="Find ways to reduce" name="FindBudgetReductionsButton" />
-        </ui:GroupBox>
-        <ui:Foldout name="EstimatesAndBuildDetails" text="Estimates and build details" value="true">
-            <ui:IMGUIContainer name="TriangleCountLabel" style="flex-grow: 1;" />
-            <ui:GroupBox style="flex-direction: row;">
-                <ui:Button text="Remove Invalid Entries" parse-escape-sequences="true" display-tooltip-when-elided="true" name="RemoveInvalidEntriesButton" />
-                <ui:Button text="Reset" parse-escape-sequences="true" display-tooltip-when-elided="true" name="ResetButton" />
-            </ui:GroupBox>
-        </ui:Foldout>
-        <ui:Foldout name="BudgetNotes" text="Budget notes" value="false">
-            <ui:HelpBox name="BudgetSummary" message-type="Info" />
-            <ui:VisualElement name="PreviewShortfalls" style="display: none;">
-                <ui:HelpBox name="PreviewShortfallSummary" message-type="Info" />
+        <ui:Foldout name="EstimatesAndBuildDetails" text="Triangle budget" value="true">
+            <ui:Label name="AllocationSummary" tooltip="The triangle counts requested by your sliders, including meshes excluded from reduction. Geometry protection can make the actual result higher." style="white-space: normal;" />
+            <ui:Label name="BuildResultSummary" style="white-space: normal;" />
+            <ui:Label name="BudgetSummary" style="white-space: normal; margin-top: 3px; margin-bottom: 3px;" />
+            <ui:VisualElement style="flex-direction: row; flex-wrap: wrap;">
+                <ui:Button text="Analyze Build" tooltip="Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count." name="AnalyzeNdmfBuildButton" />
+                <ui:Button text="Find ways to reduce" name="FindBudgetReductionsButton" />
             </ui:VisualElement>
-            <ui:HelpBox text="Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget." message-type="Info" />
+            <ui:Foldout name="CalculationDetails" text="Calculation details" value="false">
+                <ui:Label name="TriangleCountLabel" style="white-space: normal;" />
+                <ui:VisualElement name="PreviewShortfalls" style="display: none;">
+                    <ui:HelpBox name="PreviewShortfallSummary" message-type="Info" />
+                </ui:VisualElement>
+                <ui:Label text="Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget." style="white-space: normal;" />
+                <ui:GroupBox style="flex-direction: row;">
+                    <ui:Button text="Remove Invalid Entries" name="RemoveInvalidEntriesButton" />
+                    <ui:Button text="Reset" name="ResetButton" />
+                </ui:GroupBox>
+            </ui:Foldout>
         </ui:Foldout>
         <ui:Foldout name="BudgetBreakdown" text="Mesh budget breakdown and next steps" value="false">
             <ui:HelpBox text="Start with geometry always covered by clothing. Use AAO Remove Mesh By BlendShape, or Modular Avatar Shape Changer in Delete mode, with a suitable body-hiding blendshape. Shrinking or visually hiding polygons alone does not remove them. Animated Shape Changer deletion does not lower the reported polygon count. Keep geometry needed by any outfit toggle, and analyze the build again." message-type="Info" />

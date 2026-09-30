@@ -74,7 +74,9 @@ Both buttons preserve algorithms, targets, exclusions, and fixed allocations, an
 
 ##### Understanding the budget and reducing more
 
-**Auto Adjust keeps manual reductions.** Lowering a mesh slider or number field never raises other targets. Raising a target can lower other unlocked allocations to stay within the estimated budget. Automatic adjustment never spends spare budget; click **Adjust** explicitly to redistribute it (which can raise targets you previously lowered). Locks and exclusions are respected. Border, seam, and surface-deviation guards still apply when deformation protection is off, so requested allocations can remain below the actual output.
+**Auto Adjust redistributes the requested budget in both directions.** Lowering a mesh slider or number field raises other unlocked targets; raising it lowers them. The mesh being edited and locked allocations stay fixed during redistribution. Turn Auto Adjust off to change allocations independently. **Adjust** and allocation **Reset** aim at the requested triangle count using mesh allocations plus the source counts of excluded meshes. AAO/calibrated estimates are informational and never change this budget. Locked or excluded geometry can still make the budget unreachable. **Adjust** redistributes the budget manually across unlocked meshes. Locks and exclusions are respected. Border, seam, and surface-deviation guards still apply when deformation protection is off, so requested allocations can remain below the actual output.
+
+The **Triangle budget** summary starts open and shows allocations plus one main result. A current successful build takes priority; after edits, the last build is marked **Out of date**. Before analysis, a complete cached preview is labeled as an unverified estimate; missing previews are not substituted with target counts. **Calculation details** starts collapsed and contains the intermediate Meshia/AAO/calibrated figures and diagnostic notes. Current overruns use amber; outdated results are subdued and analysis failures use red.
 
 **Requested Triangle Budget** is an allocation goal, not a hard limit. The inspector shows the current successful NDMF analysis and how many triangles are over budget or remain available. Old results are marked out of date; failed analyses are not treated as confirmed counts. **Find ways to reduce** opens a breakdown sorted by preview triangles above allocation, a separate group of meshes excluded from simplification, and the remaining meshes. **Open mesh settings** jumps to the corresponding entry. Preview/source figures are not final per-mesh build counts, and missing previews are not presented as measured savings. The breakdown remains available after analysis, while a current successful build supersedes the preview notice.
 
@@ -203,7 +205,7 @@ The cascading inspector distinguishes Meshia's output from the estimated final a
 - **AAO estimate** accounts for meshes and polygons expected to be removed by Avatar Optimizer when its compatible API is available.
 - **Analyze NDMF Build** runs a temporary full NDMF build and records the exact final triangle count.
 
-A completed analysis calibrates **Adjust** and **Auto Adjust**, allowing their targets to account for downstream removals instead of unnecessarily reducing every renderer. The inspector marks analysis data as stale after relevant avatar settings change; rerun **Analyze NDMF Build** to refresh it.
+A completed analysis improves the displayed final-count estimate. **Adjust**, **Auto Adjust**, and allocation **Reset** continue to use the requested budget; they do not substitute an AAO or calibrated estimate for it. Allocated triangles include source counts for excluded meshes and are shown separately from the preview and estimated final result. The inspector marks analysis data as stale after relevant avatar settings change; rerun **Analyze NDMF Build** to refresh it.
 
 #### Use from C#
 
@@ -309,7 +311,9 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 
 見える部分の削減を強める前に、常に衣装で隠れている部分を見直してください。[AAO Remove Mesh By BlendShape](https://vpm.anatawa12.com/avatar-optimizer/ja/docs/reference/remove-mesh-by-blendshape/) では、素体を隠す適切なブレンドシェイプを指定してポリゴンを削除できます。[Modular Avatar Shape Changer](https://modular-avatar.nadena.dev/ja/docs/reference/reaction/shape-changer) の **Delete** モードでも削除できます。単に縮小したりシェーダーで隠したりするだけでは、ポリゴンは削除されません。Shape Changer の削除をアニメーションで切り替える場合、見えなくなっても報告されるポリゴン数は減りません。衣装の切り替えで必要になる部分は残してください。ポーズと衣装を変えて削除範囲を確認し、ビルド全体を再解析します。これらのツールは任意であり、案内からコンポーネントや依存パッケージを自動追加することはありません。
 
-まだ超過する場合は、大きい項目から、対象外メッシュの軽量化、使わないアクセサリー、固定配分を見直してください。保護を緩める場合はメッシュごとに明示的に変更し、動かした状態を比較します。**自動調整は、手動で下げた目標数を他のメッシュに再配分しません。** スライダーと数値入力は同じ動作です。目標数を上げると、推定予算に収まるよう他のロックされていない配分を下げる場合があります。余った予算を使う場合は **Adjust** を明示的に押してください（手動で下げた目標数が上がる場合があります）。固定・対象外の設定は維持されます。変形の保護がオフでも境界・シーム・表面からのずれの制限は残るため、実際の出力数が目標を超える場合があります。**自動調整は目標の配分のみを行います。** 削減可能な数の計測、超過分の反復的な再配分、保護の自動解除は行いません。目標数が結果より少ないからといって、安全にさらに削減できるとは限りません。
+まだ超過する場合は、大きい項目から、対象外メッシュの軽量化、使わないアクセサリー、固定配分を見直してください。保護を緩める場合はメッシュごとに明示的に変更し、動かした状態を比較します。**自動調整は指定した予算を双方向に再配分します。** スライダーと数値入力は同じ動作です。目標数を下げると他のロックされていない配分が上がり、上げると他が下がります。編集中のメッシュと固定配分は維持します。各配分を独立して編集する場合は自動調整をオフにしてください。**Adjust** は手動で予算を再配分します。固定・対象外の設定は維持されます。変形の保護がオフでも境界・シーム・表面からのずれの制限は残るため、実際の出力数が目標を超える場合があります。**自動調整は目標の配分のみを行います。** 削減可能な数の計測、超過分の反復的な再配分、保護の自動解除は行いません。目標数が結果より少ないからといって、安全にさらに削減できるとは限りません。
+
+**三角形数の予算** は最初から開き、配分合計と主要な結果を1つ表示します。現在の設定で成功したビルド結果を優先し、編集後は前回の結果に **更新が必要です** と表示します。未解析の場合、全対象のプレビューが揃っていれば未検証の推定値として表示し、不足した数を目標値で補いません。**計算の詳細** は最初は閉じており、Meshia・AAO・補正後の中間値や診断を確認できます。現在の超過は黄橙色、古い結果は控えめな色、解析失敗は赤色で示します。
 
 ##### 指や関節を曲げたときの形状を保つ
 
@@ -411,7 +415,7 @@ Debug.Log($"三角形数: {report.InputTriangleCount} → {report.OutputTriangle
 - **AAO estimate：** 対応する Avatar Optimizer API が利用できる場合に、削除される見込みのメッシュやポリゴンを考慮した推定数です。
 - **Analyze NDMF Build：** 一時的な完全 NDMF ビルドを実行し、最終的な三角形数を記録します。
 
-解析が完了すると **Adjust** と **Auto Adjust** の配分が補正され、後続処理による削除を見込んだ目標を設定できます。これにより、各レンダラーを必要以上に削減することを避けられます。関連するアバター設定を変更すると解析結果が古いことが表示されるため、**Analyze NDMF Build** を再実行してください。
+解析が完了すると、表示する最終三角形数の推定が改善されます。**Adjust**・**Auto Adjust**・配分の **Reset** は指定した予算を使い続け、AAO や補正後の推定値で予算を置き換えません。配分合計には対象外メッシュの元の三角形数も含め、プレビューや最終推定値とは別に表示します。固定・対象外の形状だけで予算を超える場合もあります。関連するアバター設定を変更すると解析結果が古いことが表示されるため、**Analyze NDMF Build** を再実行してください。
 
 #### C# から呼び出す
 

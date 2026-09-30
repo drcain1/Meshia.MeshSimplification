@@ -329,8 +329,8 @@ msgstr " - Stale"
 msgid " - Overflow!"
 msgstr " - Overflow!"
 
-msgid "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."
-msgstr "Run Analyze NDMF Build once to calibrate Auto Adjust for downstream changes."
+msgid "Run Analyze NDMF Build to improve the final-count estimate. Estimates do not change the allocation budget."
+msgstr "Run Analyze NDMF Build to improve the final-count estimate. Estimates do not change the allocation budget."
 
 msgid "AAO estimate unavailable; use Analyze NDMF Build for an exact count."
 msgstr "AAO estimate unavailable; use Analyze NDMF Build for an exact count."
@@ -653,8 +653,8 @@ msgstr "An allocation goal, not a hard cap. Protection can stop reduction above 
 msgid "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
 msgstr "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
 
-msgid "Only reduce other unlocked targets when needed. Lowering a mesh keeps the savings; spare budget is not redistributed. Protection is unchanged."
-msgstr "Only reduce other unlocked targets when needed. Lowering a mesh keeps the savings; spare budget is not redistributed. Protection is unchanged."
+msgid "Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget."
+msgstr "Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget."
 
 msgid "Find ways to reduce"
 msgstr "Find ways to reduce"
@@ -772,3 +772,75 @@ msgstr "Apply conservative protection to all meshes. Keeps algorithms, targets, 
 
 msgid "Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
 msgstr "Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+
+msgid "Allocated triangles (including excluded meshes): {0:N0} / {1:N0}"
+msgstr "Allocated triangles (including excluded meshes): {0:N0} / {1:N0}"
+
+msgid "Triangle budget"
+msgstr "Triangle budget"
+
+msgid "Calculation details"
+msgstr "Calculation details"
+
+msgid "Analyze Build"
+msgstr "Analyze Build"
+
+msgid "The triangle counts requested by your sliders, including meshes excluded from reduction. Geometry protection can make the actual result higher."
+msgstr "The triangle counts requested by your sliders, including meshes excluded from reduction. Geometry protection can make the actual result higher."
+
+msgid "Allocated: {0:N0} / {1:N0}"
+msgstr "Allocated: {0:N0} / {1:N0}"
+
+msgid "Build result: unavailable"
+msgstr "Build result: unavailable"
+
+msgid "Analysis failed or was incomplete. See calculation details and try again."
+msgstr "Analysis failed or was incomplete. See calculation details and try again."
+
+msgid "Last build: {0:N0} - Out of date"
+msgstr "Last build: {0:N0} - Out of date"
+
+msgid "Settings changed. Analyze again to update the result."
+msgstr "Settings changed. Analyze again to update the result."
+
+msgid "Build result: {0:N0}"
+msgstr "Build result: {0:N0}"
+
+msgid "{0:N0} triangles over budget"
+msgstr "{0:N0} triangles over budget"
+
+msgid "Within budget - {0:N0} triangles remaining"
+msgstr "Within budget - {0:N0} triangles remaining"
+
+msgid "Last preview estimate: {0:N0}"
+msgstr "Last preview estimate: {0:N0}"
+
+msgid "Estimated {0:N0} over budget. Analyze to verify."
+msgstr "Estimated {0:N0} over budget. Analyze to verify."
+
+msgid "Unverified estimate. Analyze to check the final count."
+msgstr "Unverified estimate. Analyze to check the final count."
+
+msgid "Build result: not analyzed"
+msgstr "Build result: not analyzed"
+
+msgid "Analyze to check the final triangle count."
+msgstr "Analyze to check the final triangle count."
+
+msgid "Original triangles: {0:N0}"
+msgstr "Original triangles: {0:N0}"
+
+msgid "Meshia output (last preview): {0:N0}"
+msgstr "Meshia output (last preview): {0:N0}"
+
+msgid "AAO estimate: {0:N0}"
+msgstr "AAO estimate: {0:N0}"
+
+msgid "Calibrated estimate: {0:N0}"
+msgstr "Calibrated estimate: {0:N0}"
+
+msgid " - Out of date"
+msgstr " - Out of date"
+
+msgid "Preview counts are not available for every mesh."
+msgstr "Preview counts are not available for every mesh."
