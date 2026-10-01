@@ -136,7 +136,7 @@ msgid "Use Inverse Area Weighting"
 msgstr "面積の逆数による重み付け"
 
 msgid "Preserve Attribute Seams"
-msgstr "属性の継ぎ目を保持"
+msgstr "同じ位置にある分離頂点の固定"
 
 msgid "Minimum Face Normal Dot"
 msgstr "面法線の内積の下限"

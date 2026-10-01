@@ -515,7 +515,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     AssertOption<float>(root, "SkinningProtection.MaxDiscardedWeight", "Maximum Discarded Skin Weight", "破棄するボーンウェイトの上限", language);
                     AssertOption<bool>(root, "SkinningProtection.PreserveJointTransitions", "Preserve Joint Transitions", "関節付近の頂点を保持", language);
                     AssertOption<bool>(root, "FaQem.UseInverseAreaWeighting", "Use Inverse Area Weighting", "面積の逆数による重み付け", language);
-                    AssertOption<bool>(root, "FaQem.PreserveAttributeSeams", "Preserve Attribute Seams", "属性の継ぎ目を保持", language);
+                    AssertOption<bool>(root, "FaQem.PreserveAttributeSeams", "Preserve Attribute Seams", "同じ位置にある分離頂点の固定", language);
                     AssertOption<bool>(root, "PreserveBorderEdges", "Preserve Border Edges", "境界エッジを保持", language);
                     Assert.AreEqual(before, EditorJsonUtility.ToJson(component), "Language changes must not change simplification settings.");
                 }
