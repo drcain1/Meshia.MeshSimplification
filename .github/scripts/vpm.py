@@ -197,6 +197,12 @@ def build_listing(out, empty=False):
 <style>body{{font:18px system-ui;max-width:760px;margin:60px auto;padding:24px;line-height:1.6}}a{{color:#3156be}}code{{overflow-wrap:anywhere}}</style>
 <h1>{html.escape(settings["name"])}</h1>
 <p>An independent fork of Meshia by Ram.Type-0, maintained by drcain1.</p>
+<p>The main additions in this fork are <strong>FA-QEM</strong> (the default),
+<strong>Blender Decimate</strong>, and <strong>UV Loop Dissolve</strong>:
+three geometry-reduction modes for lowering avatar polygon counts while keeping existing textures and materials.</p>
+<p lang="ja">このフォークの主な追加機能は、<strong>FA-QEM</strong>（標準）、
+<strong>Blender Decimate</strong>、<strong>UV Loop Dissolve</strong> の3つの軽量化モードです。
+既存のテクスチャとマテリアルを維持しながら、アバターのポリゴン数を削減できます。</p>
 <p>{status}</p>
 <p><a href="{html.escape(link)}">Add repository to VCC or ALCOM</a></p>
 <p>You can also paste this URL into either application's Add Repository dialog:<br>
