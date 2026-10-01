@@ -1,7 +1,7 @@
 {
   "name": "io.github.drcain1.meshia.mesh-simplification",
   "displayName": "Meshia \u2014 drcain fork",
-  "version": "1.0.0-beta.7",
+  "version": "1.0.0-beta.8",
   "unity": "2022.3",
   "description": "Independent Meshia fork maintained by drcain1, with geometry-only FA-QEM, cascading avatar budgets, and NDMF integration. Based on Meshia by Ram.Type-0. Replaces upstream Meshia; install only one variant per project.",
   "documentationUrl": "https://github.com/drcain1/Meshia.MeshSimplification#readme",

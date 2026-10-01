@@ -185,6 +185,24 @@ compiled without errors and the new summary was checked without changing saved
 avatar settings. Hosted Unity test jobs remain separate and can skip when no
 license is configured. This is a prerelease, not a new live VRChat visual validation.
 
+Version `1.0.0-beta.8` hides inspector settings that the selected algorithm does
+not use, in both cascading mesh entries and standalone components. Blender
+Decimate retains bone-weight protection. UV Loop Dissolve exposes that protection
+for its Blender fallback, with a localized explanation; loop removal uses its own
+built-in guards. Original Meshia hides the unused deformation controls and shortcut.
+Switching algorithms retains saved options, including through Undo and language changes.
+
+Vertex-protection labels are now **Preserve Vertices Near Joints** and
+**Lock Coincident Split Vertices**, with clearer tooltips. English and Japanese
+inspector labels and README terminology are aligned, including FA-QEM parameters.
+This release changes inspector presentation and documentation, not the decimation
+algorithms or saved avatar allocations.
+
+Local Unity 2022.3.22f1 validation passed all 27 inspector EditMode tests, including
+algorithm switching, English/Japanese localization, preserved settings, and Undo.
+The live editor compiled without errors. Twelve distribution tests passed.
+This remains a prerelease; no new VRChat visual validation is claimed.
+
 The public repository contains generic synthetic mesh, skinning, inspector,
 serialization, and NDMF regression tests. Avatar-specific manual investigations,
 external animation paths, private reports, and local dependency-patch claims are
