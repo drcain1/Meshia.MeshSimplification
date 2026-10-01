@@ -203,6 +203,8 @@ three geometry-reduction modes for lowering avatar polygon counts while keeping 
 <p lang="ja">このフォークの主な追加機能は、<strong>FA-QEM</strong>（標準）、
 <strong>Blender Decimate</strong>、<strong>UV Loop Dissolve</strong> の3つの軽量化モードです。
 既存のテクスチャとマテリアルを維持しながら、アバターのポリゴン数を削減できます。</p>
+<p>FA-QEM paper / <span lang="ja">FA-QEM の参考論文</span>:
+<a href="https://arxiv.org/html/2605.14029v1">Fast and Robust Mesh Simplification for Generated and Real-World 3D Assets</a> (arXiv).</p>
 <p>{status}</p>
 <p><a href="{html.escape(link)}">Add repository to VCC or ALCOM</a></p>
 <p>You can also paste this URL into either application's Add Repository dialog:<br>
