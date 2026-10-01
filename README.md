@@ -18,7 +18,7 @@ Can be executed at runtime or in the editor.
 
 ### VCC / ALCOM
 
-Add [the drcain fork VPM repository](https://drcain1.github.io/Meshia.MeshSimplification/vpm/index.json), enable prerelease packages, and install **Meshia — drcain fork**. The package ID is `io.github.drcain1.meshia.mesh-simplification`. It replaces upstream Meshia; install only one variant per project. See [migration and distribution details](docs/FORK_DISTRIBUTION.md).
+Add [the drcain fork VPM repository](https://drcain1.github.io/Meshia.MeshSimplification/vpm/index.json) and install **Meshia — drcain fork**. The package ID is `io.github.drcain1.meshia.mesh-simplification`. It replaces upstream Meshia; install only one variant per project. See [migration and distribution details](docs/FORK_DISTRIBUTION.md).
 
 Install the localization dependency `com.anatawa12.custom-localization-for-editor-extension` 1.x (at least 1.2.1) from [anatawa12's VPM repository](https://vpm.anatawa12.com/vpm.json). Avatar integration also requires NDMF; the cascading component requires Modular Avatar. Both are available from [nadena's VPM repository](https://vpm.nadena.dev/vpm.json).
 
@@ -236,7 +236,7 @@ Unity、VRChat 向けのメッシュ軽量化ツール／ライブラリです�
 
 #### VCC / ALCOM
 
-[このフォークの VPM リポジトリ](https://drcain1.github.io/Meshia.MeshSimplification/vpm/index.json)を追加し、プレリリースを有効にして **Meshia — drcain fork** をインストールしてください。パッケージ ID は `io.github.drcain1.meshia.mesh-simplification` です。上流版 Meshia を置き換えるため、両方を同時にインストールしないでください。[移行手順](docs/FORK_DISTRIBUTION.md)も参照してください。
+[このフォークの VPM リポジトリ](https://drcain1.github.io/Meshia.MeshSimplification/vpm/index.json)を追加し、**Meshia — drcain fork** をインストールしてください。パッケージ ID は `io.github.drcain1.meshia.mesh-simplification` です。上流版 Meshia を置き換えるため、両方を同時にインストールしないでください。[移行手順](docs/FORK_DISTRIBUTION.md)も参照してください。
 
 [anatawa12 の VPM リポジトリ](https://vpm.anatawa12.com/vpm.json)から、依存パッケージ `com.anatawa12.custom-localization-for-editor-extension` の 1.x（1.2.1 以上）を導入してください。アバター連携には NDMF、カスケード機能には Modular Avatar も必要です。どちらも [nadena の VPM リポジトリ](https://vpm.nadena.dev/vpm.json)から導入できます。
 

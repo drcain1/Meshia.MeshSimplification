@@ -12,7 +12,7 @@ that the project has been abandoned.
 | Display name | Meshia — drcain fork |
 | Package ID | `io.github.drcain1.meshia.mesh-simplification` |
 | Listing ID | `io.github.drcain1.meshia.repository` |
-| First beta version | `1.0.0-beta.1` |
+| First stable version | `1.0.0` |
 | Release tags | `fork-v<package version>` |
 | Feed | `https://drcain1.github.io/Meshia.MeshSimplification/vpm/index.json` |
 
@@ -34,8 +34,8 @@ as a dependency or publish fork versions under upstream's package ID.
 
 1. Back up the complete Unity project, including scenes, prefabs, and Packages.
    Close Unity before changing packages.
-2. Add the fork feed after its first public release. Beta versions require enabling
-   prerelease packages in the client.
+2. Add the fork feed and install the stable release. Prerelease packages do not
+   need to be enabled for `1.0.0`; that setting is only needed for beta versions.
 3. Add `https://vpm.anatawa12.com/vpm.json` for the required localization package.
    Avatar integration also needs NDMF; cascading avatar features need Modular
    Avatar. Both are available through `https://vpm.nadena.dev/vpm.json`.
@@ -58,10 +58,11 @@ Packages that depend on upstream's ID must be assessed separately before switchi
 
 ## Publication prerequisites
 
-The first release is a source-only beta. Check the GitHub Releases page and feed
-for availability. Client installation checks remain distinct from Unity local-package
-validation. ALCOM GUI installation has been manually validated; VCC GUI installation
-has not yet been independently confirmed.
+Version `1.0.0` is the first stable source-only release. Check the GitHub Releases
+page and feed for availability. Client installation checks remain distinct from
+Unity local-package validation. ALCOM and VCC GUI installation have both been
+manually validated; VCC replacement and dependency-resolution checks were confirmed
+by the maintainer before promoting the tested beta.8 code to stable.
 
 The combined fork source is now offered under GPL-2.0-or-later. `LICENSE.md`
 describes that scope; `Licenses/GPL-2.0.txt` supplies the full text and
@@ -69,7 +70,7 @@ describes that scope; `Licenses/GPL-2.0.txt` supplies the full text and
 `BLENDER_PORT_NOTICE.md` identifies the reference checkout, adaptations, and
 Blender attribution. No exception for linking proprietary dependencies is asserted.
 
-Source beta release scope:
+Source-only release scope:
 
 - Distribute Meshia's own C# source, assets, and notices; do not bundle Unity,
   VRChat SDK, NDMF, Modular Avatar, or other dependency packages.
@@ -77,21 +78,32 @@ Source beta release scope:
   for the actual package. Package/source content and checksums have been verified.
 - Let Unity resolve dependencies and compile the package on the user's computer.
   Both release archives are checked to contain no compiled libraries or executables.
-- `distributionReady` is now `true` for this source-only beta release scope.
+- `distributionReady` is now `true` for this source-only release scope.
   This does not authorize bundling dependencies or shipping compiled binaries.
 
-Before calling the first release stable, validate installation through the published
-feed in both VCC and ALCOM, including each client's upstream replacement behavior,
-dependency resolution, and a representative avatar build. ALCOM installation from
-the published feed and a tuned avatar built and tested in a live VRChat session
-have been manually validated. VCC GUI replacement and dependency resolution remain
-to be checked separately.
+Stable-release installation checks cover the published feed in VCC and ALCOM.
+The maintainer confirmed the final VCC installation/replacement and dependency
+checks worked as intended. ALCOM installation, representative NDMF avatar builds,
+and a tuned avatar tested in a live VRChat session were also manually validated.
+These checks do not imply compatibility with every historical project or avatar.
 
 `release-check` blocks the GitHub release workflow while `distributionReady` is
 false. This is a release safeguard, not a legal determination. The packager separately
 rejects compiled artifacts. License/attribution requirements still apply to our source.
 
 ## Geometry-only release validation
+
+Version `1.0.0` promotes the tested `1.0.0-beta.8` implementation unchanged. Only
+the package version and release/installation documentation change. The 27 inspector
+EditMode tests passed locally in Unity 2022.3.22f1 for that implementation; the live
+editor compiled without errors. All 12 distribution tests and release prerequisite
+checks passed again for stable packaging. Hosted Unity tests remain separate and
+skip when license credentials are not configured.
+
+Both client installation checks and the prior live VRChat validation are complete.
+Triangle budgets remain targets; geometry protection can prevent further reduction,
+and individual avatars still need animated visual checks and appropriate settings.
+
 
 Version `1.0.0-beta.2` uses the current geometry-only implementation. New cascading
 entries default to FA-QEM; existing algorithm selections are retained. Texture
