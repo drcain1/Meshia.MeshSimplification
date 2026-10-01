@@ -17,5 +17,5 @@
     <ui:Button text="Preview UVs" name="PreviewUvsButton" tooltip="Compare this renderer's original and simplified UV layout." style="display: none;" />
     <uie:PropertyField label="Options" binding-path="Options" name="OptionsField" style="display: none;" />
     <ui:Foldout text="Preserve Border Edges Bones" name="PreserveBorderEdgesBonesFoldout" value="false" style="display: none;" />
-    <ui:Foldout text="Joint Protection Bones" name="PreserveJointTransitionsBonesFoldout" value="false" style="display: none;" tooltip="Select bones for Preserve Joint Transitions. This selection is independent of border preservation. No selected bones means no joint-transition protection." />
+    <ui:Foldout text="Joint Protection Bones" name="PreserveJointTransitionsBonesFoldout" value="false" style="display: none;" tooltip="Select bones for Preserve Vertices Near Joints. This selection is independent of border preservation. No selected bones means no joint-transition protection." />
 </ui:UXML>

@@ -140,8 +140,8 @@ msgstr "Swept Area Weight"
 msgid "Use Inverse Area Weighting"
 msgstr "Use Inverse Area Weighting"
 
-msgid "Preserve Attribute Seams"
-msgstr "Preserve Attribute Seams"
+msgid "Lock Coincident Split Vertices"
+msgstr "Lock Coincident Split Vertices"
 
 msgid "Minimum Face Normal Dot"
 msgstr "Minimum Face Normal Dot"
@@ -164,8 +164,8 @@ msgstr "Penalty for the area swept by a moving boundary edge."
 msgid "Weights source planes by inverse triangle area."
 msgstr "Weights source planes by inverse triangle area."
 
-msgid "Keeps coincident vertex records together, including UV and normal seams, to prevent cracks."
-msgstr "Keeps coincident vertex records together, including UV and normal seams, to prevent cracks."
+msgid "Locks separate vertices at the same position to help prevent cracks during simplification. Includes vertices split at UV or normal seams, even when their attributes match. Does not merge or weld vertices."
+msgstr "Locks separate vertices at the same position to help prevent cracks during simplification. Includes vertices split at UV or normal seams, even when their attributes match. Does not merge or weld vertices."
 
 msgid "Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation."
 msgstr "Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation."
@@ -602,17 +602,17 @@ msgstr "RightLittleIntermediate"
 msgid "RightLittleDistal"
 msgstr "RightLittleDistal"
 
-msgid "Preserve Joint Transitions"
-msgstr "Preserve Joint Transitions"
+msgid "Preserve Vertices Near Joints"
+msgstr "Preserve Vertices Near Joints"
 
 msgid "Joint Protection Bones"
 msgstr "Joint Protection Bones"
 
-msgid "Select bones for Preserve Joint Transitions. This selection is independent of border preservation. No selected bones means no joint-transition protection."
-msgstr "Select bones for Preserve Joint Transitions. This selection is independent of border preservation. No selected bones means no joint-transition protection."
+msgid "Select bones for Preserve Vertices Near Joints. This selection is independent of border preservation. No selected bones means no joint-transition protection."
+msgstr "Select bones for Preserve Vertices Near Joints. This selection is independent of border preservation. No selected bones means no joint-transition protection."
 
-msgid "Keeps the source vertex rings where the strongest bone influence changes, plus one surrounding ring. Other regions can still simplify. Cascading entries use Joint Protection Bones; standalone simplifiers protect all joints. Independent of the bone-weight protection policy. May stop above the triangle target; test animated poses."
-msgstr "Keeps the source vertex rings where the strongest bone influence changes, plus one surrounding ring. Other regions can still simplify. Cascading entries use Joint Protection Bones; standalone simplifiers protect all joints. Independent of the bone-weight protection policy. May stop above the triangle target; test animated poses."
+msgid "Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction."
+msgstr "Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction."
 
 msgid "Automatically protect deforming meshes"
 msgstr "Automatically protect deforming meshes"
@@ -844,3 +844,6 @@ msgstr " - Out of date"
 
 msgid "Preview counts are not available for every mesh."
 msgstr "Preview counts are not available for every mesh."
+
+msgid "Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards."
+msgstr "Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards."

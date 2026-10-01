@@ -488,6 +488,130 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             }
         }
 
+        private static void AssertAlgorithmOptions(VisualElement root, MeshSimplificationTargetKind kind)
+        {
+            var fa = kind == MeshSimplificationTargetKind.FaQemTriangleCount;
+            var uv = kind == MeshSimplificationTargetKind.UvLoopDissolveTriangleCount;
+            var blender = kind == MeshSimplificationTargetKind.BlenderDecimateRatio;
+            var meshia = !fa && !uv && !blender;
+            foreach (var expected in new[]
+            {
+                ("LegacyOptionsGroup", meshia),
+                ("PreserveBorderEdgesToggle", meshia || fa),
+                ("SkinningProtectionGroup", !meshia),
+                ("FaQemOptionsGroup", fa),
+                ("UvFallbackProtectionHelp", uv),
+            })
+            {
+                var element = root.Q(expected.Item1);
+                Assert.IsNotNull(element, expected.Item1);
+                Assert.AreEqual(expected.Item2 ? DisplayStyle.Flex : DisplayStyle.None,
+                    element.resolvedStyle.display, kind + " / " + expected.Item1);
+                if (expected.Item2) Assert.IsTrue(element.enabledInHierarchy, expected.Item1);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ShouldShowOnlyUsedStandaloneOptionsAfterSwitchingAlgorithmsAndUndo()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var meshObject = new GameObject("Algorithm options test", typeof(MeshRenderer));
+            var component = meshObject.AddComponent<MeshiaMeshSimplifier>();
+            var options = component.options;
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            UnityEditor.Editor inspector = null;
+            try
+            {
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                AssertAlgorithmOptions(root, MeshSimplificationTargetKind.FaQemTriangleCount);
+                foreach (var kind in new[] { MeshSimplificationTargetKind.BlenderDecimateRatio,
+                    MeshSimplificationTargetKind.UvLoopDissolveTriangleCount, MeshSimplificationTargetKind.AbsoluteTriangleCount,
+                    MeshSimplificationTargetKind.FaQemTriangleCount })
+                {
+                    Undo.IncrementCurrentGroup();
+                    root.Q<DropdownField>("TargetKindField").value = ObjectNames.NicifyVariableName(kind.ToString());
+                    foreach (var language in new[] { "ja", "en" })
+                    {
+                        LocalizationProvider.CurrentLocale = language;
+                        for (var i = 0; i < 10; i++) yield return null;
+                        AssertAlgorithmOptions(root, kind);
+                        Assert.AreEqual(options, component.options, "Visibility changes must preserve saved options.");
+                    }
+                }
+                Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
+                var deadline = EditorApplication.timeSinceStartup + 2;
+                while (root.Q("LegacyOptionsGroup").resolvedStyle.display != DisplayStyle.Flex &&
+                    EditorApplication.timeSinceStartup < deadline) yield return null;
+                Assert.AreEqual(MeshSimplificationTargetKind.AbsoluteTriangleCount, component.target.Kind);
+                AssertAlgorithmOptions(root, component.target.Kind);
+            }
+            finally
+            {
+                Undo.ClearUndo(component); window.Close();
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(meshObject); LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ShouldShowOnlyUsedCascadingOptionsAfterSwitchingAlgorithmsAndUndo()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var avatar = new GameObject("Algorithm options test");
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube); cube.transform.SetParent(avatar.transform);
+            var child = new GameObject("Settings"); child.transform.SetParent(avatar.transform);
+            var component = child.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false; component.RefreshEntries();
+            var options = component.Entries[0].Options;
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            UnityEditor.Editor inspector = null;
+            try
+            {
+                inspector = UnityEditor.Editor.CreateEditor(component);
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                root.Q<Toggle>("OptionsToggle").value = true;
+                for (var i = 0; i < 10; i++) yield return null;
+                AssertAlgorithmOptions(root, MeshSimplificationTargetKind.FaQemTriangleCount);
+                foreach (var item in new[]
+                {
+                    ("Blender Decimate", MeshSimplificationTargetKind.BlenderDecimateRatio),
+                    ("Uv Loop Dissolve", MeshSimplificationTargetKind.UvLoopDissolveTriangleCount),
+                    ("Meshia", MeshSimplificationTargetKind.AbsoluteTriangleCount),
+                    ("Fa Qem", MeshSimplificationTargetKind.FaQemTriangleCount),
+                })
+                {
+                    Undo.IncrementCurrentGroup();
+                    root.Q<DropdownField>("AlgorithmField").value = item.Item1;
+                    foreach (var language in new[] { "ja", "en" })
+                    {
+                        LocalizationProvider.CurrentLocale = language;
+                        for (var i = 0; i < 10; i++) yield return null;
+                        AssertAlgorithmOptions(root, item.Item2);
+                        Assert.AreEqual(options, component.Entries[0].Options);
+                        Assert.AreEqual(item.Item1 == "Meshia" ? DisplayStyle.None : DisplayStyle.Flex,
+                            root.Q<Toggle>("DeformationProtectionToggle").resolvedStyle.display);
+                    }
+                }
+                Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
+                var deadline = EditorApplication.timeSinceStartup + 2;
+                while (root.Q("LegacyOptionsGroup").resolvedStyle.display != DisplayStyle.Flex &&
+                    EditorApplication.timeSinceStartup < deadline) yield return null;
+                Assert.AreEqual(MeshiaCascadingSimplificationAlgorithm.Meshia, component.Entries[0].Algorithm);
+                AssertAlgorithmOptions(root, MeshSimplificationTargetKind.AbsoluteTriangleCount);
+            }
+            finally
+            {
+                Undo.ClearUndo(component); window.Close();
+                if (inspector != null) Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar); LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
         [UnityTest]
         public IEnumerator ShouldTranslateBoundOptionsOnCreationAndLanguageChanges()
         {
@@ -513,9 +637,9 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     AssertOption<float>(root, "SkinningProtection.Strength", "Protection Strength", "保護の強さ", language);
                     AssertOption<float>(root, "SkinningProtection.MaxWeightDistance", "Maximum Skin Weight Distance", "ボーンウェイト差の上限", language);
                     AssertOption<float>(root, "SkinningProtection.MaxDiscardedWeight", "Maximum Discarded Skin Weight", "破棄するボーンウェイトの上限", language);
-                    AssertOption<bool>(root, "SkinningProtection.PreserveJointTransitions", "Preserve Joint Transitions", "関節付近の頂点を保持", language);
+                    AssertOption<bool>(root, "SkinningProtection.PreserveJointTransitions", "Preserve Vertices Near Joints", "関節付近の頂点を保持", language);
                     AssertOption<bool>(root, "FaQem.UseInverseAreaWeighting", "Use Inverse Area Weighting", "面積の逆数による重み付け", language);
-                    AssertOption<bool>(root, "FaQem.PreserveAttributeSeams", "Preserve Attribute Seams", "同じ位置にある分離頂点の固定", language);
+                    AssertOption<bool>(root, "FaQem.PreserveAttributeSeams", "Lock Coincident Split Vertices", "同じ位置にある分離頂点の固定", language);
                     AssertOption<bool>(root, "PreserveBorderEdges", "Preserve Border Edges", "境界エッジを保持", language);
                     Assert.AreEqual(before, EditorJsonUtility.ToJson(component), "Language changes must not change simplification settings.");
                 }

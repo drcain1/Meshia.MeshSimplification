@@ -32,6 +32,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             LocalizationProvider.SetMinimum(root.Q<FloatField>("TargetValueField"), 0f);
             LocalizationProvider.BindEnum(root.Q<DropdownField>("TargetKindField"), serializedObject.FindProperty("target.Kind"));
             root.Bind(serializedObject);
+            var targetKind = serializedObject.FindProperty("target.Kind");
+            void RefreshAlgorithmOptions()
+            {
+                MeshSimplifierOptionsDrawer.SetAlgorithmVisibility(root,
+                    targetKind.hasMultipleDifferentValues ? null : (MeshSimplificationTargetKind?)targetKind.intValue);
+            }
+            root.TrackPropertyValue(targetKind, _ => RefreshAlgorithmOptions());
+            RefreshAlgorithmOptions();
 
             var ndmfNotImportedWarning = root.Q<HelpBox>("NdmfNotImportedWarning");
             DisplayStyle warningDisplayStyle;

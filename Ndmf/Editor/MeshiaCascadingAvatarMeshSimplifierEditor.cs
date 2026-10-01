@@ -606,7 +606,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             void RefreshJointBoneSelections()
             {
                 root.Query<TemplateContainer>().ForEach(RefreshJointBoneSelection);
-                root.Query<TemplateContainer>().ForEach(RefreshDeformationProtection);
+                root.Query<TemplateContainer>().ForEach(UpdateAlgorithmOptionAvailability);
                 root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
             }
             root.RegisterCallback<AttachToPanelEvent>(_ => Undo.undoRedoPerformed += RefreshJointBoneSelections);
@@ -841,7 +841,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 index < 0 || index >= Target.Entries.Count) return;
             var entry = Target.Entries[index];
             var renderer = entry.GetTargetRenderer(Target);
-            var applicable = renderer is SkinnedMeshRenderer skin && skin.sharedMesh != null;
+            var supportsDeformation = entry.Algorithm != MeshiaCascadingSimplificationAlgorithm.Meshia;
+            toggle.style.display = supportsDeformation ? DisplayStyle.Flex : DisplayStyle.None;
+            var applicable = supportsDeformation && renderer is SkinnedMeshRenderer skin && skin.sharedMesh != null;
             toggle.SetEnabled(applicable && entry.Enabled);
             var options = entry.Options;
             // This is a settings control, not an estimate of protection on the built mesh.
@@ -960,7 +962,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 (int)MeshiaCascadingSimplificationAlgorithm.UvLoopDissolve;
             var usesFaQem = algorithmProperty.enumValueIndex ==
                 (int)MeshiaCascadingSimplificationAlgorithm.FaQem;
-            var usesMeshiaOptions = !usesUvLoopDissolve;
             var supportsSelectedBorderBones = !usesBlenderDecimate && !usesUvLoopDissolve;
 
             var optionsField = itemRoot.Q<PropertyField>("OptionsField");
@@ -969,24 +970,19 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var uvLoopDissolveHelpBox = itemRoot.Q<HelpBox>("UvLoopDissolveHelpBox");
             var faQemHelpBox = itemRoot.Q<HelpBox>("FaQemHelpBox");
             var optionsToggle = itemRoot.Q<Toggle>("OptionsToggle");
-            var preserveBorderEdgesToggle = optionsField.Q<Toggle>("PreserveBorderEdgesToggle");
+            MeshSimplifierOptionsDrawer.SetAlgorithmVisibility(optionsField,
+                usesFaQem ? MeshSimplificationTargetKind.FaQemTriangleCount :
+                usesBlenderDecimate ? MeshSimplificationTargetKind.BlenderDecimateRatio :
+                usesUvLoopDissolve ? MeshSimplificationTargetKind.UvLoopDissolveTriangleCount :
+                MeshSimplificationTargetKind.AbsoluteTriangleCount);
 
             itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout").style.display = usesFaQem && optionsToggle.value
                 ? DisplayStyle.Flex : DisplayStyle.None;
-            optionsField.SetEnabled(usesMeshiaOptions);
+            optionsField.SetEnabled(true);
             preserveBorderEdgesBonesFoldout.SetEnabled(supportsSelectedBorderBones);
             preserveBorderEdgesBonesFoldout.style.display = supportsSelectedBorderBones && optionsToggle.value
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
-            if (preserveBorderEdgesToggle != null)
-            {
-                preserveBorderEdgesToggle.style.display = usesBlenderDecimate
-                    ? DisplayStyle.None
-                    : DisplayStyle.Flex;
-            }
-            optionsField.tooltip = preserveBorderEdgesBonesFoldout.tooltip = !usesMeshiaOptions
-                ? Tr("Not supported by this algorithm.")
-                : string.Empty;
             blenderOptionsHelpBox.style.display = usesBlenderDecimate && optionsToggle.value
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
@@ -996,17 +992,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             faQemHelpBox.style.display = usesFaQem && optionsToggle.value
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
-
-            var legacyOptionsGroup = optionsField.Q<VisualElement>("LegacyOptionsGroup");
-            var faQemOptionsGroup = optionsField.Q<VisualElement>("FaQemOptionsGroup");
-            if (legacyOptionsGroup != null)
-            {
-                legacyOptionsGroup.style.display = usesFaQem ? DisplayStyle.None : DisplayStyle.Flex;
-            }
-            if (faQemOptionsGroup != null)
-            {
-                faQemOptionsGroup.style.display = usesFaQem ? DisplayStyle.Flex : DisplayStyle.None;
-            }
         }
 
         static Dictionary<string, int> TargetTriangleCountPresetNameToValue { get; } = new()

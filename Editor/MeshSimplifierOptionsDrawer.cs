@@ -9,6 +9,19 @@ namespace Meshia.MeshSimplification.Editor
     [CustomPropertyDrawer(typeof(MeshSimplifierOptions))]
     public class MeshSimplifierOptionsDrawer : PropertyDrawer
     {
+        /// <summary>Shows only the settings used by the selected algorithm, including late-bound drawers.</summary>
+        public static void SetAlgorithmVisibility(VisualElement root, MeshSimplificationTargetKind? kind)
+        {
+            var blender = kind == MeshSimplificationTargetKind.BlenderDecimateRatio;
+            var uv = kind == MeshSimplificationTargetKind.UvLoopDissolveTriangleCount;
+            var fa = kind == MeshSimplificationTargetKind.FaQemTriangleCount;
+            root.EnableInClassList("meshia-options-blender", blender);
+            root.EnableInClassList("meshia-options-uv", uv);
+            root.EnableInClassList("meshia-options-fa", fa);
+            root.EnableInClassList("meshia-options-meshia", kind.HasValue && !blender && !uv && !fa);
+            root.EnableInClassList("meshia-options-mixed", !kind.HasValue);
+        }
+
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             var visualTreeAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(AssetDatabase.GUIDToAssetPath("29eaabb0631cacc44913c34b86fc38f0"));

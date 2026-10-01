@@ -1,0 +1,22 @@
+/* Ancestor classes also cover property drawers created later by serialized binding. */
+.meshia-options-blender #LegacyOptionsGroup,
+.meshia-options-uv #LegacyOptionsGroup,
+.meshia-options-fa #LegacyOptionsGroup,
+.meshia-options-blender #PreserveBorderEdgesToggle,
+.meshia-options-uv #PreserveBorderEdgesToggle,
+.meshia-options-meshia #SkinningProtectionGroup,
+.meshia-options-meshia #FaQemOptionsGroup,
+.meshia-options-blender #FaQemOptionsGroup,
+.meshia-options-uv #FaQemOptionsGroup,
+.meshia-options-mixed #LegacyOptionsGroup,
+.meshia-options-mixed #PreserveBorderEdgesToggle,
+.meshia-options-mixed #SkinningProtectionGroup,
+.meshia-options-mixed #FaQemOptionsGroup,
+.meshia-options-mixed #ResetOptionsButton,
+#UvFallbackProtectionHelp {
+    display: none;
+}
+
+.meshia-options-uv #UvFallbackProtectionHelp {
+    display: flex;
+}

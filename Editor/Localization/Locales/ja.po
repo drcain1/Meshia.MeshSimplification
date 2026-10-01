@@ -135,7 +135,7 @@ msgstr "境界移動面積の重み"
 msgid "Use Inverse Area Weighting"
 msgstr "面積の逆数による重み付け"
 
-msgid "Preserve Attribute Seams"
+msgid "Lock Coincident Split Vertices"
 msgstr "同じ位置にある分離頂点の固定"
 
 msgid "Minimum Face Normal Dot"
@@ -159,8 +159,8 @@ msgstr "境界の辺が移動する際に通過する面積に対するペナル
 msgid "Weights source planes by inverse triangle area."
 msgstr "三角形の面積の逆数で、元の平面に重みを付けます。"
 
-msgid "Keeps coincident vertex records together, including UV and normal seams, to prevent cracks."
-msgstr "UVや法線の継ぎ目を含め、同じ位置にある頂点同士が離れないようにして、亀裂を防ぎます。"
+msgid "Locks separate vertices at the same position to help prevent cracks during simplification. Includes vertices split at UV or normal seams, even when their attributes match. Does not merge or weld vertices."
+msgstr "軽量化による亀裂を防ぐため、同じ位置にある分離頂点を固定します。UVや法線の継ぎ目などで分かれた頂点が対象で、属性が同じ場合も固定します。頂点の結合や溶接は行いません。"
 
 msgid "Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation."
 msgstr "頂点統合の前後で残る面の法線同士の内積の下限です。値が高いほど、面の向きの変化を厳しく制限します。"
@@ -597,17 +597,17 @@ msgstr "右小指（中間）"
 msgid "RightLittleDistal"
 msgstr "右小指（先端）"
 
-msgid "Preserve Joint Transitions"
+msgid "Preserve Vertices Near Joints"
 msgstr "関節付近の頂点を保持"
 
 msgid "Joint Protection Bones"
 msgstr "関節を保護するボーン"
 
-msgid "Select bones for Preserve Joint Transitions. This selection is independent of border preservation. No selected bones means no joint-transition protection."
+msgid "Select bones for Preserve Vertices Near Joints. This selection is independent of border preservation. No selected bones means no joint-transition protection."
 msgstr "「関節付近の頂点を保持」の対象ボーンを選択します。境界エッジの保護とは別の選択です。何も選択しない場合、この関節保護は適用されません。"
 
-msgid "Keeps the source vertex rings where the strongest bone influence changes, plus one surrounding ring. Other regions can still simplify. Cascading entries use Joint Protection Bones; standalone simplifiers protect all joints. Independent of the bone-weight protection policy. May stop above the triangle target; test animated poses."
-msgstr "最も強く影響するボーンが切り替わる部分と、そのすぐ周囲の頂点を保持します。他の部分は引き続き軽量化できます。アバター全体の軽量化では「関節を保護するボーン」の選択を使い、単体の軽量化ではすべての関節を対象にします。ボーンウェイトの保護設定とは独立しています。目標三角形数より多い状態で止まる場合があるため、関節を動かして確認してください。"
+msgid "Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction."
+msgstr "最も強く影響するボーンが切り替わる部分と、そのすぐ周囲の頂点を保持し、関節を曲げたときの形状の崩れを抑えます。削減できる三角形数が少なくなる場合があります。"
 
 msgid "Automatically protect deforming meshes"
 msgstr "変形するメッシュを自動保護"
@@ -839,3 +839,6 @@ msgstr " - 更新が必要です"
 
 msgid "Preview counts are not available for every mesh."
 msgstr "一部のメッシュのプレビュー数をまだ取得できていません。"
+
+msgid "Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards."
+msgstr "ボーンウェイトの保護は、Blender Decimate に切り替わった後の処理にのみ適用されます。UV ループの削減では専用の保護処理を使用します。"
