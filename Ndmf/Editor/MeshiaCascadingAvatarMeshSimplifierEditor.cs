@@ -1349,8 +1349,23 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 estimatedBeforeDownstreamTriangleCount,
                 CurrentAnalysisRevision,
                 analysisError));
-            EditorApplication.delayCall += () => s_analysisInProgress = false;
+            EditorApplication.delayCall += CompleteTriangleAnalysis;
             UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+        }
+
+        private static void CompleteTriangleAnalysis()
+        {
+            try
+            {
+                // Build plugins can record Undo changes on generated materials and
+                // animation assets. Unity may deliver those records after delayCall;
+                // drain them while invalidation is still suppressed for this build.
+                Undo.FlushUndoRecordObjects();
+            }
+            finally
+            {
+                s_analysisInProgress = false;
+            }
         }
 
         private static bool TryGetBuildAnalysisResult(

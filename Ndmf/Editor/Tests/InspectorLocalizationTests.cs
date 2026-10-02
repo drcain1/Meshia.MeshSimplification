@@ -14,6 +14,47 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
     {
         public class TestWindow : EditorWindow { }
 
+        [Test]
+        public void AnalysisCompletionIgnoresPendingBuildUndoButStillInvalidatesRealEdits()
+        {
+            var type = typeof(Editor.MeshiaCascadingAvatarMeshSimplifierEditor);
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var busy = type.GetField("s_analysisInProgress", flags);
+            var revision = type.GetProperty("CurrentAnalysisRevision", flags);
+            var complete = type.GetMethod("CompleteTriangleAnalysis", flags);
+            var material = new Material(Shader.Find("Hidden/InternalErrorShader"));
+            var settings = new GameObject("Analysis invalidation test");
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            try
+            {
+                Undo.FlushUndoRecordObjects();
+                var before = (int)revision.GetValue(null);
+                busy.SetValue(null, true);
+                // Like shader/build integrations, record a temporary material change
+                // without flushing it before the analysis completion callback runs.
+                Undo.RecordObject(material, "Build generated material");
+                material.renderQueue = 2451;
+                complete.Invoke(null, null);
+                Assert.IsFalse((bool)busy.GetValue(null));
+                Assert.AreEqual(before, revision.GetValue(null));
+                Undo.FlushUndoRecordObjects();
+                Assert.AreEqual(before, revision.GetValue(null), "Build Undo records must not escape the completion guard.");
+
+                Undo.RecordObject(component, "Change requested budget");
+                component.TargetTriangleCount -= 1;
+                Undo.FlushUndoRecordObjects();
+                Assert.Greater((int)revision.GetValue(null), before, "Real edits after analysis must still invalidate the result.");
+            }
+            finally
+            {
+                busy.SetValue(null, false);
+                Undo.ClearUndo(material);
+                Undo.ClearUndo(component);
+                Object.DestroyImmediate(material);
+                Object.DestroyImmediate(settings);
+            }
+        }
+
         [TestCase(false, false, -6)]
         [TestCase(false, false, 6)]
         [TestCase(false, true, -6)]
