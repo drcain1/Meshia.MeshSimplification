@@ -93,6 +93,16 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.0.1` fixes Analyze Build immediately reporting "Out of date" after
+build plugins record delayed Undo changes on temporary materials or animation
+assets. Analysis completion flushes these records while build invalidation is
+still suppressed; subsequent user edits continue to invalidate the result.
+Mesh simplification algorithms, protection defaults, and saved avatar settings
+are unchanged. All 28 inspector EditMode tests passed locally in Unity 2022.3.22f1,
+including delayed build Undo and genuine settings-edit invalidation. The fix was
+also confirmed in a live project that reproduced the issue. All 12 distribution
+tests and release prerequisite checks passed.
+
 Version `1.0.0` promotes the tested `1.0.0-beta.8` implementation unchanged. Only
 the package version and release/installation documentation change. The 27 inspector
 EditMode tests passed locally in Unity 2022.3.22f1 for that implementation; the live
