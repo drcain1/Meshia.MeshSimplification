@@ -238,6 +238,8 @@ does not reconstruct the originals.
 
 ## Build and hosting
 
+Maintainers: follow the [release procedure](https://github.com/drcain1/Meshia.MeshSimplification/blob/main/RELEASE_PROCEDURE.md) for the complete publication and verification workflow.
+
 Run `python .github/scripts/vpm.py pack` to prepare a local review ZIP in `dist/`.
 Only package source, paired metadata, README, this migration guide, and license/port notices are included;
 test harnesses, benchmarks, workflow files, repository instructions, and API doc

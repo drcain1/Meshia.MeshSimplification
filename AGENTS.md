@@ -24,3 +24,7 @@ Add NUnit tests under `Runtime/Tests/` and keep their assembly definition refere
 ## Commit & Pull Request Guidelines
 
 Write concise, imperative commit subjects. Existing history permits plain subjects and scoped prefixes such as `fix:`, `feat:`, and `ci:`. Pull requests should explain behavioral impact, link relevant issues, and report Unity versions and test modes exercised. Include screenshots or recordings for inspector, preview, or other editor UI changes. Keep version bumps and release-only changes separate from functional work when practical.
+
+## Publishing Releases
+
+For release preparation or publication, follow [RELEASE_PROCEDURE.md](RELEASE_PROCEDURE.md). It covers validation, Unity MCP project selection, archive provenance, English/Japanese release notes, GitHub publication, and VPM deployment verification.
