@@ -1076,3 +1076,6 @@ msgstr " 自動調整では固定。"
 
 msgid "Meshes being simplified"
 msgstr "軽量化するメッシュ"
+
+msgid "Calculating..."
+msgstr "計算中..."

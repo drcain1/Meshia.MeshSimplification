@@ -14,6 +14,69 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
     {
         public class TestWindow : EditorWindow { }
 
+        [UnityTest]
+        public IEnumerator CalculationIndicatorCoversQueuedAndRunningWorkWithoutMovingRows()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var settings = new GameObject("Calculation indicator test");
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            var type = inspector.GetType();
+            try
+            {
+                var root = inspector.CreateInspectorGUI();
+                window.position = new Rect(100, 100, 400, 600);
+                window.rootVisualElement.Add(root);
+                window.Show();
+                var indicator = root.Q<VisualElement>("BackgroundCalculationIndicator");
+                var label = root.Q<Label>("BackgroundCalculationLabel");
+                var foldout = root.Q<Foldout>("EstimatesAndBuildDetails");
+                var summary = root.Q<Label>("AllocationSummary");
+                var refresh = type.GetMethod("RefreshBackgroundCalculationIndicator", flags);
+                Assert.IsTrue(foldout.Q<Toggle>().Contains(indicator));
+                Assert.AreEqual(PickingMode.Ignore, indicator.pickingMode);
+                foreach (var language in new[] { "en", "ja" })
+                {
+                    LocalizationProvider.CurrentLocale = language;
+                    for (var i = 0; i < 5; i++) yield return null;
+                    var rowY = summary.worldBound.y;
+                    foreach (var state in new[] { "pendingOutputIndex", "estimateScheduled", "estimateRunning" })
+                    {
+                        var field = type.GetField(state, flags);
+                        field.SetValue(inspector, state == "pendingOutputIndex" ? (object)0 : true);
+                        refresh.Invoke(inspector, new object[] { root });
+                        for (var i = 0; i < 5; i++) yield return null;
+                        Assert.AreEqual(Visibility.Visible, indicator.resolvedStyle.visibility, state);
+                        Assert.AreEqual(language == "ja" ? "計算中..." : "Calculating...", label.text);
+                        Assert.IsNotNull(root.Q<Image>("BackgroundCalculationSpinner").image);
+                        Assert.AreEqual(rowY, summary.worldBound.y, .5f, "The badge must not push any rows down.");
+                        Assert.LessOrEqual(indicator.worldBound.xMax, root.worldBound.xMax + 1);
+                        field.SetValue(inspector, state == "pendingOutputIndex" ? (object)(-1) : false);
+                        refresh.Invoke(inspector, new object[] { root });
+                        Assert.AreEqual(Visibility.Hidden, indicator.style.visibility.value, "Completion must clear the badge.");
+                    }
+                    type.GetField("estimateRunning", flags).SetValue(inspector, true);
+                    foldout.value = false;
+                    refresh.Invoke(inspector, new object[] { root });
+                    for (var i = 0; i < 5; i++) yield return null;
+                    Assert.AreEqual(Visibility.Visible, indicator.resolvedStyle.visibility);
+                    Assert.Greater(indicator.worldBound.height, 0);
+                    type.GetField("estimateRunning", flags).SetValue(inspector, false);
+                    foldout.value = true;
+                    refresh.Invoke(inspector, new object[] { root });
+                }
+            }
+            finally
+            {
+                window.Close();
+                Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(settings);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
         [TestCase(0)]
         [TestCase(4)]
         [TestCase(-4)]

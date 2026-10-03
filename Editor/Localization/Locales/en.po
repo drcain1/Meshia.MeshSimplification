@@ -1081,3 +1081,6 @@ msgstr " Fixed for Auto Adjust."
 
 msgid "Meshes being simplified"
 msgstr "Meshes being simplified"
+
+msgid "Calculating..."
+msgstr "Calculating..."

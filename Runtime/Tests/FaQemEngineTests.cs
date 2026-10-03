@@ -9,6 +9,122 @@ namespace Meshia.MeshSimplification.Tests
 {
     public class FaQemEngineTests
     {
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        [TestCase(true, true)]
+        public void ShouldMatchFreshRunsAcrossRecordedCountSequence(bool borders, bool deformed)
+        {
+            var source = MakeGrid(8, 8);
+            var output = new Mesh();
+            try
+            {
+                var options = MeshSimplifierOptions.Default;
+                options.PreserveBorderEdges = borders;
+                if (deformed)
+                {
+                    var points = source.vertices;
+                    var deltas = new Vector3[points.Length];
+                    for (var i = 0; i < points.Length; i++)
+                    {
+                        points[i].z = Mathf.Sin(points[i].x) * .25f;
+                        deltas[i] = new Vector3(0, 0, Mathf.Cos(points[i].y) * .1f);
+                    }
+                    source.vertices = points;
+                    source.AddBlendShapeFrame("Bend", 100, deltas, null, null);
+                    source.bindposes = new[] { Matrix4x4.identity, Matrix4x4.identity };
+                    var weights = new BoneWeight[points.Length];
+                    for (var i = 0; i < weights.Length; i++)
+                        weights[i] = new BoneWeight { boneIndex0 = points[i].x < 4 ? 0 : 1, weight0 = 1 };
+                    source.boneWeights = weights;
+                    options.SkinningProtection.Enabled = true;
+                    options.SkinningProtection.PreserveJointTransitions = true;
+                    source.RecalculateNormals();
+                    source.RecalculateBounds();
+                }
+                var before = source.vertices;
+                var profile = MeshSimplifier.MeasureFaQemCounts(source, 0, options);
+                foreach (var count in new[] { 0, 1, 2, 15, 31, 32, 33, 61, 95, 127, 128, 200 })
+                {
+                    var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = count };
+                    MeshSimplifier.Simplify(source, target, options, output);
+                    Assert.That(profile.TryGetOutput(count, out var measured), Is.True);
+                    Assert.That(measured, Is.EqualTo(output.triangles.Length / 3), $"Request {count}");
+                }
+                CollectionAssert.AreEqual(before, source.vertices);
+            }
+            finally { Object.DestroyImmediate(source); Object.DestroyImmediate(output); }
+        }
+
+        [UnityEngine.TestTools.UnityTest]
+        public System.Collections.IEnumerator ShouldMeasureCountsAsynchronouslyWithoutChangingSource()
+        {
+            var source = MakeGrid(8, 8);
+            try
+            {
+                var vertices = source.vertices;
+                var indices = source.triangles;
+                var expected = MeshSimplifier.MeasureFaQemCounts(source, 0, MeshSimplifierOptions.Default);
+                var pending = MeshSimplifier.MeasureFaQemCountsAsync(source, 0, MeshSimplifierOptions.Default);
+                while (!pending.IsCompleted) yield return null;
+                var actual = pending.GetAwaiter().GetResult();
+                for (var target = 0; target <= 128; target++)
+                {
+                    Assert.True(expected.TryGetOutput(target, out var a));
+                    Assert.True(actual.TryGetOutput(target, out var b));
+                    Assert.AreEqual(a, b);
+                }
+                CollectionAssert.AreEqual(vertices, source.vertices);
+                CollectionAssert.AreEqual(indices, source.triangles);
+            }
+            finally { Object.DestroyImmediate(source); }
+        }
+
+        [Test]
+        public void ShouldCaptureCountProfileWithoutChangingBatchGeometry()
+        {
+            var source = MakeGrid(8, 8);
+            var first = new Mesh();
+            var second = new Mesh();
+            try
+            {
+                var options = MeshSimplifierOptions.Default;
+                var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 61 };
+                var profiles = new List<FaQemCountProfile>();
+                MeshSimplifier.SimplifyBatch(new[] { (source, target, options, (System.Collections.BitArray)null, first) }, profiles);
+                MeshSimplifier.Simplify(source, target, options, second);
+                CollectionAssert.AreEqual(first.triangles, second.triangles);
+                CollectionAssert.AreEqual(first.vertices, second.vertices);
+                Assert.That(profiles[0].TryGetOutput(61, out var output), Is.True);
+                Assert.That(output, Is.EqualTo(first.triangles.Length / 3));
+                Assert.That(profiles[0].TryGetOutput(60, out _), Is.EqualTo(profiles[0].ReachedLimit));
+                MeshSimplifier.Simplify(source, new MeshSimplificationTarget { Kind = target.Kind, Value = 99 }, options, second);
+                Assert.That(profiles[0].TryGetOutput(99, out output), Is.True);
+                Assert.That(output, Is.EqualTo(second.triangles.Length / 3));
+            }
+            finally { Object.DestroyImmediate(source); Object.DestroyImmediate(first); Object.DestroyImmediate(second); }
+        }
+
+        [Test]
+        public void ShouldPreserveEarlyReturnBeforeDegenerateCleanupInCountProfile()
+        {
+            var source = MakeGrid(3, 3);
+            var output = new Mesh();
+            try
+            {
+                var triangles = new List<int>(source.triangles);
+                triangles.AddRange(new[] { 0, 1, 2 }); // Collinear rest-pose face.
+                source.triangles = triangles.ToArray();
+                var profile = MeshSimplifier.MeasureFaQemCounts(source, 0, MeshSimplifierOptions.Default);
+                foreach (var count in new[] { 0, 1, 17, 18, 19, 20 })
+                {
+                    MeshSimplifier.Simplify(source, new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = count }, MeshSimplifierOptions.Default, output);
+                    Assert.That(profile.TryGetOutput(count, out var actual), Is.True);
+                    Assert.That(actual, Is.EqualTo(output.triangles.Length / 3), $"Request {count}");
+                }
+            }
+            finally { Object.DestroyImmediate(source); Object.DestroyImmediate(output); }
+        }
         [TestCase(false)]
         [TestCase(true)]
         public void ShouldCompleteRepeatedLargeGuardedBatches(bool preserveBorders)

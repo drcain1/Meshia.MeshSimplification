@@ -16,26 +16,48 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private readonly Func<int, int> evaluate;
         private readonly Func<int, Task<int>>? evaluateAsync;
         private readonly Mesh? ownedSource;
+        private FaQemCountProfile? countProfile;
+        private readonly Func<FaQemCountProfile>? measureProfile;
+        private readonly Func<Task<FaQemCountProfile>>? measureProfileAsync;
         private int pendingMeasurements;
         private bool disposed;
 
         internal MeasuredMeshResponse(int index, int sourceCount, int requested, int produced,
-            Func<int, int> evaluate, Mesh? ownedSource = null, Func<int, Task<int>>? evaluateAsync = null)
+            Func<int, int> evaluate, Mesh? ownedSource = null, Func<int, Task<int>>? evaluateAsync = null,
+            FaQemCountProfile? countProfile = null, Func<FaQemCountProfile>? measureProfile = null,
+            Func<Task<FaQemCountProfile>>? measureProfileAsync = null)
         {
             Index = index;
             SourceCount = sourceCount;
             this.evaluate = evaluate;
             this.evaluateAsync = evaluateAsync;
             this.ownedSource = ownedSource;
+            this.countProfile = countProfile;
+            this.measureProfile = measureProfile;
+            this.measureProfileAsync = measureProfileAsync;
             Outputs[requested] = produced;
+        }
+
+        internal bool TryGetOutput(int requested, out int output)
+        {
+            if (disposed) throw new ObjectDisposedException(nameof(MeasuredMeshResponse));
+            if (Outputs.TryGetValue(requested, out output)) return true;
+            if (countProfile == null || !countProfile.TryGetOutput(requested, out output)) return false;
+            Outputs[requested] = output;
+            return true;
         }
 
         internal int Measure(int requested)
         {
             if (disposed) throw new ObjectDisposedException(nameof(MeasuredMeshResponse));
-            if (!Outputs.TryGetValue(requested, out var output))
+            if (!TryGetOutput(requested, out var output))
             {
-                output = evaluate(requested);
+                if (measureProfile != null)
+                {
+                    countProfile = measureProfile();
+                    if (!countProfile.TryGetOutput(requested, out output)) throw new InvalidOperationException("Incomplete count profile.");
+                }
+                else output = evaluate(requested);
                 if (output < 0 || output > SourceCount) throw new InvalidOperationException("Invalid mesh measurement.");
                 Outputs[requested] = output;
             }
@@ -47,12 +69,19 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         internal async Task<int> MeasureAsync(int requested)
         {
             if (disposed) throw new ObjectDisposedException(nameof(MeasuredMeshResponse));
-            if (Outputs.TryGetValue(requested, out var cached)) return cached;
-            if (evaluateAsync == null) throw new InvalidOperationException("Async mesh measurement is unavailable.");
+            if (TryGetOutput(requested, out var cached)) return cached;
+            if (evaluateAsync == null && measureProfileAsync == null) throw new InvalidOperationException("Async mesh measurement is unavailable.");
             pendingMeasurements++;
             try
             {
-                var output = await evaluateAsync(requested);
+                int output;
+                if (measureProfileAsync != null)
+                {
+                    var profile = await measureProfileAsync();
+                    if (!profile.TryGetOutput(requested, out output)) throw new InvalidOperationException("Incomplete count profile.");
+                    if (!disposed) countProfile = profile;
+                }
+                else output = await evaluateAsync!(requested);
                 if (output < 0 || output > SourceCount) throw new InvalidOperationException("Invalid mesh measurement.");
                 if (!disposed) Outputs[requested] = output;
                 return output;
@@ -93,6 +122,29 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
     internal static class MeasuredMeshBudget
     {
+        // Learn only from an isolated edit between complete builds. Multiple
+        // changed meshes cannot identify an individual downstream response.
+        internal static bool TryLearnFinalScale(int[] beforeTargets, int[] afterTargets,
+            int[] beforeOutputs, int[] afterOutputs, int beforeFinal, int afterFinal,
+            out int index, out double scale)
+        {
+            index = -1;
+            scale = 1;
+            if (beforeTargets.Length != afterTargets.Length || beforeOutputs.Length != beforeTargets.Length ||
+                afterOutputs.Length != beforeTargets.Length) return false;
+            for (var i = 0; i < beforeTargets.Length; i++)
+            {
+                if (beforeTargets[i] == afterTargets[i] && beforeOutputs[i] == afterOutputs[i]) continue;
+                if (index >= 0) { index = -1; return false; }
+                index = i;
+            }
+            if (index < 0 || beforeOutputs[index] < 0 || afterOutputs[index] < 0) return false;
+            var outputDelta = (long)afterOutputs[index] - beforeOutputs[index];
+            if (outputDelta == 0) return false;
+            scale = ((long)afterFinal - beforeFinal) / (double)outputDelta;
+            return scale >= .125 && scale <= 8;
+        }
+
         // A manual reduction never removes more output than requested. Probe a bounded
         // set of targets without committing them, and return the best measured saving.
         internal static async Task<int> FindReductionAsync(MeasuredMeshResponse mesh,
@@ -164,11 +216,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             internal MeasuredMeshResponse Mesh = null!;
             internal int Current, Produced, Floor, FloorOutput, Capacity, Share;
             internal long Weight;
+            internal double Scale;
         }
 
         private static Dictionary<int, int> PlanReductions(IReadOnlyList<MeasuredMeshResponse> meshes,
             IReadOnlyList<int> targets, long reduction, Func<bool>? cancel,
-            IReadOnlyList<int>? startingTargets, IReadOnlyList<int>? startingOutputs)
+            IReadOnlyList<int>? startingTargets, IReadOnlyList<int>? startingOutputs,
+            IReadOnlyDictionary<int, double>? finalScales)
         {
             var candidates = new List<ReductionCandidate>();
             foreach (var mesh in meshes)
@@ -187,11 +241,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var outputRoom = produced - (int)Math.Ceiling(startOutput * .75);
                 if (outputRoom <= 0) continue;
                 var output = mesh.Measure(floor);
-                var capacity = Math.Min(outputRoom, produced - output);
+                var scale = finalScales != null && finalScales.TryGetValue(mesh.Index, out var observed) &&
+                    observed >= .125 && observed <= 8 ? observed : 1;
+                var capacity = (int)Math.Min(int.MaxValue, Math.Floor(Math.Min(outputRoom, produced - output) * scale));
                 if (capacity <= 0) continue;
                 candidates.Add(new ReductionCandidate { Mesh = mesh, Current = current,
                     Produced = produced, Floor = floor, FloorOutput = output,
-                    Capacity = capacity, Weight = Math.Max(1, start) });
+                    Capacity = capacity, Weight = Math.Max(1, start), Scale = scale });
             }
             // Water-fill measured capacity in proportion to the user's starting
             // allocations. Flat meshes contribute no capacity; no first mesh pays
@@ -215,23 +271,24 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var plan = new Dictionary<int, int>();
             foreach (var c in candidates.Where(c => c.Share > 0))
             {
+                var rawShare = (int)Math.Min(int.MaxValue, Math.Floor(c.Share / c.Scale));
                 var lower = c.Floor;
                 var upper = c.Current;
                 var lowerGain = c.Produced - c.FloorOutput;
                 var upperGain = 0;
                 var best = c.Current;
                 var bestGain = 0;
-                if (lowerGain <= c.Share) { best = lower; bestGain = lowerGain; }
-                for (var attempt = 0; bestGain < c.Share && upper - lower > 1 && attempt < 3; attempt++)
+                if (lowerGain <= rawShare) { best = lower; bestGain = lowerGain; }
+                for (var attempt = 0; bestGain < rawShare && upper - lower > 1 && attempt < 3; attempt++)
                 {
                     if (cancel?.Invoke() == true) throw new OperationCanceledException();
                     var fraction = lowerGain > upperGain
-                        ? Math.Max(0, Math.Min(1, (c.Share - upperGain) / (double)(lowerGain - upperGain))) : .5;
+                        ? Math.Max(0, Math.Min(1, (rawShare - upperGain) / (double)(lowerGain - upperGain))) : .5;
                     var offset = Math.Max(1, Math.Min(upper - lower - 1, (int)Math.Round((upper - lower) * fraction)));
                     var trial = upper - offset;
                     var gain = c.Produced - c.Mesh.Measure(trial);
-                    if (gain > bestGain && gain <= c.Share) { best = trial; bestGain = gain; }
-                    if (gain > c.Share) { lower = trial; lowerGain = gain; }
+                    if (gain > bestGain && gain <= rawShare) { best = trial; bestGain = gain; }
+                    if (gain > rawShare) { lower = trial; lowerGain = gain; }
                     else { upper = trial; upperGain = gain; }
                 }
                 if (bestGain > 0) plan[c.Mesh.Index] = best;
@@ -243,10 +300,11 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         // output changes. Flat, reversed, or wildly discontinuous probes earn none.
         internal static Dictionary<int, int> Plan(IReadOnlyList<MeasuredMeshResponse> meshes,
             IReadOnlyList<int> targets, long outputChange, Func<bool>? cancel = null,
-            IReadOnlyList<int>? startingTargets = null, IReadOnlyList<int>? startingOutputs = null)
+            IReadOnlyList<int>? startingTargets = null, IReadOnlyList<int>? startingOutputs = null,
+            IReadOnlyDictionary<int, double>? finalScales = null)
         {
             if (outputChange < 0)
-                return PlanReductions(meshes, targets, -outputChange, cancel, startingTargets, startingOutputs);
+                return PlanReductions(meshes, targets, -outputChange, cancel, startingTargets, startingOutputs, finalScales);
             var plan = new Dictionary<int, int>();
             if (outputChange == 0) return plan;
             var direction = Math.Sign(outputChange);
@@ -255,11 +313,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             foreach (var mesh in ordered)
             {
                 if (cancel?.Invoke() == true) throw new OperationCanceledException();
+                var scale = finalScales != null && finalScales.TryGetValue(mesh.Index, out var observed) &&
+                    observed >= .125 && observed <= 8 ? observed : 1;
+                var meshRemaining = (long)Math.Floor(remaining / scale);
+                if (meshRemaining <= 0) continue;
                 var current = targets[mesh.Index];
                 var produced = mesh.Measure(current);
                 var room = direction < 0 ? current - 1 : mesh.SourceCount - current;
                 if (room <= 0) continue;
-                var step = (int)Math.Min(room, Math.Max(1L, Math.Max(current / 4, remaining)));
+                var step = (int)Math.Min(room, Math.Max(1L, Math.Max(current / 4, meshRemaining)));
                 var trial = current + direction * step;
                 var output = mesh.Measure(trial);
                 var gain = direction * (long)(output - produced);
@@ -271,32 +333,32 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var upper = trial;
                 long lowerGain = 0, upperGain = gain;
                 var bestTarget = trial;
-                var bestGain = direction > 0 && gain > remaining ? 0 : gain;
-                for (var attempt = 0; gain > remaining && attempt < 3; attempt++)
+                var bestGain = direction > 0 && gain > meshRemaining ? 0 : gain;
+                for (var attempt = 0; gain > meshRemaining && attempt < 3; attempt++)
                 {
                     // Interpolate only between this mesh's measured bracket ends.
                     // Fall back to the middle if a nonmonotonic result breaks it.
                     var width = Math.Abs(upper - lower);
                     if (width <= 1) break;
                     var fraction = upperGain > lowerGain
-                        ? Math.Max(0, Math.Min(1, (remaining - lowerGain) / (double)(upperGain - lowerGain))) : .5;
+                        ? Math.Max(0, Math.Min(1, (meshRemaining - lowerGain) / (double)(upperGain - lowerGain))) : .5;
                     var offset = Math.Max(1, Math.Min(width - 1, (int)Math.Round(width * fraction)));
                     var midpoint = lower + Math.Sign(upper - lower) * offset;
                     if (midpoint == lower || midpoint == upper) break;
                     if (cancel?.Invoke() == true) throw new OperationCanceledException();
                     var middleGain = direction * (long)(mesh.Measure(midpoint) - produced);
-                    if (middleGain > 0 && (direction < 0 || middleGain <= remaining) &&
-                        Math.Abs(middleGain - remaining) < Math.Abs(bestGain - remaining))
+                    if (middleGain > 0 && (direction < 0 || middleGain <= meshRemaining) &&
+                        Math.Abs(middleGain - meshRemaining) < Math.Abs(bestGain - meshRemaining))
                     { bestTarget = midpoint; bestGain = middleGain; }
-                    if (middleGain == remaining) break;
-                    if (middleGain > remaining) { upper = midpoint; upperGain = middleGain; }
+                    if (middleGain == meshRemaining) break;
+                    if (middleGain > meshRemaining) { upper = midpoint; upperGain = middleGain; }
                     else { lower = midpoint; lowerGain = middleGain; }
                 }
                 // A reduction may go slightly below the goal; never accept a larger
                 // miss than the gap we are trying to close. Increases cannot overshoot.
-                if (bestGain <= 0 || (bestGain > remaining && (direction > 0 || bestGain - remaining >= remaining))) continue;
+                if (bestGain <= 0 || (bestGain > meshRemaining && (direction > 0 || bestGain - meshRemaining >= meshRemaining))) continue;
                 plan[mesh.Index] = bestTarget;
-                remaining = Math.Max(0, remaining - bestGain);
+                remaining = Math.Max(0, remaining - (long)Math.Floor(bestGain * scale));
                 if (remaining == 0) break;
             }
             return plan;

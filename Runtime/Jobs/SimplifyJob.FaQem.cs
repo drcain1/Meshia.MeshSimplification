@@ -9,6 +9,8 @@ namespace Meshia.MeshSimplification
         public NativeList<FaQemCollapseRecord> FaQemCollapseHistory;
         public NativeList<FaQemAffectedFace> FaQemAffectedFaces;
         public bool RecordFaQemHistory;
+        public NativeList<int> FaQemTriangleCounts;
+        public bool RecordFaQemCounts;
 
         const byte FaQemDeformableDegenerateVertex = 2;
         const byte FaQemJointTransitionVertex = 4;
@@ -32,6 +34,7 @@ namespace Meshia.MeshSimplification
         internal void RunFaQem(int targetTriangleCount)
         {
             targetTriangleCount = math.max(0, targetTriangleCount);
+            if (RecordFaQemCounts) FaQemTriangleCounts.Add(TriangleCount);
             if (TriangleCount <= targetTriangleCount || VertexCount == 0) return;
 
             var settings = Options.FaQem.Effective;
@@ -61,6 +64,7 @@ namespace Meshia.MeshSimplification
                     if (!VertexContainingTriangles.ContainsKey(degenerate.z)) DiscardVertex(degenerate.z);
                     DiscardTriangle(ti);
                 }
+            if (RecordFaQemCounts) FaQemTriangleCounts.Add(TriangleCount);
             InitializeFaQemJointTransitions(seamFlags);
             InitializeFaQemSourceQuadrics(sourceQuadrics, center, scale, settings);
             using var envelope = new FaQemSurfaceEnvelope(VertexPositionBuffer, Triangles, DiscardedTriangle,
@@ -99,6 +103,7 @@ namespace Meshia.MeshSimplification
                         Position = candidate.Position,
                         Cost = (float)math.min(candidate.Cost, float.MaxValue),
                      });
+                     if (RecordFaQemCounts) FaQemTriangleCounts.Add(TriangleCount);
                      sourceQuadrics.ElementAt(survivor) = sourceQuadrics[survivor] + sourceQuadrics[removed];
                      CollectFaQemStarVertices(survivor, affectedVertices);
                      // Revisions must be advanced for the complete change set

@@ -16,6 +16,134 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
 {
     public class MeasuredMeshBudgetTests
     {
+        [TestCase(115, true)]
+        [TestCase(0, false)]
+        [TestCase(-1, false)]
+        [TestCase(10000, false)]
+        public void LearnsOnlyBoundedPositiveFinalResponseFromIsolatedVerifiedChanges(int finalDelta, bool expected)
+        {
+            var learned = MeasuredMeshBudget.TryLearnFinalScale(new[] { 1000, 200 }, new[] { 1292, 200 },
+                new[] { 1000, 300 }, new[] { 1292, 300 }, 69672, 69672 + finalDelta, out var index, out var scale);
+            Assert.AreEqual(expected, learned);
+            Assert.AreEqual(0, index);
+            if (expected) Assert.AreEqual(115d / 292, scale);
+            Assert.False(MeasuredMeshBudget.TryLearnFinalScale(new[] { 1000, 200 }, new[] { 1292, 210 },
+                new[] { 1000, 300 }, new[] { 1292, 300 }, 69672, 69787, out _, out _));
+        }
+
+        [TestCase(100, 1250)]
+        [TestCase(-100, 750)]
+        [TestCase(-150, 750)]
+        public void UsesLearnedFinalResponseWithoutExceedingReductionFloor(int change, int expectedTarget)
+        {
+            using var mesh = new MeasuredMeshResponse(0, 2000, 1000, 1000, x => x);
+            var plan = MeasuredMeshBudget.Plan(new[] { mesh }, new[] { 1000 }, change,
+                finalScales: new System.Collections.Generic.Dictionary<int, double> { [0] = .4 });
+            Assert.AreEqual(expectedTarget, plan[0]);
+        }
+
+        [Test]
+        public void LearnsDownstreamLossDuringFittingInsteadOfRepeatedlyUnderfilling()
+        {
+            using var mesh = new MeasuredMeshResponse(0, 2000, 1000, 1000, x => x);
+            var scales = new System.Collections.Generic.Dictionary<int, double>();
+            var target = 1000;
+            var beforeTarget = target;
+            var beforeFinal = 700;
+            var final = beforeFinal;
+            var builds = 0;
+            var stop = MeshiaCascadingAvatarMeshSimplifierEditor.RunBoundedBuildFit(true, 800,
+                _ => false,
+                () =>
+                {
+                    builds++;
+                    final = 300 + (int)(target * .4);
+                    if (MeasuredMeshBudget.TryLearnFinalScale(new[] { beforeTarget }, new[] { target },
+                        new[] { beforeTarget }, new[] { target }, beforeFinal, final, out var index, out var scale)) scales[index] = scale;
+                    beforeTarget = target; beforeFinal = final;
+                    return final;
+                },
+                () =>
+                {
+                    var plan = MeasuredMeshBudget.Plan(new[] { mesh }, new[] { target }, 800 - final, finalScales: scales);
+                    if (!plan.TryGetValue(0, out var next)) return false;
+                    target = next; return true;
+                }, initialEstimate: 700);
+            Assert.AreEqual(MeshiaCascadingAvatarMeshSimplifierEditor.BuildFitStop.WithinBudget, stop);
+            Assert.AreEqual(2, builds);
+            Assert.AreEqual(800, final);
+        }
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CountProfilesServeNewRequestsWithoutRepeatedSimplification(bool asynchronous)
+        {
+            var source = new Mesh
+            {
+                vertices = new[] { Vector3.zero, Vector3.right, Vector3.up },
+                triangles = new[] { 0, 1, 2 }
+            };
+            try
+            {
+                var partial = MeshSimplifier.MeasureFaQemCounts(source, 1, MeshSimplifierOptions.Default);
+                var complete = MeshSimplifier.MeasureFaQemCounts(source, 0, MeshSimplifierOptions.Default);
+                var calls = 0;
+                using var response = new MeasuredMeshResponse(0, 1, 1, 1,
+                    _ => throw new Exception("Legacy evaluator must not run"),
+                    countProfile: partial,
+                    measureProfile: () => { calls++; return complete; },
+                    measureProfileAsync: () => { calls++; return Task.FromResult(complete); });
+                Assert.AreEqual(1, response.Measure(2), "Higher targets are already covered by the build profile.");
+                Assert.AreEqual(0, calls);
+                if (asynchronous) response.MeasureAsync(0).GetAwaiter().GetResult();
+                else response.Measure(0);
+                Assert.AreEqual(1, calls);
+                Assert.True(response.TryGetOutput(3, out var output));
+                Assert.AreEqual(1, output);
+                response.Measure(0);
+                Assert.AreEqual(1, calls, "The complete count sequence is reusable.");
+            }
+            finally { Object.DestroyImmediate(source); }
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void PreplanningAlwaysRunsARealVerificationEvenWhenNoCorrectionIsAvailable(bool capacity)
+        {
+            var corrected = false;
+            var builds = 0;
+            var stop = MeshiaCascadingAvatarMeshSimplifierEditor.RunBoundedBuildFit(true, 70000,
+                _ => false,
+                () => { builds++; Assert.AreEqual(capacity, corrected); return 70000; },
+                () => { corrected = capacity; return capacity; },
+                initialEstimate: 70700);
+            Assert.AreEqual(MeshiaCascadingAvatarMeshSimplifierEditor.BuildFitStop.WithinBudget, stop);
+            Assert.AreEqual(1, builds);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FailedVerificationRestoresAllocationsChangedBeforeFirstBuild(bool throws)
+        {
+            var allocation = 100;
+            void Run() => MeshiaCascadingAvatarMeshSimplifierEditor.RunBoundedBuildFit(true, 70000,
+                _ => false, () => throws ? throw new InvalidOperationException("Failed") : (int?)null,
+                () => { allocation = 90; return true; }, () => allocation = 100, 70700);
+            if (throws) Assert.Throws<InvalidOperationException>(Run);
+            else Run();
+            Assert.AreEqual(100, allocation);
+        }
+
+        [TestCase(false, 70700)]
+        [TestCase(true, 69960)]
+        public void PreplanningPreservesManualModeAndVerifiesPredictedSuccess(bool automatic, int estimate)
+        {
+            var builds = 0;
+            var corrections = 0;
+            MeshiaCascadingAvatarMeshSimplifierEditor.RunBoundedBuildFit(automatic, 70000,
+                _ => false, () => { builds++; return 69990; }, () => { corrections++; return true; }, initialEstimate: estimate);
+            Assert.AreEqual(1, builds);
+            Assert.AreEqual(0, corrections);
+        }
         [UnityTest]
         public System.Collections.IEnumerator AsyncMeasurementYieldsCachesAndRetainsItsSourceUntilFinished()
         {
@@ -535,7 +663,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 if (stale) type.GetMethod("InvalidateTriangleAnalysis", Stat).Invoke(null, null);
                 Undo.IncrementCurrentGroup();
                 var before = EditorJsonUtility.ToJson(component);
-                var changed = (bool)type.GetMethod("ApplyAnalyzedBudgetCorrection", Inst).Invoke(inspector, new object[] { 30 });
+                var changed = (bool)type.GetMethod("ApplyAnalyzedBudgetCorrection", Inst).Invoke(inspector, new object[] { 30, null });
                 Assert.AreEqual(auto && !stale, changed);
                 Assert.AreEqual(6, component.Entries[0].TargetTriangleCount);
                 Assert.AreEqual(6, component.Entries[1].TargetTriangleCount);

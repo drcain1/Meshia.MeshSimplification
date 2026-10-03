@@ -16,7 +16,7 @@ using UnityEngine.Rendering;
 
 namespace Meshia.MeshSimplification
 {
-    public struct MeshSimplifier : INativeDisposable
+    public partial struct MeshSimplifier : INativeDisposable
     {
         NativeList<float3> VertexPositionBuffer;
 
@@ -59,6 +59,8 @@ namespace Meshia.MeshSimplification
         NativeList<FaQemCollapseRecord> FaQemCollapseHistory;
         NativeList<FaQemAffectedFace> FaQemAffectedFaces;
         bool RecordFaQemHistory;
+        NativeList<int> FaQemTriangleCounts;
+        bool RecordFaQemCounts;
         NativeArray<ulong> BlenderTraceLineage;
         NativeList<BlenderCollapseTraceRecord> BlenderTraceRecords;
         NativeArray<int> BlenderTraceState;
@@ -335,7 +337,13 @@ namespace Meshia.MeshSimplification
         }
 
         public static void SimplifyBatch(IReadOnlyList<(Mesh Mesh, MeshSimplificationTarget Target, MeshSimplifierOptions Options, BitArray? PreserveBorderEdgesBoneIndices, Mesh Destination)> parameters)
+            => SimplifyBatch(parameters, null);
+
+        /// <summary>Simplifies meshes and optionally captures reusable FA-QEM count profiles, in input order.</summary>
+        public static void SimplifyBatch(IReadOnlyList<(Mesh Mesh, MeshSimplificationTarget Target, MeshSimplifierOptions Options, BitArray? PreserveBorderEdgesBoneIndices, Mesh Destination)> parameters,
+            IList<FaQemCountProfile?>? countProfiles)
         {
+            countProfiles?.Clear();
             foreach (var parameter in parameters) ValidateFaQemTarget(parameter.Target, parameter.Options);
             Allocator allocator = Unity.Collections.Allocator.TempJob;
 
@@ -362,6 +370,8 @@ namespace Meshia.MeshSimplification
                     var blendShapes = BlendShapeData.GetMeshBlendShapes(mesh, allocator);
                     blendShapesList[i] = blendShapes;
                     var meshSimplifier = new MeshSimplifier(allocator);
+                    meshSimplifier.RecordFaQemCounts = countProfiles != null && target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount;
+                    meshSimplifiers[i] = meshSimplifier;
                     NativeBitArray nativePreserveBorderEdgesBoneIndices = new(preserveBorderEdgesBoneIndices?.Length ?? 0, allocator, NativeArrayOptions.UninitializedMemory);
                     if (preserveBorderEdgesBoneIndices is not null)
                     {
@@ -377,12 +387,22 @@ namespace Meshia.MeshSimplification
                     var simplify = meshSimplifier.ScheduleSimplify(originalMeshData, blendShapes, target, nativePreserveBorderEdgesBoneIndices, load);
                     nativePreserveBorderEdgesBoneIndices.Dispose(simplify);
                     var write = meshSimplifier.ScheduleWriteMeshData(originalMeshData, blendShapes, simplifiedMeshDataArray[i], simplifiedBlendShapes, simplify);
-                    meshSimplifier.Dispose(write);
+                    if (countProfiles == null) meshSimplifier.Dispose(write);
                     jobHandles[i] = write;
 
                 }
                 JobHandle.ScheduleBatchedJobs();
                 jobHandles.CombineDependencies().Complete();
+                if (countProfiles != null)
+                {
+                    try
+                    {
+                        for (var i = 0; i < parameters.Count; i++)
+                            countProfiles.Add(meshSimplifiers[i].RecordFaQemCounts
+                                ? new FaQemCountProfile((int)parameters[i].Target.Value, meshSimplifiers[i].FaQemTriangleCounts.AsArray().ToArray()) : null);
+                    }
+                    finally { foreach (var simplifier in meshSimplifiers) simplifier.Dispose(); }
+                }
                 originalMeshDataArray.Dispose();
                 foreach (var blendShapes in blendShapesList)
                 {
@@ -588,6 +608,8 @@ namespace Meshia.MeshSimplification
             FaQemCollapseHistory = new(allocator);
             FaQemAffectedFaces = new(allocator);
             RecordFaQemHistory = false;
+            FaQemTriangleCounts = new(allocator);
+            RecordFaQemCounts = false;
             BlenderTraceLineage = new(0, Unity.Collections.Allocator.Persistent);
             BlenderTraceRecords = new NativeList<BlenderCollapseTraceRecord>(allocator);
             BlenderTraceState = new(0, Unity.Collections.Allocator.Persistent);
@@ -908,6 +930,8 @@ namespace Meshia.MeshSimplification
                 FaQemCollapseHistory = FaQemCollapseHistory,
                 FaQemAffectedFaces = FaQemAffectedFaces,
                 RecordFaQemHistory = RecordFaQemHistory,
+                FaQemTriangleCounts = FaQemTriangleCounts,
+                RecordFaQemCounts = RecordFaQemCounts,
                 BlenderTraceLineage = BlenderTraceLineage,
                 BlenderTraceRecords = BlenderTraceRecords,
                 BlenderTraceState = BlenderTraceState,
@@ -1004,6 +1028,7 @@ namespace Meshia.MeshSimplification
                 VertexMerges.Dispose(inputDeps),
                 FaQemCollapseHistory.Dispose(inputDeps),
                 FaQemAffectedFaces.Dispose(inputDeps),
+                FaQemTriangleCounts.Dispose(inputDeps),
                 BlenderTraceLineage.IsCreated ? BlenderTraceLineage.Dispose(inputDeps) : inputDeps,
                 BlenderTraceRecords.IsCreated ? BlenderTraceRecords.Dispose(inputDeps) : inputDeps,
                 BlenderTraceState.IsCreated ? BlenderTraceState.Dispose(inputDeps) : inputDeps,
@@ -1047,6 +1072,7 @@ namespace Meshia.MeshSimplification
             VertexMerges.Dispose();
             FaQemCollapseHistory.Dispose();
             FaQemAffectedFaces.Dispose();
+            FaQemTriangleCounts.Dispose();
             if (BlenderTraceLineage.IsCreated) BlenderTraceLineage.Dispose();
             if (BlenderTraceRecords.IsCreated) BlenderTraceRecords.Dispose();
             if (BlenderTraceState.IsCreated) BlenderTraceState.Dispose();
