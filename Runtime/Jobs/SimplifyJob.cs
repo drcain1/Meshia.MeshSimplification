@@ -648,6 +648,7 @@ namespace Meshia.MeshSimplification
             {
                 return IsBlenderCollapseValid(merge);
             }
+            if (Options.AllowUnsafeGeometry) return math.all(math.isfinite(merge.Position));
             if (WillMakeContainingTriangleFlipped(merge, vertexA, vertexB))
             {
                 return false;
@@ -663,8 +664,10 @@ namespace Meshia.MeshSimplification
         {
             return IsBlenderTopologicallyValid(merge.VertexAIndex, merge.VertexBIndex) &&
                    IsSkinningCollapseValid(merge.VertexAIndex, merge.VertexBIndex, merge.Position, out _) &&
-                   !WillBlenderCollapseFlip(merge, merge.VertexAIndex, merge.VertexBIndex) &&
-                   !WillBlenderCollapseFlip(merge, merge.VertexBIndex, merge.VertexAIndex);
+                   math.all(math.isfinite(merge.Position)) &&
+                   (Options.AllowUnsafeGeometry ||
+                    (!WillBlenderCollapseFlip(merge, merge.VertexAIndex, merge.VertexBIndex) &&
+                     !WillBlenderCollapseFlip(merge, merge.VertexBIndex, merge.VertexAIndex)));
         }
 
         void RecordAcceptedBlenderCollapse(VertexMerge merge)

@@ -545,17 +545,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 {
                     if (evt.target != deformationToggle || itemRoot.userData is not int itemIndex ||
                         itemIndex < 0 || itemIndex >= Target.Entries.Count) return;
-                    serializedObject.Update();
-                    var options = EntriesProperty.GetArrayElementAtIndex(itemIndex)
-                        .FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Options));
-                    var protection = options.FindPropertyRelative(nameof(MeshSimplifierOptions.SkinningProtection));
-                    // A partial state is an invitation to enable both options, not to disable them.
-                    var enable = evt.newValue || deformationToggle.ClassListContains("partial-protection");
-                    protection.FindPropertyRelative(nameof(SkinningProtectionOptions.Policy)).intValue =
-                        (int)(enable ? SkinningProtectionPolicy.On : SkinningProtectionPolicy.Off);
-                    protection.FindPropertyRelative(nameof(SkinningProtectionOptions.Enabled)).boolValue = enable;
-                    protection.FindPropertyRelative(nameof(SkinningProtectionOptions.PreserveJointTransitions)).boolValue = enable;
-                    serializedObject.ApplyModifiedProperties();
+                    CycleMeshProtection(itemIndex);
+                    UpdateAlgorithmOptionAvailability(itemRoot);
                     RefreshDeformationProtection(itemRoot);
                 });
                 var algorithmField = itemRoot.Q<DropdownField>("AlgorithmField");
@@ -1016,39 +1007,62 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 toggle.SetValueWithoutNotify((mask & (1ul << bone++)) != 0);
         }
 
+        private static bool HasFullProtection(MeshiaCascadingAvatarMeshSimplifierRendererEntry entry)
+        {
+            var skin = entry.Options.SkinningProtection;
+            var weights = skin.Policy is SkinningProtectionPolicy.Auto or SkinningProtectionPolicy.AutoDeforming or SkinningProtectionPolicy.On ||
+                (skin.Policy == SkinningProtectionPolicy.Legacy && skin.Enabled);
+            return weights && (entry.Algorithm != MeshiaCascadingSimplificationAlgorithm.FaQem || skin.PreserveJointTransitions);
+        }
+
+        private void CycleMeshProtection(int index)
+        {
+            if (index < 0 || index >= Target.Entries.Count || !Target.Entries[index].Enabled) return;
+            serializedObject.Update();
+            var entry = Target.Entries[index];
+            var property = EntriesProperty.GetArrayElementAtIndex(index);
+            var disabled = property.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.DisableProtections));
+            var skin = property.FindPropertyRelative(nameof(MeshiaCascadingAvatarMeshSimplifierRendererEntry.Options))
+                .FindPropertyRelative(nameof(MeshSimplifierOptions.SkinningProtection));
+            Undo.SetCurrentGroupName(Tr("Change mesh protection"));
+            if (entry.DisableProtections || HasFullProtection(entry))
+            {
+                // Gray -> green restores saved geometry settings and enables deformation
+                // protection. Green -> yellow keeps geometry guards but disables deformation.
+                var enable = entry.DisableProtections;
+                disabled.boolValue = false;
+                skin.FindPropertyRelative(nameof(SkinningProtectionOptions.Policy)).intValue =
+                    (int)(enable ? SkinningProtectionPolicy.On : SkinningProtectionPolicy.Off);
+                skin.FindPropertyRelative(nameof(SkinningProtectionOptions.Enabled)).boolValue = enable;
+                skin.FindPropertyRelative(nameof(SkinningProtectionOptions.PreserveJointTransitions)).boolValue = enable;
+            }
+            else disabled.boolValue = true;
+            serializedObject.ApplyModifiedProperties();
+        }
+
         private void RefreshDeformationProtection(VisualElement itemRoot)
         {
             var toggle = itemRoot.Q<Toggle>("DeformationProtectionToggle");
             if (toggle == null || target == null || itemRoot.userData is not int index ||
                 index < 0 || index >= Target.Entries.Count) return;
             var entry = Target.Entries[index];
-            var renderer = entry.GetTargetRenderer(Target);
-            var supportsDeformation = entry.Algorithm != MeshiaCascadingSimplificationAlgorithm.Meshia;
-            toggle.style.display = supportsDeformation ? DisplayStyle.Flex : DisplayStyle.None;
-            var applicable = supportsDeformation && renderer is SkinnedMeshRenderer skin && skin.sharedMesh != null;
+            var applicable = entry.GetTargetRenderer(Target) is { } renderer && RendererUtility.GetMesh(renderer) != null;
+            toggle.style.display = DisplayStyle.Flex;
             toggle.SetEnabled(applicable && entry.Enabled);
-            var options = entry.Options;
-            // This is a settings control, not an estimate of protection on the built mesh.
-            // In particular, Auto is enabled regardless of the source mesh's current rig.
-            var automatic = options.SkinningProtection.Policy is SkinningProtectionPolicy.Auto or SkinningProtectionPolicy.AutoDeforming;
-            var weightProtection = automatic || options.SkinningProtection.Policy == SkinningProtectionPolicy.On ||
-                (options.SkinningProtection.Policy == SkinningProtectionPolicy.Legacy && options.SkinningProtection.Enabled);
-            var usesJointProtection = entry.Algorithm == MeshiaCascadingSimplificationAlgorithm.FaQem;
-            var jointProtection = usesJointProtection && options.SkinningProtection.PreserveJointTransitions;
-            var partial = usesJointProtection && weightProtection != jointProtection;
-            toggle.SetValueWithoutNotify(weightProtection || jointProtection);
-            toggle.EnableInClassList("partial-protection", partial);
-            var status = !applicable ? Tr("Deformation protection: not applicable") :
-                !entry.Enabled ? Tr("Deformation protection: mesh excluded") :
-                partial ? Tr("Deformation protection: partial") :
-                weightProtection || jointProtection ? Tr("Deformation protection: on") : Tr("Deformation protection: off");
-            toggle.tooltip = status;
+            var full = !entry.DisableProtections && HasFullProtection(entry);
+            toggle.SetValueWithoutNotify(!entry.DisableProtections);
+            toggle.EnableInClassList("partial-protection", !entry.DisableProtections && !full);
+            toggle.EnableInClassList("no-protection", entry.DisableProtections);
+            toggle.tooltip = !applicable ? Tr("Protection: not applicable") :
+                !entry.Enabled ? Tr("Protection: mesh excluded") :
+                entry.DisableProtections ? Tr("No protection. Shape, seams and deformation may break. Basic mesh validity checks still apply.") :
+                full ? Tr("Protection: geometry and deformation") : Tr("Protection: geometry only or partial");
             if (applicable && entry.Enabled)
             {
-                toggle.tooltip += "\n" + (partial || !toggle.value
-                    ? Tr("Click to enable deformation protection.")
-                    : Tr("Click to disable deformation protection."));
-                if (automatic) toggle.tooltip += "\n" + Tr("Automatic bone-weight selection is enabled.");
+                toggle.tooltip += "\n" + (entry.DisableProtections ? Tr("Click to restore geometry and deformation protection.") :
+                    full ? Tr("Click to keep geometry protection only.") : Tr("Click to turn off all protections for this mesh."));
+                if (!entry.DisableProtections && entry.Options.SkinningProtection.Policy is SkinningProtectionPolicy.Auto or SkinningProtectionPolicy.AutoDeforming)
+                    toggle.tooltip += "\n" + Tr("Automatic bone-weight selection is enabled.");
                 toggle.tooltip += "\n" + Tr("Shows your settings. Individual options are in the cog menu.");
             }
         }
@@ -1160,8 +1174,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout").style.display = usesFaQem && optionsToggle.value
                 ? DisplayStyle.Flex : DisplayStyle.None;
-            optionsField.SetEnabled(true);
-            preserveBorderEdgesBonesFoldout.SetEnabled(supportsSelectedBorderBones);
+            var protectionsEnabled = !Target.Entries[itemIndex].DisableProtections;
+            optionsField.SetEnabled(protectionsEnabled);
+            itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout").SetEnabled(protectionsEnabled);
+            preserveBorderEdgesBonesFoldout.SetEnabled(supportsSelectedBorderBones && protectionsEnabled);
             preserveBorderEdgesBonesFoldout.style.display = supportsSelectedBorderBones && optionsToggle.value
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;

@@ -241,10 +241,10 @@ msgid "Show mesh options"
 msgstr "メッシュの設定を表示します"
 
 msgid "Blender Decimate supports skinning protection. Meshia-specific geometry options are not used."
-msgstr "Blender Decimateではボーンによる変形の保護を使用できます。Meshia固有の形状設定は使用されません。"
+msgstr "Blender デシメートではボーンによる変形の保護を使用できます。Meshia固有の形状設定は使用されません。"
 
 msgid "Reconstructs conservative quad loops, protects UV seams and boundaries, then uses Blender Decimate to reach the remaining target. Meshia options are not used."
-msgstr "安全に処理できる四角形ループを再構築し、UVの継ぎ目と境界を保護します。その後、Blender Decimateで残りの削減を行います。Meshiaの設定は使用されません。"
+msgstr "安全に処理できる四角形ループを再構築し、UVの継ぎ目と境界を保護します。その後、Blender デシメートで残りの削減を行います。Meshiaの設定は使用されません。"
 
 msgid "FA-QEM simplifies geometry while retaining the existing UV layout, materials, and textures."
 msgstr "FA-QEMは既存のUV配置、マテリアル、テクスチャを維持しながら形状を軽量化します。"
@@ -262,7 +262,7 @@ msgid "Custom"
 msgstr "カスタム"
 
 msgid "Blender Decimate"
-msgstr "Blender Decimate"
+msgstr "Blender デシメート"
 
 msgid "Meshia"
 msgstr "Meshia"
@@ -424,7 +424,7 @@ msgid "Absolute Triangle Count"
 msgstr "三角形数"
 
 msgid "Blender Decimate Ratio"
-msgstr "Blender Decimateの削減後の比率"
+msgstr "Blender デシメートの削減後の比率"
 
 msgid "Uv Loop Dissolve Triangle Count"
 msgstr "UVループ溶解の目標三角形数"
@@ -841,7 +841,7 @@ msgid "Preview counts are not available for every mesh."
 msgstr "一部のメッシュのプレビュー数をまだ取得できていません。"
 
 msgid "Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards."
-msgstr "ボーンウェイトの保護は、Blender Decimate に切り替わった後の処理にのみ適用されます。UV ループの削減では専用の保護処理を使用します。"
+msgstr "ボーンウェイトの保護は、Blender デシメートに切り替わった後の処理にのみ適用されます。UV ループの削減では専用の保護処理を使用します。"
 
 msgid "Allocation allowance: {0:N0} triangles"
 msgstr "配分の余裕: {0:N0} 三角形"
@@ -1079,3 +1079,30 @@ msgstr "軽量化するメッシュ"
 
 msgid "Calculating..."
 msgstr "計算中..."
+
+msgid "Change mesh protection"
+msgstr "メッシュの保護を変更"
+
+msgid "Protection: not applicable"
+msgstr "保護：対象外"
+
+msgid "Protection: mesh excluded"
+msgstr "保護：軽量化の対象外"
+
+msgid "No protection. Shape, seams and deformation may break. Basic mesh validity checks still apply."
+msgstr "保護なし。形状・継ぎ目・変形が崩れることがあります。メッシュを処理するための基本的な整合性チェックは維持されます。"
+
+msgid "Protection: geometry and deformation"
+msgstr "保護：形状と変形"
+
+msgid "Protection: geometry only or partial"
+msgstr "保護：形状のみ、または一部のみ"
+
+msgid "Click to restore geometry and deformation protection."
+msgstr "クリックすると、保存済みの形状設定と変形の保護を有効にします。"
+
+msgid "Click to keep geometry protection only."
+msgstr "クリックすると、形状の保護のみ有効にします。"
+
+msgid "Click to turn off all protections for this mesh."
+msgstr "クリックすると、このメッシュの保護をすべて無効にします。"

@@ -159,17 +159,18 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
             finally { Object.DestroyImmediate(root); Object.DestroyImmediate(source); }
         }
 
-        [TestCase(false, SkinningProtectionPolicy.AutoDeforming, false, false)]
-        [TestCase(true, SkinningProtectionPolicy.AutoDeforming, false, false)]
-        [TestCase(false, SkinningProtectionPolicy.On, false, false)]
-        [TestCase(true, SkinningProtectionPolicy.On, false, false)]
-        [TestCase(false, SkinningProtectionPolicy.Off, true, false)]
-        [TestCase(true, SkinningProtectionPolicy.Off, true, false)]
-        [TestCase(false, SkinningProtectionPolicy.Auto, true, false)]
-        [TestCase(true, SkinningProtectionPolicy.Auto, true, false)]
-        [TestCase(false, SkinningProtectionPolicy.Off, false, true)]
-        [TestCase(true, SkinningProtectionPolicy.Off, false, true)]
-        public async Task ShouldUseResolvedPolicyInPreview(bool cascading, SkinningProtectionPolicy policy, bool legacyEnabled, bool jointGuard)
+        [TestCase(false, SkinningProtectionPolicy.AutoDeforming, false, false, false)]
+        [TestCase(true, SkinningProtectionPolicy.AutoDeforming, false, false, false)]
+        [TestCase(false, SkinningProtectionPolicy.On, false, false, false)]
+        [TestCase(true, SkinningProtectionPolicy.On, false, false, false)]
+        [TestCase(false, SkinningProtectionPolicy.Off, true, false, false)]
+        [TestCase(true, SkinningProtectionPolicy.Off, true, false, false)]
+        [TestCase(false, SkinningProtectionPolicy.Auto, true, false, false)]
+        [TestCase(true, SkinningProtectionPolicy.Auto, true, false, false)]
+        [TestCase(false, SkinningProtectionPolicy.Off, false, true, false)]
+        [TestCase(true, SkinningProtectionPolicy.Off, false, true, false)]
+        [TestCase(true, SkinningProtectionPolicy.On, true, true, true)]
+        public async Task ShouldUseResolvedPolicyInPreview(bool cascading, SkinningProtectionPolicy policy, bool legacyEnabled, bool jointGuard, bool unprotected)
         {
             var root = new GameObject("Preview policy fixture");
             root.AddComponent<nadena.dev.ndmf.runtime.components.NDMFAvatarRoot>();
@@ -215,7 +216,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
                 {
                     var c = root.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
                     c.Entries.Add(new MeshiaCascadingAvatarMeshSimplifierRendererEntry(renderer)
-                    { Options = options, Algorithm = MeshiaCascadingSimplificationAlgorithm.FaQem,
+                    { Options = options, DisableProtections = unprotected, Algorithm = MeshiaCascadingSimplificationAlgorithm.FaQem,
                         TargetTriangleCount = 30, PreserveBorderEdgesBones = 0 });
                     group = RenderGroup.For(renderer).WithData((c, 0));
                     filter = new MeshiaCascadingAvatarMeshSimplifierPreview();
@@ -230,6 +231,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
                 // the serialized legacy flag, exactly as it does in a build.
                 resolved.SkinningProtection = options.SkinningProtection.Resolve(policy == SkinningProtectionPolicy.AutoDeforming);
                 if (cascading) resolved.SkinningProtection.PreserveJointTransitions = false;
+                if (unprotected) resolved = resolved.WithoutProtections();
                 MeshSimplifier.Simplify(source, target, resolved, expected);
                 node = await filter.Instantiate(group, new[] { ((Renderer)renderer, (Renderer)proxy) }, context);
                 node.OnFrame(renderer, proxy);

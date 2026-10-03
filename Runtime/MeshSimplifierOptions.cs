@@ -59,6 +59,29 @@ namespace Meshia.MeshSimplification
         /// </summary>
         [Tooltip("If you want to suppress hole generation during simplification, enable this option.")]
         public bool PreserveBorderEdges;
+
+        /// <summary>Bypasses shape and attribute guards while retaining structural validity checks.</summary>
+        [HideInInspector] public bool AllowUnsafeGeometry;
+
+        /// <summary>Returns an unprotected copy without overwriting saved protection settings.</summary>
+        public readonly MeshSimplifierOptions WithoutProtections()
+        {
+            var options = this;
+            options.AllowUnsafeGeometry = true;
+            options.PreserveBorderEdges = false;
+            options.PreserveSurfaceCurvature = false;
+            options.MinNormalDot = -1f;
+            options.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
+            options.SkinningProtection.Enabled = false;
+            options.SkinningProtection.PreserveJointTransitions = false;
+            options.SkinningProtection.JointProtectionBoneIndices.Clear();
+            options.FaQem = options.FaQem.Effective;
+            options.FaQem.PreserveAttributeSeams = false;
+            options.FaQem.MaxSurfaceDeviation = 0f;
+            options.FaQem.MinNormalDot = 0f;
+            return options;
+        }
+
         public bool PreserveSurfaceCurvature;
         /// <summary>
         /// If you find that the texture is distorted, try toggling this option.
@@ -101,7 +124,8 @@ namespace Meshia.MeshSimplification
 
         public readonly bool Equals(MeshSimplifierOptions other)
         {
-            return PreserveBorderEdges == other.PreserveBorderEdges &&
+            return AllowUnsafeGeometry == other.AllowUnsafeGeometry &&
+                   PreserveBorderEdges == other.PreserveBorderEdges &&
                    PreserveSurfaceCurvature == other.PreserveSurfaceCurvature &&
                    UseBarycentricCoordinateInterpolation == other.UseBarycentricCoordinateInterpolation &&
                    EnableSmartLink == other.EnableSmartLink &&
@@ -116,7 +140,7 @@ namespace Meshia.MeshSimplification
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(PreserveBorderEdges, PreserveSurfaceCurvature, MinNormalDot, SkinningProtection, FaQem);
+            return HashCode.Combine(AllowUnsafeGeometry, PreserveBorderEdges, PreserveSurfaceCurvature, MinNormalDot, SkinningProtection, FaQem);
         }
 
         public static bool operator ==(MeshSimplifierOptions left, MeshSimplifierOptions right)

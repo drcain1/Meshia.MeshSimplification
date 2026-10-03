@@ -12,9 +12,10 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
 {
     public class GeometryOnlyNdmfTests
     {
-        [TestCase(false)]
-        [TestCase(true)]
-        public void ShouldRetainMaterialsTexturesAndUvChannels(bool cascading)
+        [TestCase(false, false)]
+        [TestCase(true, false)]
+        [TestCase(true, true)]
+        public void ShouldRetainMaterialsTexturesAndUvChannels(bool cascading, bool unprotected)
         {
             var avatar = new GameObject("Geometry-only fixture");
             avatar.AddComponent<nadena.dev.ndmf.runtime.components.NDMFAvatarRoot>();
@@ -48,6 +49,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 {
                     TargetTriangleCount = 30,
                     Options = options,
+                    DisableProtections = unprotected,
                     PreserveBorderEdgesBones = 0,
                 });
             }
@@ -61,7 +63,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             Mesh? output = null;
             try
             {
-                MeshSimplifier.Simplify(source, target, options, expected);
+                MeshSimplifier.Simplify(source, target, unprotected ? options.WithoutProtections() : options, expected);
                 InvokeSimplify(context);
                 output = filter.sharedMesh;
                 Assert.That(output, Is.Not.SameAs(source));

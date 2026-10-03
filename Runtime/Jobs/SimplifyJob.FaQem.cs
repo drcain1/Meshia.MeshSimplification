@@ -410,6 +410,7 @@ namespace Meshia.MeshSimplification
 
         readonly bool IsFaQemProtected(int a, int b, NativeArray<byte> seamFlags, FaQemOptions settings)
         {
+            if (Options.AllowUnsafeGeometry) return false;
             if (((seamFlags[a] | seamFlags[b]) & (FaQemDeformableDegenerateVertex | FaQemJointTransitionVertex)) != 0) return true;
             if (IsFaQemPreservedBoundary(a) || IsFaQemPreservedBoundary(b)) return true;
             if (VertexContainingSubMeshIndices.Length == VertexPositionBuffer.Length && VertexContainingSubMeshIndices[a] != VertexContainingSubMeshIndices[b]) return true;
@@ -477,6 +478,7 @@ namespace Meshia.MeshSimplification
             FaQemSurfaceEnvelope envelope)
         {
             if (!math.all(math.isfinite(candidate.Position))) return false;
+            if (Options.AllowUnsafeGeometry) return true;
             if (!envelope.Contains(((double3)candidate.Position - center) / scale)) return false;
             var merge = new VertexMerge { VertexAIndex = candidate.A, VertexBIndex = candidate.B, Position = candidate.Position };
             return !WillFaQemFlip(merge, candidate.A, candidate.B, settings.MinNormalDot, center, scale, envelope) &&

@@ -38,6 +38,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     options.SkinningProtection.Enabled = false;
                     options.SkinningProtection.PreserveJointTransitions = false;
                 }
+                entry.DisableProtections = false;
                 entry.Options = options;
                 entry.PreserveJointTransitionsBones = MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones;
             }

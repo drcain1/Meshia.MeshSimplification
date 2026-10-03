@@ -276,7 +276,7 @@ msgid "Uv Loop Dissolve"
 msgstr "Uv Loop Dissolve"
 
 msgid "Fa Qem"
-msgstr "Fa Qem"
+msgstr "FA-QEM"
 
 msgid "PC-Poor-Medium-Good"
 msgstr "PC-Poor-Medium-Good"
@@ -435,7 +435,7 @@ msgid "Uv Loop Dissolve Triangle Count"
 msgstr "Uv Loop Dissolve Triangle Count"
 
 msgid "Fa Qem Triangle Count"
-msgstr "Fa Qem Triangle Count"
+msgstr "FA-QEM Triangle Count"
 
 msgid "Hips"
 msgstr "Hips"
@@ -1084,3 +1084,30 @@ msgstr "Meshes being simplified"
 
 msgid "Calculating..."
 msgstr "Calculating..."
+
+msgid "Change mesh protection"
+msgstr "Change mesh protection"
+
+msgid "Protection: not applicable"
+msgstr "Protection: not applicable"
+
+msgid "Protection: mesh excluded"
+msgstr "Protection: mesh excluded"
+
+msgid "No protection. Shape, seams and deformation may break. Basic mesh validity checks still apply."
+msgstr "No protection. Shape, seams and deformation may break. Basic mesh validity checks still apply."
+
+msgid "Protection: geometry and deformation"
+msgstr "Protection: geometry and deformation"
+
+msgid "Protection: geometry only or partial"
+msgstr "Protection: geometry only or partial"
+
+msgid "Click to restore geometry and deformation protection."
+msgstr "Click to restore geometry and deformation protection."
+
+msgid "Click to keep geometry protection only."
+msgstr "Click to keep geometry protection only."
+
+msgid "Click to turn off all protections for this mesh."
+msgstr "Click to turn off all protections for this mesh."

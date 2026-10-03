@@ -9,6 +9,41 @@ namespace Meshia.MeshSimplification.Tests
 {
     public class FaQemEngineTests
     {
+        [TestCase(MeshSimplificationTargetKind.FaQemTriangleCount)]
+        [TestCase(MeshSimplificationTargetKind.BlenderDecimateRatio)]
+        [TestCase(MeshSimplificationTargetKind.AbsoluteTriangleCount)]
+        [TestCase(MeshSimplificationTargetKind.UvLoopDissolveTriangleCount)]
+        public void ShouldAllowUnprotectedReductionWithoutChangingSavedOptions(MeshSimplificationTargetKind kind)
+        {
+            var source = MakeGrid(8, 8);
+            var output = new Mesh();
+            var guarded = new Mesh();
+            try
+            {
+                var saved = MeshSimplifierOptions.ConservativeAvatar;
+                var options = saved.WithoutProtections();
+                Assert.AreEqual(MeshSimplifierOptions.ConservativeAvatar, saved);
+                Assert.AreNotEqual(saved, options);
+                Assert.IsFalse(options.SkinningProtection.Resolve(true).Enabled);
+                var target = new MeshSimplificationTarget { Kind = kind,
+                    Value = kind == MeshSimplificationTargetKind.BlenderDecimateRatio ? .05f : 6 };
+                MeshSimplifier.Simplify(source, target, options, output);
+                Assert.Less(output.triangles.Length, source.triangles.Length);
+                foreach (var index in output.triangles) Assert.That(index, Is.InRange(0, output.vertexCount - 1));
+                foreach (var v in output.vertices)
+                    Assert.IsFalse(float.IsNaN(v.x) || float.IsInfinity(v.x) || float.IsNaN(v.y) || float.IsInfinity(v.y) || float.IsNaN(v.z) || float.IsInfinity(v.z));
+                if (kind == MeshSimplificationTargetKind.FaQemTriangleCount)
+                {
+                    MeshSimplifier.Simplify(source, target, saved, guarded);
+                    Assert.Less(output.triangles.Length, guarded.triangles.Length, "No protection must release boundary and shape constraints.");
+                    var profile = MeshSimplifier.MeasureFaQemCounts(source, 0, options);
+                    Assert.IsTrue(profile.TryGetOutput(6, out var count));
+                    Assert.AreEqual(output.triangles.Length / 3, count);
+                }
+            }
+            finally { Object.DestroyImmediate(source); Object.DestroyImmediate(output); Object.DestroyImmediate(guarded); }
+        }
+
         [TestCase(false, false)]
         [TestCase(true, false)]
         [TestCase(false, true)]

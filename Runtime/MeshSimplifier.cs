@@ -824,7 +824,7 @@ namespace Meshia.MeshSimplification
             NativeArray<int> uvLoopDiagnostics,
             JobHandle dependency)
         {
-            if (target.Kind != MeshSimplificationTargetKind.UvLoopDissolveTriangleCount)
+            if (target.Kind != MeshSimplificationTargetKind.UvLoopDissolveTriangleCount || Options.AllowUnsafeGeometry)
             {
                 NativeArray<int> noMappings = new(0, Unity.Collections.Allocator.Persistent);
                 var simplify = CreateSimplifyJob(

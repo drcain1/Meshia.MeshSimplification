@@ -157,6 +157,7 @@ namespace Meshia.MeshSimplification.Ndmf
             MeshiaCascadingAvatarMeshSimplifier component, MeshiaCascadingAvatarMeshSimplifierRendererEntry entry)
         {
             var options = entry.Options;
+            if (entry.DisableProtections) return options.WithoutProtections();
             options.SkinningProtection.JointProtectionBoneIndices.Clear();
             if (!options.SkinningProtection.PreserveJointTransitions) return options;
             var animator = avatarRoot != null ? avatarRoot.GetComponent<Animator>() : null;
@@ -187,6 +188,7 @@ namespace Meshia.MeshSimplification.Ndmf
 
         public static BitArray? GetPreserveBorderEdgesBoneIndices(GameObject avatarRoot, MeshiaCascadingAvatarMeshSimplifier avatarMeshSimplifier, MeshiaCascadingAvatarMeshSimplifierRendererEntry entry)
         {
+            if (entry.DisableProtections) return null;
             if (avatarRoot.TryGetComponent(out Animator avatarAnimator) && entry.GetTargetRenderer(avatarMeshSimplifier) is SkinnedMeshRenderer skinnedMeshRenderer)
             {
                 var bones = skinnedMeshRenderer.bones;
@@ -225,6 +227,8 @@ namespace Meshia.MeshSimplification.Ndmf
         // Newly created entries select FA-QEM in the renderer constructor below.
         public MeshiaCascadingSimplificationAlgorithm Algorithm = MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;
         public MeshSimplifierOptions Options = MeshSimplifierOptions.Default;
+        /// <summary>Temporarily bypasses protections without discarding their saved settings.</summary>
+        public bool DisableProtections;
         public ulong PreserveBorderEdgesBones = DefaultHandBones;
         public ulong PreserveJointTransitionsBones = DefaultHandBones;
         public const ulong DefaultHandBones =

@@ -600,62 +600,54 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 var toggle = root.Q<Toggle>("DeformationProtectionToggle");
                 Assert.IsNotNull(toggle);
                 Assert.IsTrue(toggle.value, "Auto is an enabled protection setting.");
-                Assert.IsFalse(toggle.ClassListContains("partial-protection"), "Missing humanoid mappings must not change the settings indicator.");
-                Assert.IsFalse(root.Q<Toggle>("OptionsToggle").value);
+                Assert.IsFalse(toggle.ClassListContains("partial-protection"));
+                var savedGeometry = component.Entries[0].Options.FaQem;
                 var before = EditorJsonUtility.ToJson(component);
                 LocalizationProvider.CurrentLocale = "ja";
-                StringAssert.Contains("変形の保護", toggle.tooltip);
+                StringAssert.Contains("形状と変形", toggle.tooltip);
                 Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
                 Undo.IncrementCurrentGroup();
-                toggle.value = false;
+                toggle.value = false; // Green -> yellow.
+                Assert.IsTrue(toggle.ClassListContains("partial-protection"));
                 Assert.AreEqual(SkinningProtectionPolicy.Off, component.Entries[0].Options.SkinningProtection.Policy);
-                Assert.IsFalse(component.Entries[0].Options.SkinningProtection.PreserveJointTransitions);
-                Assert.AreEqual(.0005f, component.Entries[0].Options.FaQem.MaxSurfaceDeviation);
+                Assert.IsFalse(component.Entries[0].DisableProtections);
+                Assert.AreEqual(savedGeometry, component.Entries[0].Options.FaQem);
                 Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
                 for (var i = 0; i < 10; i++) yield return null;
                 Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
                 toggle = root.Q<Toggle>("DeformationProtectionToggle");
-                Assert.IsTrue(toggle.value);
-                toggle.value = false; toggle.value = true;
+                toggle.value = false; // Green -> yellow again.
+                toggle.value = false; // Yellow remains checked; next click -> gray.
+                Assert.IsTrue(component.Entries[0].DisableProtections);
+                Assert.IsTrue(toggle.ClassListContains("no-protection"));
+                Assert.IsFalse(toggle.value);
+                Assert.IsFalse(toggle.ClassListContains("partial-protection"));
+                Assert.AreEqual(savedGeometry, component.Entries[0].Options.FaQem);
+                Assert.IsFalse(root.Q<UnityEditor.UIElements.PropertyField>("OptionsField").enabledSelf);
+                StringAssert.Contains("保護なし", toggle.tooltip);
+                var unprotected = MeshiaCascadingAvatarMeshSimplifier.GetJointProtectionOptions(avatar, component, component.Entries[0]);
+                Assert.IsTrue(unprotected.AllowUnsafeGeometry);
+                Assert.IsFalse(unprotected.PreserveBorderEdges);
+                Assert.IsFalse(unprotected.FaQem.PreserveAttributeSeams);
+                Assert.AreEqual(0, unprotected.FaQem.MaxSurfaceDeviation);
+                Assert.IsFalse(unprotected.SkinningProtection.Enabled);
+                Assert.IsNull(MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(avatar, component, component.Entries[0]));
+                LocalizationProvider.CurrentLocale = "en";
+                StringAssert.Contains("No protection", toggle.tooltip);
+                toggle.value = true; // Gray -> green, saved geometry settings return.
+                Assert.IsFalse(component.Entries[0].DisableProtections);
                 Assert.AreEqual(SkinningProtectionPolicy.On, component.Entries[0].Options.SkinningProtection.Policy);
                 Assert.IsTrue(component.Entries[0].Options.SkinningProtection.PreserveJointTransitions);
-                Assert.IsFalse(toggle.ClassListContains("partial-protection"), "Explicit On must be green even without humanoid bone mappings.");
-                // Verify both partial combinations and one-click restoration, without relying on rig matching.
-                foreach (var weightOn in new[] { true, false })
-                {
-                    var partialOptions = component.Entries[0].Options;
-                    partialOptions.SkinningProtection.Policy = weightOn ? SkinningProtectionPolicy.On : SkinningProtectionPolicy.Off;
-                    partialOptions.SkinningProtection.PreserveJointTransitions = !weightOn;
-                    component.Entries[0].Options = partialOptions; EditorUtility.SetDirty(component);
-                    var partialDeadline = EditorApplication.timeSinceStartup + 2;
-                    while (!root.Q<Toggle>("DeformationProtectionToggle").ClassListContains("partial-protection") &&
-                        EditorApplication.timeSinceStartup < partialDeadline) yield return null;
-                    toggle = root.Q<Toggle>("DeformationProtectionToggle");
-                    Assert.IsTrue(toggle.ClassListContains("partial-protection"));
-                    toggle.value = false; // The next click on a checked partial toggle enables both.
-                    Assert.IsTrue(toggle.value);
-                    Assert.IsFalse(toggle.ClassListContains("partial-protection"));
-                    Assert.AreEqual(SkinningProtectionPolicy.On, component.Entries[0].Options.SkinningProtection.Policy);
-                    Assert.IsTrue(component.Entries[0].Options.SkinningProtection.PreserveJointTransitions);
-                }
-                // Automatic selection remains enabled even on a mesh weighted to only one bone.
-                mesh.boneWeights = Enumerable.Repeat(new BoneWeight { boneIndex0 = 0, weight0 = 1 }, mesh.vertexCount).ToArray();
-                var autoOptions = component.Entries[0].Options;
-                autoOptions.SkinningProtection.Policy = SkinningProtectionPolicy.AutoDeforming;
-                component.Entries[0].Options = autoOptions; EditorUtility.SetDirty(component);
-                LocalizationProvider.CurrentLocale = "en"; // Refresh the displayed state without changing settings.
-                Assert.IsTrue(toggle.value);
+                Assert.AreEqual(savedGeometry, component.Entries[0].Options.FaQem);
+                Assert.IsTrue(root.Q<UnityEditor.UIElements.PropertyField>("OptionsField").enabledSelf);
                 Assert.IsFalse(toggle.ClassListContains("partial-protection"));
-                StringAssert.Contains("Automatic bone-weight selection is enabled.", toggle.tooltip);
-                // Changes in the cog menu must be reflected without reopening the inspector.
+                Assert.IsFalse(toggle.ClassListContains("no-protection"));
+                // A partial custom selection is yellow, not falsely reported as unprotected.
                 var options = component.Entries[0].Options;
-                options.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
                 options.SkinningProtection.PreserveJointTransitions = false;
                 component.Entries[0].Options = options; EditorUtility.SetDirty(component);
-                var deadline = EditorApplication.timeSinceStartup + 2;
-                while (root.Q<Toggle>("DeformationProtectionToggle").value && EditorApplication.timeSinceStartup < deadline)
-                    yield return null;
-                Assert.IsFalse(root.Q<Toggle>("DeformationProtectionToggle").value);
+                for (var i = 0; i < 10; i++) yield return null;
+                Assert.IsTrue(root.Q<Toggle>("DeformationProtectionToggle").ClassListContains("partial-protection"));
             }
             finally
             {
@@ -960,7 +952,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                         for (var i = 0; i < 10; i++) yield return null;
                         AssertAlgorithmOptions(root, item.Item2);
                         Assert.AreEqual(options, component.Entries[0].Options);
-                        Assert.AreEqual(item.Item1 == "Meshia" ? DisplayStyle.None : DisplayStyle.Flex,
+                        Assert.AreEqual(DisplayStyle.Flex,
                             root.Q<Toggle>("DeformationProtectionToggle").resolvedStyle.display);
                     }
                 }
