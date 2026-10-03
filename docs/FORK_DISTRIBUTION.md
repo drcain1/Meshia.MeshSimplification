@@ -93,6 +93,32 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.0-beta.4` adds a per-mesh protection cycle: green for geometry
+and deformation protection, yellow for geometry-only or partial protection, and
+gray for No protection. Gray explicitly bypasses shape, boundary, seam, FA-QEM
+material-boundary, selected-bone, skinning, surface-deviation and face-flip guards.
+Basic connectivity and finite-number checks remain. UV Loop Dissolve uses its
+Blender fallback directly while unprotected. Saved geometry settings remain intact;
+returning to green restores them and explicitly enables deformation protection.
+Existing entries retain their protection settings, with former deformation-off
+icons now yellow when geometry safeguards remain. Auto Adjust never disables
+protection; applying a protection preset clears the bypass. Undo restores changes.
+
+The control works for skinned and static meshes, with English/Japanese tooltips
+and README guidance. FA-QEM is now named consistently in both languages, and the
+Japanese Blender Decimate labels and help use Blender デシメート. Changing protection
+requires a new Analyze Build before editing measured output. No protection may
+create holes or damage appearance and deformation; arbitrary exact counts are not
+guaranteed even in this mode.
+
+All 293 Meshia EditMode tests passed in Unity 2022.3.22f1 with no failures or skips,
+including all four algorithms, unprotected count-profile parity, matching NDMF
+preview/build geometry, and the protection cycle with Undo. Live Unity compilation
+has no errors and the maintainer confirmed the inspector behavior. All 12
+distribution tests and release prerequisites passed. This prerelease does not
+claim a fresh VRChat or package-client installation test. Stable `1.0.1` remains
+available; disabling protection is an explicit per-mesh choice.
+
 Version `1.1.0-beta.3` fixes language changes incorrectly marking the current
 analysis out of date. Nested property drawers emit change notifications while
 translating labels; the cascading inspector now checks whether serialized settings
