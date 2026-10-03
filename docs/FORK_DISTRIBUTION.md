@@ -93,6 +93,28 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.0-beta.2` speeds up repeated FA-QEM output edits by reusing triangle
+counts recorded along the normal collapse sequence. Requests outside the cached
+range trigger one asynchronous count-only measurement; changes to captured inputs
+or protections invalidate the cache. Other algorithms retain per-request measurement.
+Analyze Build can prepare allocations from valid cached measurements before its
+first verification build, and use an isolated mesh change between verified builds
+to estimate downstream effects. Complete NDMF builds still verify the final count;
+failed fitting restores the starting allocations and never marks an estimate verified.
+
+A compact spinner and "Calculating..." beside Triangle budget show queued and
+running background calculations, including with the section collapsed. The label
+and usage guidance are available in English and Japanese. Geometry protections,
+package dependencies, and saved avatar settings are not changed by this update.
+
+All 286 Meshia EditMode tests passed locally in Unity 2022.3.22f1 with no failures
+or skips, including count-profile parity, fitting/rollback, and inspector tests.
+Representative edited-avatar fitting completed in two full builds; cached count
+lookups reduce repeated mesh work but do not make the full build instantaneous.
+All 12 distribution tests and release prerequisite checks passed. Live editor
+compilation and the indicator were checked. This prerelease does not claim a new
+VRChat or package-client installation test. Stable `1.0.1` remains available.
+
 Version `1.1.0-beta.1` introduces measured output controls for cascading avatar
 budgets. After analysis, mesh rows show output triangles alongside the original
 count. Editing an output count searches for a matching simplification request;
