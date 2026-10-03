@@ -14,7 +14,7 @@
         </ui:GroupBox>
         <ui:GroupBox style="flex-direction: row;">
             <ui:Button text="Adjust" tooltip="Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count." name="AdjustButton" />
-            <ui:Toggle label="Enable Auto Adjust" tooltip="Changing a mesh target redistributes the remaining allocation across other unlocked meshes. The edited target stays fixed. Analyze Build fits and verifies the final budget using up to four builds. Protection is never relaxed." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
+            <ui:Toggle label="Auto Adjust" tooltip="Changing one mesh's target rebalances the other unlocked meshes." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
         </ui:GroupBox>
         <ui:Foldout name="EstimatesAndBuildDetails" text="Triangle budget" value="true">
             <ui:Label name="AllocationSummary" tooltip="Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result." style="white-space: normal;" />

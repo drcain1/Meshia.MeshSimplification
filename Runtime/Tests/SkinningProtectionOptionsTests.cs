@@ -8,7 +8,7 @@ namespace Meshia.MeshSimplification.Tests
     public sealed class SkinningProtectionOptionsTests
     {
         [Test]
-        public void ConservativeAvatarDefaultsPreserveLegacyCoreDefaults()
+        public void ConservativeAvatarDefaultsKeepCoreSkinningOptIn()
         {
             var options = MeshSimplifierOptions.ConservativeAvatar;
             Assert.That(options.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.AutoDeforming));
@@ -22,7 +22,7 @@ namespace Meshia.MeshSimplification.Tests
             Assert.That(options.SkinningProtection.Resolve(false).Enabled, Is.False);
             Assert.That(MeshSimplifierOptions.Default.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.Legacy));
             Assert.That(MeshSimplifierOptions.Default.SkinningProtection.PreserveJointTransitions, Is.False);
-            Assert.That(MeshSimplifierOptions.Default.FaQem.MaxSurfaceDeviation, Is.Zero);
+            Assert.That(MeshSimplifierOptions.Default.FaQem.MaxSurfaceDeviation, Is.EqualTo(.0005f));
         }
 
         [Test]

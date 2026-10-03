@@ -143,9 +143,43 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             Assert.IsEmpty(MeasuredMeshBudget.Plan(new[] { mesh }, new[] { 100 }, -100));
             var linear = new MeasuredMeshResponse(0, 100, 50, 50, x => x);
             var plan = MeasuredMeshBudget.Plan(new[] { linear }, new[] { 50 }, -1000);
-            Assert.AreEqual(1, plan[0]);
+            Assert.AreEqual(38, plan[0], "Automatic fitting preserves at least 75% of the starting target.");
             Assert.Throws<OperationCanceledException>(() =>
                 MeasuredMeshBudget.Plan(new[] { linear }, new[] { 50 }, -10, () => true));
+        }
+
+        [Test]
+        public void LargeProtectedOverrunIsSharedWithoutSacrificingTheHalo()
+        {
+            var halo = new MeasuredMeshResponse(0, 8340, 1988, 1988, x => x);
+            var body = new MeasuredMeshResponse(1, 22160, 15183, 15183, x => x);
+            var shoes = new MeasuredMeshResponse(2, 8892, 3086, 6066, _ => 6066);
+            var targets = new[] { 1988, 15183, 3086 };
+            var plan = MeasuredMeshBudget.Plan(new[] { halo, body, shoes }, targets, -2980);
+            Assert.That(plan[0], Is.InRange(1491, 1987));
+            Assert.That(plan[1], Is.InRange(11388, 15182));
+            Assert.IsFalse(plan.ContainsKey(2));
+            Assert.That((1988 - plan[0]) / 1988.0,
+                Is.EqualTo((15183 - plan[1]) / 15183.0).Within(.002));
+            Assert.That((1988 - plan[0]) + (15183 - plan[1]), Is.InRange(2978, 2980));
+        }
+
+        [Test]
+        public void VerificationPassesCannotErodeTheStartingSafetyFloor()
+        {
+            var mesh = new MeasuredMeshResponse(0, 2000, 1000, 1000, x => x);
+            var start = new[] { 1000 };
+            var first = MeasuredMeshBudget.Plan(new[] { mesh }, start, -900, startingTargets: start, startingOutputs: start);
+            Assert.AreEqual(750, first[0]);
+            Assert.IsEmpty(MeasuredMeshBudget.Plan(new[] { mesh }, new[] { 750 }, -650,
+                startingTargets: start, startingOutputs: start));
+        }
+
+        [Test]
+        public void NonlinearOutputCannotLoseMoreThanQuarterEvenAboveTargetFloor()
+        {
+            var mesh = new MeasuredMeshResponse(0, 2000, 1000, 1000, x => x < 999 ? 100 : 1000);
+            Assert.IsEmpty(MeasuredMeshBudget.Plan(new[] { mesh }, new[] { 1000 }, -900));
         }
 
         [Test]
@@ -186,8 +220,185 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             Assert.That(builds, Is.InRange(2, 4));
         }
 
+        [TestCase("linear", 20)]
+        [TestCase("plateau", 0)]
+        [TestCase("cliff", 0)]
+        [TestCase("floor", 10)]
+        [TestCase("reversed", 0)]
+        public void ManualReductionOnlyOffersMeasuredSavingsWithinRequestedAmount(string scenario, int expected)
+        {
+            var calls = 0;
+            int Output(int n) => scenario switch
+            {
+                "plateau" => 100,
+                "cliff" => n < 90 ? 20 : 100,
+                "floor" => Math.Max(90, n),
+                "reversed" => 200 - n,
+                _ => n
+            };
+            using var mesh = new MeasuredMeshResponse(0, 200, 100, 100,
+                _ => throw new Exception("Must use asynchronous measurement"), evaluateAsync: n =>
+                { calls++; return Task.FromResult(Output(n)); });
+            var target = MeasuredMeshBudget.FindReductionAsync(mesh, 100, 20, () => true).GetAwaiter().GetResult();
+            Assert.AreEqual(expected, 100 - mesh.Outputs[target]);
+            Assert.That(target, Is.InRange(1, 100));
+            Assert.That(calls, Is.LessThanOrEqualTo(8));
+        }
+
+        [UnityTest]
+        public System.Collections.IEnumerator ManualReductionRejectsResultsAfterSettingsChange()
+        {
+            var completion = new TaskCompletionSource<int>();
+            var valid = true;
+            using var mesh = new MeasuredMeshResponse(0, 100, 100, 100, _ => 0,
+                evaluateAsync: _ => completion.Task);
+            var task = MeasuredMeshBudget.FindReductionAsync(mesh, 100, 20, () => valid);
+            Assert.IsFalse(task.IsCompleted);
+            valid = false;
+            completion.SetResult(80);
+            while (!task.IsCompleted) yield return null;
+            Assert.IsTrue(task.IsCanceled);
+        }
+
+        [Test]
+        public void ExplicitReductionKeepsOtherMeshesAndReservesSavingsWithUndo()
+        {
+            WithInspector((component, inspector) =>
+            {
+                component.BuildTriangleReserve = -8;
+                component.AutoAdjustEnabled = true;
+                Undo.FlushUndoRecordObjects();
+                Undo.IncrementCurrentGroup();
+                inspector.GetType().GetMethod("ApplyMeshReduction", Inst).Invoke(inspector, new object[] { 0, 4 });
+                Assert.AreEqual(4, component.Entries[0].TargetTriangleCount);
+                Assert.IsTrue(component.Entries.Skip(1).All(x => x.TargetTriangleCount == 6));
+                Assert.AreEqual(-6, component.BuildTriangleReserve);
+                Assert.IsTrue(component.AutoAdjustEnabled);
+                Undo.PerformUndo();
+                Assert.IsTrue(component.Entries.All(x => x.TargetTriangleCount == 6));
+                Assert.AreEqual(-8, component.BuildTriangleReserve);
+            });
+        }
+
+        [Test]
+        public void MeshPopupUsesRemainingMeasuredGapAndRejectsChangedBudget()
+        {
+            WithInspector((component, inspector) =>
+            {
+                Seed(inspector, 24, x => x);
+                component.Entries[0].TargetTriangleCount = 3;
+                var set = (MeasuredMeshSet)inspector.GetType().GetField("measuredMeshes", Inst).GetValue(inspector);
+                set.Meshes[0].Measure(3);
+                var type = inspector.GetType().GetNestedType("MeshOutputPopup", BindingFlags.NonPublic);
+                var popup = Activator.CreateInstance(type, Inst, null, new object[] { inspector, 0 }, null);
+                Assert.AreEqual(3, type.GetField("reduction", Inst).GetValue(popup));
+                Assert.IsTrue((bool)type.GetMethod("Current", Inst).Invoke(popup, null));
+                component.TargetTriangleCount++;
+                Assert.IsFalse((bool)type.GetMethod("Current", Inst).Invoke(popup, null));
+            });
+        }
+
+        [TestCase(0)]
+        [TestCase(6)]
+        [TestCase(9)]
+        public void ExplicitReductionRejectsInvalidOrNonReducingTargets(int target)
+        {
+            WithInspector((component, inspector) =>
+            {
+                inspector.GetType().GetMethod("ApplyMeshReduction", Inst).Invoke(inspector, new object[] { 0, target });
+                Assert.AreEqual(6, component.Entries[0].TargetTriangleCount);
+                Assert.AreEqual(0, component.BuildTriangleReserve);
+            });
+        }
+
+        [Test]
+        public void ExplicitReductionHonorsLocks()
+        {
+            WithInspector((component, inspector) =>
+            {
+                component.Entries[0].Fixed = true;
+                inspector.GetType().GetMethod("ApplyMeshReduction", Inst).Invoke(inspector, new object[] { 0, 3 });
+                Assert.AreEqual(6, component.Entries[0].TargetTriangleCount);
+                Assert.AreEqual(0, component.BuildTriangleReserve);
+            });
+        }
+
         private const BindingFlags Inst = BindingFlags.NonPublic | BindingFlags.Instance;
         private const BindingFlags Stat = BindingFlags.NonPublic | BindingFlags.Static;
+
+        [TestCase("match", "", false)]
+        [TestCase("rounding", "", false)]
+        [TestCase("different", "!", true)]
+        [TestCase("unchanged", "!", true)]
+        [TestCase("saving", "−", true)]
+        [TestCase("pending", "…", true)]
+        [TestCase("stale", "?", true)]
+        [TestCase("excluded", "", false)]
+        public void OutputHintOnlyShowsUsefulCurrentMeasurements(string scenario, string expected, bool visible)
+        {
+            WithInspector((component, inspector) =>
+            {
+                var type = inspector.GetType();
+                Seed(inspector, 24, x => scenario == "match" || scenario == "saving" ? x : scenario == "rounding" ? x + 1 : 12);
+                var inputs = (MeasuredMeshSet)type.GetField("measuredMeshes", Inst).GetValue(inspector);
+                if (scenario == "unchanged" || scenario == "pending" || scenario == "saving") component.Entries[0].TargetTriangleCount = 3;
+                if (scenario == "unchanged" || scenario == "saving") inputs.Meshes[0].Measure(3);
+                if (scenario == "excluded") component.Entries[0].Enabled = false;
+                if (scenario == "stale")
+                {
+                    type.GetMethod("InvalidateMeshInputs", Stat).Invoke(null, null);
+                    type.GetMethod("InvalidateTriangleAnalysis", Stat).Invoke(null, null);
+                }
+                var row = new TemplateContainer { userData = 0 };
+                row.Add(new SliderInt { name = "TargetTriangleCountSlider" });
+                row.Add(new IntegerField { name = "TargetTriangleCountField" });
+                row.Add(new Label { name = "MeasuredOutputHint" });
+                row.Add(new Label { name = "TriangleCountDivider", text = "/" });
+                var refresh = type.GetMethod("RefreshAllocationFields", Inst);
+                refresh.Invoke(inspector, new object[] { row });
+                var hint = row.Q<Label>("MeasuredOutputHint");
+                Assert.AreEqual(expected, hint.text);
+                Assert.AreEqual(visible ? DisplayStyle.None : DisplayStyle.Flex, row.Q<Label>("TriangleCountDivider").style.display.value);
+                Assert.AreEqual(visible, hint.style.display.value == DisplayStyle.Flex);
+                if (scenario == "unchanged") StringAssert.Contains("has not changed its output", hint.tooltip);
+                if (scenario == "pending") StringAssert.Contains("Updating", hint.tooltip);
+                if (scenario == "stale") StringAssert.Contains("out of date", hint.tooltip);
+                if (scenario == "different" || scenario == "unchanged")
+                    Assert.Greater(hint.style.color.value.r, hint.style.color.value.b, "Amber marks constrained output.");
+                if (scenario == "saving")
+                {
+                    Assert.Greater(hint.style.color.value.g, hint.style.color.value.r);
+                    StringAssert.Contains("6 → 3", hint.tooltip);
+                }
+                if (scenario == "stale")
+                    Assert.AreEqual(hint.style.color.value.r, hint.style.color.value.b, "Stale results are neutral.");
+                if (scenario == "different")
+                {
+                    LocalizationProvider.CurrentLocale = "ja";
+                    refresh.Invoke(inspector, new object[] { row });
+                    StringAssert.Contains("出力", hint.tooltip);
+                }
+                component.Entries[0].Enabled = false;
+                refresh.Invoke(inspector, new object[] { row });
+                Assert.AreEqual(DisplayStyle.None, hint.style.display.value, "Clear hints when a recycled row becomes excluded.");
+            });
+        }
+
+        [Test]
+        public void BudgetMarginExplainsToleranceWithoutAnotherVisibleLine()
+        {
+            WithInspector((component, inspector) =>
+            {
+                component.TargetTriangleCount = 70000;
+                Seed(inspector, 69956, x => x);
+                var root = inspector.CreateInspectorGUI();
+                inspector.GetType().GetMethod("RefreshBudgetGuidance", Inst).Invoke(inspector, new object[] { root });
+                var summary = root.Q<Label>("BudgetSummary");
+                Assert.AreEqual("Within budget · 44 below limit", summary.text);
+                StringAssert.Contains("70 triangles below", summary.tooltip);
+                Assert.AreEqual("Auto Adjust", root.Q<Toggle>("AutoAdjustEnabledToggle").label);
+            });
+        }
 
         [TestCase(false, false, false)]
         [TestCase(true, false, false)]

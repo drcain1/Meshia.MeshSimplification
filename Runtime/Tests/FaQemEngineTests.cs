@@ -69,6 +69,7 @@ namespace Meshia.MeshSimplification.Tests
                 source.RecalculateBounds();
                 var options = MeshSimplifierOptions.Default;
                 var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 60 };
+                options.FaQem.MaxSurfaceDeviation = 0f; // Explicit unguarded comparison; the default now enables the envelope.
                 MeshSimplifier.Simplify(source, target, options, unguarded);
                 options.FaQem.MaxSurfaceDeviation = .001f;
                 MeshSimplifier.Simplify(source, target, options, output);

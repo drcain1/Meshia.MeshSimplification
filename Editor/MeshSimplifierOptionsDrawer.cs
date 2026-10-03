@@ -40,6 +40,39 @@ namespace Meshia.MeshSimplification.Editor
 
             root.BindProperty(property);
 
+            // Keep the useful small tolerances spread across the track. The separate
+            // numeric field retains the full supported range, including saved values
+            // above the slider maximum; merely opening the drawer never clamps them.
+            var deviation = property.FindPropertyRelative(nameof(MeshSimplifierOptions.FaQem))
+                .FindPropertyRelative(nameof(FaQemOptions.MaxSurfaceDeviation));
+            var deviationSlider = root.Q<Slider>("SurfaceDeviationSlider");
+            var deviationField = root.Q<FloatField>("SurfaceDeviationField");
+            void RefreshDeviation()
+            {
+                deviationSlider.SetValueWithoutNotify(Mathf.Clamp(deviation.floatValue, 0f, .005f));
+                deviationField.SetValueWithoutNotify(deviation.floatValue);
+            }
+            void SetDeviation(float value)
+            {
+                if (!float.IsNaN(value) && !float.IsInfinity(value))
+                {
+                    deviation.floatValue = Mathf.Clamp(value, 0f, .1f);
+                    property.serializedObject.ApplyModifiedProperties();
+                }
+                RefreshDeviation();
+            }
+            deviationSlider.RegisterValueChangedCallback(evt => SetDeviation(Mathf.Round(evt.newValue * 100000f) / 100000f));
+            deviationField.RegisterValueChangedCallback(evt => SetDeviation(evt.newValue));
+            root.TrackPropertyValue(deviation, _ => RefreshDeviation());
+            void RefreshDeviationAfterUndo()
+            {
+                property.serializedObject.UpdateIfRequiredOrScript();
+                RefreshDeviation();
+            }
+            root.RegisterCallback<AttachToPanelEvent>(_ => Undo.undoRedoPerformed += RefreshDeviationAfterUndo);
+            root.RegisterCallback<DetachFromPanelEvent>(_ => Undo.undoRedoPerformed -= RefreshDeviationAfterUndo);
+            RefreshDeviation();
+
             var enableSmartLinkToggle = root.Q<Toggle>("EnableSmartLinkToggle");
             var smartLinkOptionsGroup = root.Q<GroupBox>("SmartLinkOptionsGroup");
             var faQemOptionsGroup = root.Q<Foldout>("FaQemOptionsGroup");

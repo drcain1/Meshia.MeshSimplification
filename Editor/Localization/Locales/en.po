@@ -946,3 +946,78 @@ msgstr "Requested triangles. Geometry protection may keep the actual output abov
 
 msgid "Requested: {0:N0}. Last measured Meshia output: {1:N0}, before later build steps."
 msgstr "Requested: {0:N0}. Last measured Meshia output: {1:N0}, before later build steps."
+
+msgid "Auto Adjust"
+msgstr "Auto Adjust"
+
+msgid "Changing one mesh's target rebalances the other unlocked meshes."
+msgstr "Changing one mesh's target rebalances the other unlocked meshes."
+
+msgid "Within budget · {0:N0} below limit"
+msgstr "Within budget · {0:N0} below limit"
+
+msgid "Auto Adjust accepts results up to {0:N0} triangles below this limit to avoid repeated builds for tiny differences."
+msgstr "Auto Adjust accepts results up to {0:N0} triangles below this limit to avoid repeated builds for tiny differences."
+
+msgid "Requested triangle count. Analyze Build measures the output with your current protection settings."
+msgstr "Requested triangle count. Analyze Build measures the output with your current protection settings."
+
+msgid "Target: {0:N0}\nOutput: {1:N0}\nBefore other build tools run."
+msgstr "Target: {0:N0}\nOutput: {1:N0}\nBefore other build tools run."
+
+msgid "Your target change has not changed its output."
+msgstr "Your target change has not changed its output."
+
+msgid "Output: {0:N0}"
+msgstr "Output: {0:N0}"
+
+msgid "Updating the output for this target..."
+msgstr "Updating the output for this target..."
+
+msgid "This measurement is out of date. Analyze Build to update it."
+msgstr "This measurement is out of date. Analyze Build to update it."
+
+msgid "Change since last build: {0:N0} → {1:N0}"
+msgstr "Change since last build: {0:N0} → {1:N0}"
+
+msgid "Click the separator for output details and fine-tuning."
+msgstr "Click the separator for output details and fine-tuning."
+
+msgid "Mesh output"
+msgstr "Mesh output"
+
+msgid "Analyze Build to refresh this mesh's measurements, then reopen this panel."
+msgstr "Analyze Build to refresh this mesh's measurements, then reopen this panel."
+
+msgid "Target: {0:N0}"
+msgstr "Target: {0:N0}"
+
+msgid "Before other build tools run. Analyze Build verifies the avatar total."
+msgstr "Before other build tools run. Analyze Build verifies the avatar total."
+
+msgid "Reduce output by"
+msgstr "Reduce output by"
+
+msgid "Measure reduction"
+msgstr "Measure reduction"
+
+msgid "Unlock this mesh to reduce its output."
+msgstr "Unlock this mesh to reduce its output."
+
+msgid "Apply reduction"
+msgstr "Apply reduction"
+
+msgid "Keeps this saving instead of redistributing it. Undo restores the previous targets."
+msgstr "Keeps this saving instead of redistributing it. Undo restores the previous targets."
+
+msgid "{0:N0} fewer triangles · target {1:N0}"
+msgstr "{0:N0} fewer triangles · target {1:N0}"
+
+msgid "No suitable reduction found with these settings. Your target is unchanged."
+msgstr "No suitable reduction found with these settings. Your target is unchanged."
+
+msgid "Measurement failed. Your target is unchanged."
+msgstr "Measurement failed. Your target is unchanged."
+
+msgid "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field."
+msgstr "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field."

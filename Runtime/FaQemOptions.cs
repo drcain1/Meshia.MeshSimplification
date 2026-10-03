@@ -21,6 +21,7 @@ namespace Meshia.MeshSimplification
             UseInverseAreaWeighting = true,
             PreserveAttributeSeams = true,
             MinNormalDot = 0.2f,
+            MaxSurfaceDeviation = 0.0005f,
         };
 
         /// <summary>Positive divisor applied to source triangle areas.</summary>

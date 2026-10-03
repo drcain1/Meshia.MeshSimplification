@@ -20,6 +20,17 @@ namespace Meshia.MeshSimplification.Tests
             Assert.That(configured.Equals(default(FaQemOptions)), Is.False);
         }
 
+        [TestCase(0f)]
+        [TestCase(.002f)]
+        public void ShouldPreserveSavedSurfaceDeviationInsteadOfReplacingItWithDefault(float tolerance)
+        {
+            var configured = FaQemOptions.Default;
+            configured.MaxSurfaceDeviation = tolerance;
+            var restored = JsonUtility.FromJson<FaQemOptions>(JsonUtility.ToJson(configured));
+            restored.Validate();
+            Assert.That(restored.Effective.MaxSurfaceDeviation, Is.EqualTo(tolerance));
+        }
+
         [TestCase(float.NaN)]
         [TestCase(float.PositiveInfinity)]
         [TestCase(-0.001f)]
@@ -38,7 +49,7 @@ namespace Meshia.MeshSimplification.Tests
             var b = a;
             b.MaxSurfaceDeviation = 0.001f;
             Assert.That(a.Equals(b), Is.False);
-            Assert.That(default(FaQemOptions).Effective.MaxSurfaceDeviation, Is.Zero);
+            Assert.That(default(FaQemOptions).Effective.MaxSurfaceDeviation, Is.EqualTo(.0005f));
         }
 
         [TestCase(float.NaN)]

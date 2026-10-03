@@ -35,7 +35,10 @@
         <ui:Toggle label="Use Inverse Area Weighting" tooltip="Weights source planes by inverse triangle area." binding-path="FaQem.UseInverseAreaWeighting" />
         <ui:Toggle label="Lock Coincident Split Vertices" tooltip="Locks separate vertices at the same position to help prevent cracks during simplification. Includes vertices split at UV or normal seams, even when their attributes match. Does not merge or weld vertices." binding-path="FaQem.PreserveAttributeSeams" />
         <ui:Slider low-value="0" high-value="1" show-input-field="true" label="Minimum Face Normal Dot" tooltip="Minimum dot product between a surviving face normal before and after a collapse. Higher values allow less rotation." binding-path="FaQem.MinNormalDot" />
-        <ui:Slider low-value="0" high-value="0.1" show-input-field="true" label="Maximum Surface Deviation" binding-path="FaQem.MaxSurfaceDeviation" tooltip="Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target." />
+        <ui:VisualElement style="flex-direction: row;">
+            <ui:Slider name="SurfaceDeviationSlider" low-value="0" high-value="0.005" label="Maximum Surface Deviation" style="flex-grow: 1;" tooltip="Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field." />
+            <ui:FloatField name="SurfaceDeviationField" style="width: 60px; flex-shrink: 0;" tooltip="Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field." />
+        </ui:VisualElement>
     </ui:Foldout>
     <ui:Button text="Reset Options" parse-escape-sequences="true" display-tooltip-when-elided="true" name="ResetOptionsButton" enable-rich-text="false" />
 </ui:UXML>

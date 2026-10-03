@@ -941,3 +941,78 @@ msgstr "三角形数の目標です。形状の保護により、実際の出力
 
 msgid "Requested: {0:N0}. Last measured Meshia output: {1:N0}, before later build steps."
 msgstr "目標: {0:N0}。直近の Meshia 実測出力数: {1:N0}（後続のビルド処理前）。"
+
+msgid "Auto Adjust"
+msgstr "自動調整"
+
+msgid "Changing one mesh's target rebalances the other unlocked meshes."
+msgstr "1つのメッシュの目標を変更すると、他のロックされていないメッシュの配分を調整します。"
+
+msgid "Within budget · {0:N0} below limit"
+msgstr "予算内 · 上限まで {0:N0}"
+
+msgid "Auto Adjust accepts results up to {0:N0} triangles below this limit to avoid repeated builds for tiny differences."
+msgstr "わずかな差のためにビルドを繰り返さないよう、自動調整は上限より {0:N0} 三角形少ない範囲までを目標達成とします。"
+
+msgid "Requested triangle count. Analyze Build measures the output with your current protection settings."
+msgstr "目標の三角形数です。「ビルド解析」で現在の保護設定による出力数を確認できます。"
+
+msgid "Target: {0:N0}\nOutput: {1:N0}\nBefore other build tools run."
+msgstr "目標: {0:N0}\n出力: {1:N0}\n他のビルドツールで処理する前の三角形数です。"
+
+msgid "Your target change has not changed its output."
+msgstr "目標を変更しても出力数は変わっていません。"
+
+msgid "Output: {0:N0}"
+msgstr "出力: {0:N0}"
+
+msgid "Updating the output for this target..."
+msgstr "この目標での出力数を更新中です..."
+
+msgid "This measurement is out of date. Analyze Build to update it."
+msgstr "この計測値は古くなっています。「ビルド解析」で更新してください。"
+
+msgid "Change since last build: {0:N0} → {1:N0}"
+msgstr "前回のビルドからの変化: {0:N0} → {1:N0}"
+
+msgid "Click the separator for output details and fine-tuning."
+msgstr "区切りをクリックすると、出力の詳細と微調整を開きます。"
+
+msgid "Mesh output"
+msgstr "メッシュの出力"
+
+msgid "Analyze Build to refresh this mesh's measurements, then reopen this panel."
+msgstr "「ビルドを解析」でこのメッシュの測定結果を更新してから、このパネルを開き直してください。"
+
+msgid "Target: {0:N0}"
+msgstr "目標: {0:N0}"
+
+msgid "Before other build tools run. Analyze Build verifies the avatar total."
+msgstr "他のビルドツールで処理する前の値です。アバター全体の三角形数は「ビルドを解析」で確認できます。"
+
+msgid "Reduce output by"
+msgstr "減らす三角形数"
+
+msgid "Measure reduction"
+msgstr "削減量を測定"
+
+msgid "Unlock this mesh to reduce its output."
+msgstr "このメッシュの固定を解除すると削減できます。"
+
+msgid "Apply reduction"
+msgstr "削減を適用"
+
+msgid "Keeps this saving instead of redistributing it. Undo restores the previous targets."
+msgstr "減らした分は他のメッシュに再配分しません。「元に戻す」で適用前の目標値に戻せます。"
+
+msgid "{0:N0} fewer triangles · target {1:N0}"
+msgstr "{0:N0} 三角形削減 · 目標 {1:N0}"
+
+msgid "No suitable reduction found with these settings. Your target is unchanged."
+msgstr "現在の設定では指定量に収まる削減が見つかりませんでした。目標値は変更していません。"
+
+msgid "Measurement failed. Your target is unchanged."
+msgstr "測定に失敗しました。目標値は変更していません。"
+
+msgid "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field."
+msgstr "元の表面からサンプル点までの距離の上限です。メッシュの大きさに対する比率で、0 は無効、0.001 は境界ボックスの対角線長の 0.1% です。目標三角形数まで削減できない場合があります。スライダーの範囲は 0～0.005、数値欄では 0.1 まで入力できます。"

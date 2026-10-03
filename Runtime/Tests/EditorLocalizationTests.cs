@@ -39,7 +39,7 @@ namespace Meshia.MeshSimplification.Tests
                 Assert.AreEqual("ボーンによる変形の保護", root.Q<Foldout>("SkinningProtectionGroup").text);
                 Assert.AreEqual("変形するメッシュを自動保護", root.Q<Toggle>("SkinningProtectionAuto").label);
                 Assert.AreEqual("境界エッジを保持", root.Q<Toggle>("PreserveBorderEdgesToggle").label);
-                var deviation = root.Query<Slider>().Where(f => f.bindingPath.EndsWith("FaQem.MaxSurfaceDeviation")).First();
+                var deviation = root.Q<Slider>("SurfaceDeviationSlider");
                 Assert.AreEqual("元の表面からのずれの上限", deviation.label);
                 Assert.AreEqual("元の表面からのずれの上限", deviation.labelElement.text);
                 var plane = root.Query<FloatField>().Where(f => f.bindingPath.EndsWith("FaQem.PlaneAreaWeight")).First();
@@ -57,7 +57,7 @@ namespace Meshia.MeshSimplification.Tests
                 Assert.AreEqual(before, EditorJsonUtility.ToJson(host));
                 plane.value = -1f;
                 Assert.AreEqual(0.000001f, host.Options.FaQem.PlaneAreaWeight);
-                deviation.value = 0.5f;
+                root.Q<FloatField>("SurfaceDeviationField").value = 0.5f;
                 Assert.AreEqual(0.1f, host.Options.FaQem.MaxSurfaceDeviation);
             }
             finally
@@ -65,6 +65,50 @@ namespace Meshia.MeshSimplification.Tests
                 window.Close();
                 Object.DestroyImmediate(host);
                 LocalizationProvider.CurrentLocale = previousLocale;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ShouldTuneSmallDeviationsWithoutClampingSavedLargerValues()
+        {
+            var host = ScriptableObject.CreateInstance<Host>();
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            try
+            {
+                host.Options.FaQem.MaxSurfaceDeviation = .02f;
+                using var serialized = new SerializedObject(host);
+                var root = new MeshSimplifierOptionsDrawer().CreatePropertyGUI(serialized.FindProperty("Options"));
+                window.rootVisualElement.Add(root);
+                window.Show();
+                for (var i = 0; i < 5; i++) yield return null;
+                var slider = root.Q<Slider>("SurfaceDeviationSlider");
+                var field = root.Q<FloatField>("SurfaceDeviationField");
+                Assert.AreEqual(.005f, slider.highValue);
+                Assert.AreEqual(.005f, slider.value);
+                Assert.AreEqual(.02f, field.value);
+                Assert.AreEqual(.02f, host.Options.FaQem.MaxSurfaceDeviation);
+                Undo.IncrementCurrentGroup();
+                slider.value = .00051f;
+                Assert.That(host.Options.FaQem.MaxSurfaceDeviation, Is.EqualTo(.00051f).Within(1e-8f));
+                Assert.That(field.value, Is.EqualTo(.00051f).Within(1e-8f));
+                Undo.FlushUndoRecordObjects();
+                Undo.PerformUndo();
+                for (var i = 0; i < 5; i++) yield return null;
+                Assert.AreEqual(.02f, host.Options.FaQem.MaxSurfaceDeviation);
+                Assert.AreEqual(.02f, field.value);
+                field.value = 0f;
+                Assert.AreEqual(0f, host.Options.FaQem.MaxSurfaceDeviation);
+                field.value = .00235f;
+                Assert.AreEqual(.00235f, host.Options.FaQem.MaxSurfaceDeviation);
+                Assert.AreEqual(.00235f, slider.value);
+                field.value = float.NaN;
+                Assert.AreEqual(.00235f, host.Options.FaQem.MaxSurfaceDeviation);
+            }
+            finally
+            {
+                Undo.ClearUndo(host);
+                window.Close();
+                Object.DestroyImmediate(host);
             }
         }
 
