@@ -125,6 +125,40 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             return best;
         }
 
+        internal static async Task<int> FindOutputTargetAsync(MeasuredMeshResponse mesh,
+            int current, int desiredOutput, Func<bool> stillCurrent)
+        {
+            if (!stillCurrent()) throw new OperationCanceledException();
+            var produced = await mesh.MeasureAsync(current);
+            if (!stillCurrent()) throw new OperationCanceledException();
+            desiredOutput = Math.Max(0, Math.Min(mesh.SourceCount, desiredOutput));
+            if (desiredOutput < produced)
+                return await FindReductionAsync(mesh, current, produced - desiredOutput, stillCurrent);
+            if (desiredOutput == produced) return current;
+            var low = current;
+            var high = mesh.SourceCount;
+            var best = current;
+            var bestOutput = produced;
+            var trial = (int)Math.Min(high, (long)current + desiredOutput - produced);
+            for (var attempt = 0; low < high && attempt < 8; attempt++)
+            {
+                if (!stillCurrent()) throw new OperationCanceledException();
+                var output = await mesh.MeasureAsync(trial);
+                if (!stillCurrent()) throw new OperationCanceledException();
+                if (output > bestOutput && output <= desiredOutput)
+                {
+                    best = trial;
+                    bestOutput = output;
+                    if (output == desiredOutput) break;
+                }
+                if (output > desiredOutput) high = trial - 1;
+                else low = trial;
+                if (low >= high) break;
+                trial = low + (high - low + 1) / 2;
+            }
+            return best;
+        }
+
         private sealed class ReductionCandidate
         {
             internal MeasuredMeshResponse Mesh = null!;

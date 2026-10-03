@@ -14,7 +14,7 @@
         </ui:GroupBox>
         <ui:GroupBox style="flex-direction: row;">
             <ui:Button text="Adjust" tooltip="Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count." name="AdjustButton" />
-            <ui:Toggle label="Auto Adjust" tooltip="Changing one mesh's target rebalances the other unlocked meshes." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
+            <ui:Toggle label="Auto Adjust" tooltip="Changing one mesh's output rebalances the other unlocked meshes." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
         </ui:GroupBox>
         <ui:Foldout name="EstimatesAndBuildDetails" text="Triangle budget" value="true">
             <ui:Label name="AllocationSummary" tooltip="Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result." style="white-space: normal;" />
@@ -34,7 +34,7 @@
                 <ui:VisualElement name="PreviewShortfalls" style="display: none;">
                     <ui:HelpBox name="PreviewShortfallSummary" message-type="Info" />
                 </ui:VisualElement>
-                <ui:Label text="Some meshes may stay above their targets to preserve their shape. Auto Adjust keeps your protection settings. Click Analyze Build to check your avatar's final triangle count." style="white-space: normal;" />
+                <ui:Label text="Shape protection can limit how far a mesh can be reduced. Analyze Build checks your avatar's final triangle count." style="white-space: normal;" />
                 <ui:GroupBox style="flex-direction: row;">
                     <ui:Button text="Remove Invalid Entries" name="RemoveInvalidEntriesButton" />
                     <ui:Button text="Reset" name="ResetButton" />
@@ -47,13 +47,14 @@
                 <ui:Button name="AaoRemovalGuideButton" text="AAO removal guide" />
                 <ui:Button name="ShapeChangerGuideButton" text="Shape Changer guide" />
             </ui:VisualElement>
-            <ui:Label text="These counts are from the original meshes or the last preview. Use Analyze Build to check the final total." style="white-space: normal;" />
-            <ui:Label text="Start with meshes furthest above their targets. If lowering a target has no effect, review that mesh's protection settings and check its shape in motion." style="white-space: normal;" />
+            <ui:Label text="Mesh outputs are measured before later build tools run. Preview counts are labeled separately. Analyze Build checks the final total." style="white-space: normal;" />
+            <ui:Label text="Start with the largest meshes. If an output edit has no effect, review that mesh's protection settings and check its shape in motion." style="white-space: normal;" />
             <ui:Label text="Meshes listed as Not being simplified have reduction turned off. Enable it in mesh settings to include them. Unlock targets you want Auto Adjust to change." style="white-space: normal;" />
             <ui:ScrollView name="BudgetMeshScroll" style="max-height: 300px;">
                 <ui:VisualElement name="BudgetMeshRows" />
             </ui:ScrollView>
         </ui:Foldout>
+        <ui:Label text="Output / Original" tooltip="Measured mesh triangles before later build tools run. Edit an output count to request a change; Analyze Build verifies the avatar total." style="-unity-text-align: middle-right; margin-right: 56px;" />
         <ui:ListView selection-type="None" name="EntriesListView" show-bound-collection-size="false" virtualization-method="DynamicHeight" binding-path="Entries" />
         <ui:Toggle label="Enable NDMF Preview" name="NdmfPreviewToggle" />
     </ui:VisualElement>

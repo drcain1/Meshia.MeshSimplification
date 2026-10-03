@@ -1016,3 +1016,63 @@ msgstr "測定に失敗しました。目標値は変更していません。"
 
 msgid "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field."
 msgstr "元の表面からサンプル点までの距離の上限です。メッシュの大きさに対する比率で、0 は無効、0.001 は境界ボックスの対角線長の 0.1% です。目標三角形数まで削減できない場合があります。スライダーの範囲は 0～0.005、数値欄では 0.1 まで入力できます。"
+
+msgid "Output / Original"
+msgstr "出力 / 元の三角形数"
+
+msgid "Measured mesh triangles before later build tools run. Edit an output count to request a change; Analyze Build verifies the avatar total."
+msgstr "後続のビルドツールで処理する前の実測三角形数です。出力数を編集すると変更を試みます。アバター全体の数は「ビルドを解析」で確認してください。"
+
+msgid "Analyze Build to measure this mesh before editing its output."
+msgstr "出力数を編集する前に、「ビルドを解析」でこのメッシュを測定してください。"
+
+msgid "Output: {0:N0}\nBefore other build tools run."
+msgstr "出力: {0:N0}\n他のビルドツールで処理する前の値です。"
+
+msgid "Analyze Build to refresh measurements before editing output."
+msgstr "出力数を編集する前に、「ビルドを解析」で測定結果を更新してください。"
+
+msgid "Measuring the requested output. The count will update when ready."
+msgstr "指定された出力数を測定中です。完了すると実測値に更新します。"
+
+msgid "No output change found at these settings."
+msgstr "現在の設定では出力数を変更できる候補が見つかりませんでした。"
+
+msgid "Requested {0:N0}; achieved {1:N0} with the current settings."
+msgstr "指定: {0:N0}、現在の設定での実測結果: {1:N0}。"
+
+msgid "Internal simplifier target: {0:N0}"
+msgstr "軽量化処理の内部目標値: {0:N0}"
+
+msgid "{0:N0} fewer triangles · output {1:N0}"
+msgstr "{0:N0} 三角形削減 · 出力 {1:N0}"
+
+msgid "Changing one mesh's output rebalances the other unlocked meshes."
+msgstr "1つのメッシュの出力を変更すると、他の固定されていないメッシュに再配分します。"
+
+msgid "Shape protection can limit how far a mesh can be reduced. Analyze Build checks your avatar's final triangle count."
+msgstr "形状の保護によって削減できる量に制限があります。「ビルドを解析」でアバター全体の最終三角形数を確認できます。"
+
+msgid "Mesh outputs are measured before later build tools run. Preview counts are labeled separately. Analyze Build checks the final total."
+msgstr "メッシュの出力は後続のビルドツールで処理する前の実測値です。プレビューの数値にはその旨を表示します。最終合計は「ビルドを解析」で確認してください。"
+
+msgid "Start with the largest meshes. If an output edit has no effect, review that mesh's protection settings and check its shape in motion."
+msgstr "三角形数が多いメッシュから確認してください。出力を編集しても変化がなければ、そのメッシュの保護設定を確認し、動かしたときの形状も確認してください。"
+
+msgid "{0}: last preview {1:N0}; original {2:N0}."
+msgstr "{0}: 前回のプレビュー {1:N0}、元の三角形数 {2:N0}。"
+
+msgid "{0}: {1:N0} source triangles; output not measured yet."
+msgstr "{0}: 元の三角形数 {1:N0}、出力は未計測です。"
+
+msgid "{0}: output {1:N0}; original {2:N0}."
+msgstr "{0}: 出力 {1:N0}、元の三角形数 {2:N0}。"
+
+msgid "{0}: last measured {1:N0}; original {2:N0}. Analyze to update."
+msgstr "{0}: 前回の実測値 {1:N0}、元の三角形数 {2:N0}。解析して更新してください。"
+
+msgid " Fixed for Auto Adjust."
+msgstr " 自動調整では固定。"
+
+msgid "Meshes being simplified"
+msgstr "軽量化するメッシュ"

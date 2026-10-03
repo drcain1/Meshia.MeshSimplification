@@ -81,6 +81,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private static int meshInputRevision;
         private bool estimateScheduled;
         private bool estimateRunning;
+        private int outputEditSerial;
+        private int pendingOutputIndex = -1;
+        private int pendingOutputCount;
+        private int outputFeedbackIndex = -1;
+        private int outputFeedbackValue;
+        private double outputFeedbackUntil;
+        private string outputFeedback = string.Empty;
         private string failedEstimate = string.Empty;
         private static bool s_analysisInProgress;
         private static int CurrentAnalysisRevision => SessionState.GetInt(AnalysisRevisionSessionKey, 0);
@@ -123,6 +130,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private static void OnUndoRedo() { InvalidateMeshInputs(); InvalidateTriangleAnalysis(); }
         private void OnDisable()
         {
+            outputEditSerial++;
+            pendingOutputIndex = -1;
             measuredMeshes?.Dispose();
             if (retainedStartingMeshes != measuredMeshes) retainedStartingMeshes?.Dispose();
             measuredMeshes = retainedStartingMeshes = null;
@@ -194,7 +203,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             VisualElement root = new();
             editorVisualTreeAsset.CloneTree(root);
-            root.RegisterCallback<DetachFromPanelEvent>(_ => estimateScheduled = false);
+            root.RegisterCallback<DetachFromPanelEvent>(_ =>
+            {
+                estimateScheduled = false;
+                outputEditSerial++;
+                pendingOutputIndex = -1;
+            });
 
             serializedObject.Update();
 
@@ -504,6 +518,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var targetObjectField = itemRoot.Q<ObjectField>("TargetObjectField");
                 var targetTriangleCountSlider = itemRoot.Q<SliderInt>("TargetTriangleCountSlider");
                 var targetTriangleCountField = itemRoot.Q<IntegerField>("TargetTriangleCountField");
+                targetTriangleCountField.isDelayed = true;
                 var triangleCountDivider = itemRoot.Q<Label>("TriangleCountDivider");
                 var outputSlot = itemRoot.Q<VisualElement>("OutputStatusSlot");
                 outputSlot.RegisterCallback<ClickEvent>(evt =>
@@ -588,9 +603,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 {
                     if (itemRoot.userData is not int itemIndex || itemIndex < 0 ||
                         itemIndex >= Target.Entries.Count) return;
-                    SetManualAllocation(itemIndex, value);
-                    root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
-                    RefreshBudgetGuidance(root);
+                    QueueOutputEdit(root, itemIndex, value);
                 }
                 targetTriangleCountSlider.RegisterValueChangedCallback(evt =>
                 {
@@ -860,7 +873,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
 
             if (!root.Q<Foldout>("BudgetBreakdown").value) return;
-            var rows = new List<(int index, Renderer renderer, int group, int count, int excess, string text)>();
+            var rows = new List<(int index, Renderer renderer, int group, int count, string text)>();
+            var currentAllocations = CaptureAllocations();
             for (var index = 0; index < Target.Entries.Count; index++)
             {
                 var entry = Target.Entries[index];
@@ -869,18 +883,33 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var hasPreview = MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.TryGetValue(renderer, out var preview);
                 var original = mesh.GetTriangleCount();
                 var count = entry.Enabled && hasPreview ? preview.simplified : original;
-                var excess = entry.Enabled && hasPreview ? Math.Max(0, count - entry.TargetTriangleCount) : 0;
-                var group = !entry.Enabled ? 1 : excess > 1 ? 0 : 2;
+                var group = !entry.Enabled ? 1 : hasPreview ? 0 : 2;
                 var text = !entry.Enabled
                     ? Format("{0}: not being simplified; {1:N0} source triangles.", renderer.name, original)
                     : hasPreview
-                        ? Format("{0}: last preview {1:N0}; allocation {2:N0}; {3:N0} above allocation.", renderer.name, count, entry.TargetTriangleCount, excess)
-                        : Format("{0}: {1:N0} source triangles; allocation {2:N0}; no preview measurement yet.", renderer.name, original, entry.TargetTriangleCount);
-                if (entry.Fixed) text += Tr(" Fixed allocation.");
-                rows.Add((index, renderer, group, count, excess, text));
+                        ? Format("{0}: last preview {1:N0}; original {2:N0}.", renderer.name, count, original)
+                        : Format("{0}: {1:N0} source triangles; output not measured yet.", renderer.name, original);
+                if (entry.Enabled && string.IsNullOrEmpty(analysis.Error) && analysis.Allocations is { } baseline &&
+                    index < baseline.Outputs.Length && index < baseline.Counts.Length && baseline.Outputs[index] >= 0)
+                {
+                    count = baseline.Outputs[index];
+                    var fresh = false;
+                    if (baseline.Settings == currentAllocations.Settings)
+                    {
+                        if (HasMeasuredInputs(currentAllocations.Settings) && measuredMeshes!.Meshes.TryGetValue(index, out var response) &&
+                            response.Outputs.TryGetValue(entry.TargetTriangleCount, out var cached)) { count = cached; fresh = true; }
+                        else fresh = analysis.Revision == CurrentAnalysisRevision && baseline.Counts[index] == entry.TargetTriangleCount;
+                    }
+                    group = 0;
+                    text = fresh
+                        ? Format("{0}: output {1:N0}; original {2:N0}.", renderer.name, count, original)
+                        : Format("{0}: last measured {1:N0}; original {2:N0}. Analyze to update.", renderer.name, count, original);
+                }
+                if (entry.Fixed) text += Tr(" Fixed for Auto Adjust.");
+                rows.Add((index, renderer, group, count, text));
             }
 
-            var ordered = rows.OrderBy(row => row.group).ThenByDescending(row => row.group == 0 ? row.excess : row.count).ThenBy(row => row.index).ToList();
+            var ordered = rows.OrderBy(row => row.group).ThenByDescending(row => row.count).ThenBy(row => row.index).ToList();
             var container = root.Q<VisualElement>("BudgetMeshRows");
             // Preserve focus and scroll position on repaints when the data has not changed.
             var signature = CurrentLocale + "|" + string.Join("|", ordered.Select(row => row.index + ":" + row.renderer.GetInstanceID() + ":" + row.group + ":" + row.text));
@@ -894,7 +923,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 if (row.group != lastGroup)
                 {
                     lastGroup = row.group;
-                    container.Add(new Label(Tr(row.group == 0 ? "Above allocation (last preview)" : row.group == 1 ? "Not being simplified" : "Other meshes"))
+                    container.Add(new Label(Tr(row.group == 0 ? "Meshes being simplified" : row.group == 1 ? "Not being simplified" : "Other meshes"))
                         { style = { unityFontStyleAndWeight = FontStyle.Bold, marginTop = 8 } });
                 }
                 var item = new VisualElement { name = "BudgetMeshRow", userData = row.index };
@@ -1328,86 +1357,155 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private void RefreshAllocationFields(TemplateContainer itemRoot)
         {
             if (itemRoot.userData is not int index || index < 0 || index >= Target.Entries.Count) return;
-            var count = Target.Entries[index].TargetTriangleCount;
-            itemRoot.Q<SliderInt>("TargetTriangleCountSlider")?.SetValueWithoutNotify(count);
-            itemRoot.Q<IntegerField>("TargetTriangleCountField")?.SetValueWithoutNotify(count);
+            var entry = Target.Entries[index];
+            var count = entry.TargetTriangleCount;
+            var slider = itemRoot.Q<SliderInt>("TargetTriangleCountSlider");
+            var field = itemRoot.Q<IntegerField>("TargetTriangleCountField");
+            var unknown = itemRoot.Q<TextField>("UnknownOutputField");
             var hint = itemRoot.Q<Label>("MeasuredOutputHint");
+            var output = -1;
+            var measured = false;
+            var canEdit = false;
+            var pending = pendingOutputIndex == index;
+            var tooltip = Tr("Analyze Build to measure this mesh before editing its output.");
             if (hint != null)
             {
                 hint.style.display = DisplayStyle.None;
                 hint.text = string.Empty;
-                hint.tooltip = string.Empty;
-                var infoColor = EditorGUIUtility.isProSkin
-                    ? new Color(.35f, .68f, 1f) : new Color(.08f, .35f, .65f);
-                hint.style.color = infoColor;
-                hint.style.borderLeftColor = hint.style.borderRightColor = infoColor;
-                hint.style.borderTopColor = hint.style.borderBottomColor = infoColor;
+                SetMarkerColor(hint, EditorGUIUtility.isProSkin ? new Color(.35f, .68f, 1f) : new Color(.08f, .35f, .65f));
             }
-            var tooltip = Tr("Requested triangle count. Analyze Build measures the output with your current protection settings.");
-            var entry = Target.Entries[index];
             if (entry.Enabled && TryGetBuildAnalysisResult(Target, out var result) &&
                 string.IsNullOrEmpty(result.Error) && result.Allocations is { } baseline &&
                 index < baseline.Outputs.Length && index < baseline.Counts.Length && baseline.Outputs[index] >= 0)
             {
+                // Never replace stale output with a raw simplifier request.
+                output = baseline.Outputs[index];
                 var current = CaptureAllocations();
                 var compatible = baseline.Settings == current.Settings;
                 var hasInputs = compatible && HasMeasuredInputs(current.Settings);
-                var output = baseline.Outputs[index];
-                var measured = false;
                 if (hasInputs && measuredMeshes!.Meshes.TryGetValue(index, out var mesh))
-                    measured = mesh.Outputs.TryGetValue(count, out output);
+                {
+                    canEdit = true;
+                    if (mesh.Outputs.TryGetValue(count, out var cached)) { output = cached; measured = true; }
+                }
                 if (!measured && compatible && result.Revision == CurrentAnalysisRevision && baseline.Counts[index] == count)
-                {
-                    output = baseline.Outputs[index];
                     measured = true;
-                }
-                if (measured)
-                {
-                    tooltip = Format("Target: {0:N0}\nOutput: {1:N0}\nBefore other build tools run.", count, output);
-                    if (count != baseline.Counts[index] && output == baseline.Outputs[index])
-                        tooltip += "\n" + Tr("Your target change has not changed its output.");
-                    var saving = baseline.Outputs[index] - output;
-                    var changed = count != baseline.Counts[index];
-                    if (changed)
-                        tooltip += "\n" + Format("Change since last build: {0:N0} → {1:N0}", baseline.Outputs[index], output);
-                    if (hint != null && (changed || Math.Abs((long)output - count) > Math.Max(2, count / 1000)))
-                    {
-                        var stalled = changed && count < baseline.Counts[index] && saving <= 0;
-                        var aboveTarget = output - (long)count > Math.Max(2, count / 1000);
-                        hint.text = stalled || aboveTarget ? "!" : saving > 0 ? "−" : "i";
-                        var color = stalled || aboveTarget
-                            ? (EditorGUIUtility.isProSkin ? new Color(1f, .72f, .3f) : new Color(.6f, .32f, .02f))
-                            : saving > 0
-                                ? (EditorGUIUtility.isProSkin ? new Color(.4f, .85f, .6f) : new Color(.08f, .42f, .22f))
-                                : hint.style.color.value;
-                        SetMarkerColor(hint, color);
-                        hint.style.display = DisplayStyle.Flex;
-                    }
-                }
-                else
-                {
-                    var pending = hasInputs && count != baseline.Counts[index] &&
-                        failedEstimate != string.Join(",", current.Counts);
-                    tooltip = pending ? Tr("Updating the output for this target...")
-                        : Tr("This measurement is out of date. Analyze Build to update it.");
-                    if (hint != null && (pending || Math.Abs((long)baseline.Outputs[index] - count) > Math.Max(2, count / 1000)))
-                    {
-                        hint.text = pending ? "…" : "?";
-                        if (!pending) SetMarkerColor(hint, EditorGUIUtility.isProSkin ? new Color(.7f, .7f, .7f) : new Color(.4f, .4f, .4f));
-                        hint.style.display = DisplayStyle.Flex;
-                    }
-                }
+                pending |= hasInputs && count != baseline.Counts[index] && !measured &&
+                    failedEstimate != string.Join(",", current.Counts);
+                tooltip = measured
+                    ? Format("Output: {0:N0}\nBefore other build tools run.", output)
+                    : Tr("This measurement is out of date. Analyze Build to update it.");
+                if (measured && output != baseline.Outputs[index])
+                    tooltip += "\n" + Format("Change since last build: {0:N0} → {1:N0}", baseline.Outputs[index], output);
+                if (measured && !canEdit)
+                    tooltip += "\n" + Tr("Analyze Build to refresh measurements before editing output.");
             }
+            var feedback = measured && !pending && outputFeedbackIndex == index && outputFeedbackValue == output &&
+                EditorApplication.timeSinceStartup < outputFeedbackUntil;
+            if (entry.Enabled && hint != null && (pending || !measured || feedback))
+            {
+                hint.style.display = DisplayStyle.Flex;
+                hint.text = pending ? "…" : feedback ? "!" : "?";
+                if (pending) tooltip = Tr("Measuring the requested output. The count will update when ready.");
+                else if (feedback)
+                {
+                    tooltip += "\n" + outputFeedback;
+                    SetMarkerColor(hint, EditorGUIUtility.isProSkin ? new Color(1f, .72f, .3f) : new Color(.6f, .32f, .02f));
+                }
+                else SetMarkerColor(hint, EditorGUIUtility.isProSkin ? new Color(.7f, .7f, .7f) : new Color(.4f, .4f, .4f));
+            }
+            var displayed = pendingOutputIndex == index ? pendingOutputCount : output;
+            if (displayed >= 0)
+            {
+                slider?.SetValueWithoutNotify(displayed);
+                if (field != null && field.value != displayed) field.SetValueWithoutNotify(displayed);
+            }
+            slider?.SetEnabled(entry.Enabled && canEdit && !s_analysisInProgress);
+            field?.SetEnabled(entry.Enabled && canEdit && !s_analysisInProgress);
+            if (field != null) field.style.display = entry.Enabled && displayed >= 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            if (unknown != null) unknown.style.display = entry.Enabled && displayed < 0 ? DisplayStyle.Flex : DisplayStyle.None;
             if (entry.Enabled) tooltip += "\n" + Tr("Click the separator for output details and fine-tuning.");
             var slot = itemRoot.Q<VisualElement>("OutputStatusSlot");
             if (slot != null) slot.tooltip = tooltip;
-            itemRoot.Q<SliderInt>("TargetTriangleCountSlider").tooltip = tooltip;
-            itemRoot.Q<IntegerField>("TargetTriangleCountField").tooltip = tooltip;
+            if (slider != null) slider.tooltip = tooltip;
+            if (field != null) field.tooltip = tooltip;
+            if (unknown != null) unknown.tooltip = tooltip;
             if (hint != null) hint.tooltip = tooltip;
             var divider = itemRoot.Q<Label>("TriangleCountDivider");
             if (divider != null)
                 divider.style.display = hint != null && hint.style.display.value == DisplayStyle.Flex
                     ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+
+        private void QueueOutputEdit(VisualElement root, int index, int desired)
+        {
+            var current = CaptureAllocations();
+            if (s_analysisInProgress || !HasMeasuredInputs(current.Settings) ||
+                !measuredMeshes!.Meshes.TryGetValue(index, out var mesh) || !Target.Entries[index].Enabled) return;
+            var serial = ++outputEditSerial;
+            pendingOutputIndex = index;
+            pendingOutputCount = Math.Max(0, Math.Min(mesh.SourceCount, desired));
+            outputFeedbackIndex = -1;
+            root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
+            void StartWhenIdle()
+            {
+                if (this == null || target == null || serial != outputEditSerial || root.panel == null) return;
+                if (estimateRunning)
+                {
+                    root.schedule.Execute(StartWhenIdle).StartingIn(100);
+                    return;
+                }
+                _ = ApplyOutputEditAsync(root, index, pendingOutputCount, serial);
+            }
+            root.schedule.Execute(StartWhenIdle).StartingIn(250);
+        }
+
+        private async System.Threading.Tasks.Task ApplyOutputEditAsync(VisualElement root, int index, int desired, int serial)
+        {
+            var starting = CaptureAllocations();
+            var inputs = measuredMeshes;
+            var budget = Target.TargetTriangleCount;
+            var reserve = Target.BuildTriangleReserve;
+            var autoAdjust = Target.AutoAdjustEnabled;
+            bool Current() => this != null && target != null && serial == outputEditSerial && !s_analysisInProgress &&
+                inputs != null && inputs == measuredMeshes && HasMeasuredInputs(starting.Settings) &&
+                Target.TargetTriangleCount == budget && Target.BuildTriangleReserve == reserve && Target.AutoAdjustEnabled == autoAdjust &&
+                CaptureAllocations().Settings == starting.Settings && CaptureAllocations().Counts.SequenceEqual(starting.Counts);
+            if (!Current() || !inputs!.Meshes.TryGetValue(index, out var mesh))
+            {
+                if (serial == outputEditSerial) pendingOutputIndex = -1;
+                return;
+            }
+            estimateRunning = true;
+            try
+            {
+                var previous = Target.Entries[index].TargetTriangleCount;
+                var candidate = await MeasuredMeshBudget.FindOutputTargetAsync(mesh, previous, desired, Current);
+                if (!Current()) return;
+                var produced = mesh.Outputs[candidate];
+                if (candidate != previous) SetManualAllocation(index, candidate);
+                if (produced != desired)
+                {
+                    outputFeedbackIndex = index;
+                    outputFeedbackValue = produced;
+                    outputFeedbackUntil = EditorApplication.timeSinceStartup + 8;
+                    outputFeedback = produced == mesh.Outputs[previous]
+                        ? Tr("No output change found at these settings.")
+                        : Format("Requested {0:N0}; achieved {1:N0} with the current settings.", desired, produced);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, Target);
+            }
+            finally
+            {
+                estimateRunning = false;
+                if (serial == outputEditSerial) pendingOutputIndex = -1;
+                if (this != null && target != null && root.panel != null && !s_analysisInProgress)
+                    RefreshBudgetGuidance(root);
+            }
         }
 
         private static void SetMarkerColor(Label hint, Color color)
@@ -1430,6 +1528,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             private string message = string.Empty;
             private bool running;
             private bool closed;
+            private bool showDetails;
 
             internal MeshOutputPopup(MeshiaCascadingAvatarMeshSimplifierEditor owner, int index)
             {
@@ -1477,7 +1576,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     return;
                 }
                 var targetCount = starting.Counts[index];
-                GUILayout.Label(Format("Target: {0:N0}", targetCount));
                 if (!mesh.Outputs.TryGetValue(targetCount, out var output))
                 {
                     GUILayout.Label(Tr("Updating the output for this target..."));
@@ -1505,6 +1603,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     }
                 }
                 GUILayout.Label(Tr("Keeps this saving instead of redistributing it. Undo restores the previous targets."), EditorStyles.wordWrappedMiniLabel);
+                showDetails = EditorGUILayout.Foldout(showDetails, Tr("Calculation details"));
+                if (showDetails) GUILayout.Label(Format("Internal simplifier target: {0:N0}", targetCount));
             }
 
             private async System.Threading.Tasks.Task Measure(MeasuredMeshResponse mesh, int targetCount, int output)
@@ -1519,7 +1619,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     if (saving > 0)
                     {
                         candidate = found;
-                        message = Format("{0:N0} fewer triangles · target {1:N0}", saving, found);
+                        message = Format("{0:N0} fewer triangles · output {1:N0}", saving, mesh.Outputs[found]);
                     }
                     else message = Tr("No suitable reduction found with these settings. Your target is unchanged.");
                 }

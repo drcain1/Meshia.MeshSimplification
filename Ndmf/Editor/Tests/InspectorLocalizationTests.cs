@@ -340,40 +340,44 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             {
                 inspector = UnityEditor.Editor.CreateEditor(component);
                 var root = inspector.CreateInspectorGUI(); window.rootVisualElement.Add(root); window.Show();
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 var rows = root.Query<TemplateContainer>().ToList().Where(x => x.userData is int).ToArray();
                 Assert.AreEqual(3, rows.Length);
+                MeasuredMeshBudgetTests.Seed(inspector, 18, x => x);
                 CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
                 Undo.IncrementCurrentGroup();
                 rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 2;
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 CollectionAssert.AreEqual(new[] { 2, 8, 8 }, component.Entries.Select(e => e.TargetTriangleCount), "Lowering one target returns its allocation to unlocked peers.");
                 Assert.AreEqual(0, component.BuildTriangleReserve);
                 Assert.AreEqual(2, rows[0].Q<IntegerField>("TargetTriangleCountField").value);
-                StringAssert.Contains("analyze", root.Q<Label>("AllocationSummary").text);
+                StringAssert.Contains("Estimated output", root.Q<Label>("AllocationSummary").text);
                 Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
                 Assert.AreEqual(0, component.BuildTriangleReserve, "Redistribution must not create a build allowance.");
+                MeasuredMeshBudgetTests.Seed(inspector, 18, x => x);
                 rows[0].Q<IntegerField>("TargetTriangleCountField").value = 10;
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 CollectionAssert.AreEqual(new[] { 10, 4, 4 }, component.Entries.Select(e => e.TargetTriangleCount), "Raising a target takes budget from unlocked peers.");
                 // Rebinding/reopening an inspector is not a request to refill the budget.
                 root.Q<ListView>("EntriesListView").Rebuild();
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 CollectionAssert.AreEqual(new[] { 10, 4, 4 }, component.Entries.Select(e => e.TargetTriangleCount));
                 rows = root.Query<TemplateContainer>().ToList().Where(x => x.userData is int).ToArray();
                 component.Entries[2].TargetTriangleCount = 6; component.Entries[2].Fixed = true; EditorUtility.SetDirty(component);
+                MeasuredMeshBudgetTests.Seed(inspector, 20, x => x);
                 rows[0].Q<IntegerField>("TargetTriangleCountField").value = 12;
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 CollectionAssert.AreEqual(new[] { 12, 0, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Raising a target may reduce unlocked peers, never the edited or locked row.");
                 rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 6;
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Lowering a target restores zeroed unlocked peers while preserving locked allocations.");
                 Assert.AreEqual(0, component.BuildTriangleReserve);
                 component.Entries[2].Fixed = false; component.AutoAdjustEnabled = false; EditorUtility.SetDirty(component);
+                MeasuredMeshBudgetTests.Seed(inspector, 18, x => x);
                 rows[1].Q<IntegerField>("TargetTriangleCountField").value = 12;
-                for (var i = 0; i < 10; i++) yield return null;
+                yield return new WaitForSecondsRealtime(.6f);
                 CollectionAssert.AreEqual(new[] { 6, 12, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Auto Adjust off must leave peers alone.");
             }
             finally
@@ -665,7 +669,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         }
 
         [UnityTest]
-        public IEnumerator BudgetBreakdownOrdersOverrunsSeparatesExclusionsAndOpensSettings()
+        public IEnumerator BudgetBreakdownShowsOutputSeparatesExclusionsAndOpensSettings()
         {
             var locale = LocalizationProvider.CurrentLocale;
             var avatar = new GameObject("Budget test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
@@ -704,17 +708,17 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 {
                     LocalizationProvider.CurrentLocale = language;
                     var rows = root.Q("BudgetMeshRows").Query<VisualElement>("BudgetMeshRow").ToList();
-                    CollectionAssert.AreEqual(new[] { 1, 0, 2, 3 }, rows.Select(row => (int)row.userData).ToArray());
-                    StringAssert.Contains(language == "ja" ? "固定配分" : "Fixed allocation", rows[0].Q<Label>().text);
+                    CollectionAssert.AreEqual(new[] { 0, 1, 2, 3 }, rows.Select(row => (int)row.userData).ToArray());
+                    StringAssert.Contains(language == "ja" ? "自動調整では固定" : "Fixed for Auto Adjust", rows[1].Q<Label>().text);
                     StringAssert.Contains(language == "ja" ? "軽量化対象外" : "not being simplified", rows[2].Q<Label>().text);
-                    StringAssert.Contains(language == "ja" ? "未計測" : "no preview measurement", rows[3].Q<Label>().text);
+                    StringAssert.Contains(language == "ja" ? "未計測" : "not measured yet", rows[3].Q<Label>().text);
                     Assert.AreEqual(language == "ja" ? "削減方法を確認" : "Find ways to reduce", button.text);
                 }
                 var open = root.Q("BudgetMeshRows").Query<VisualElement>("BudgetMeshRow").First().Q<Button>();
                 typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(open.clickable, new object[] { null, 0 });
                 for (var i = 0; i < 10; i++) yield return null;
-                var item = root.Q<ListView>("EntriesListView").Query<TemplateContainer>().ToList().First(row => row.userData is int index && index == 1);
+                var item = root.Q<ListView>("EntriesListView").Query<TemplateContainer>().ToList().First(row => row.userData is int index && index == 0);
                 Assert.IsTrue(item.Q<Toggle>("OptionsToggle").value);
                 Assert.AreEqual(before, EditorJsonUtility.ToJson(component), "Guidance and navigation must not modify mesh settings.");
             }

@@ -1021,3 +1021,63 @@ msgstr "Measurement failed. Your target is unchanged."
 
 msgid "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field."
 msgstr "Maximum sampled distance from the original surface as a fraction of mesh size. 0 disables the guard; 0.001 is 0.1% of the bounds diagonal. May stop above the triangle target. Slider range: 0–0.005; enter values up to 0.1 in the number field."
+
+msgid "Output / Original"
+msgstr "Output / Original"
+
+msgid "Measured mesh triangles before later build tools run. Edit an output count to request a change; Analyze Build verifies the avatar total."
+msgstr "Measured mesh triangles before later build tools run. Edit an output count to request a change; Analyze Build verifies the avatar total."
+
+msgid "Analyze Build to measure this mesh before editing its output."
+msgstr "Analyze Build to measure this mesh before editing its output."
+
+msgid "Output: {0:N0}\nBefore other build tools run."
+msgstr "Output: {0:N0}\nBefore other build tools run."
+
+msgid "Analyze Build to refresh measurements before editing output."
+msgstr "Analyze Build to refresh measurements before editing output."
+
+msgid "Measuring the requested output. The count will update when ready."
+msgstr "Measuring the requested output. The count will update when ready."
+
+msgid "No output change found at these settings."
+msgstr "No output change found at these settings."
+
+msgid "Requested {0:N0}; achieved {1:N0} with the current settings."
+msgstr "Requested {0:N0}; achieved {1:N0} with the current settings."
+
+msgid "Internal simplifier target: {0:N0}"
+msgstr "Internal simplifier target: {0:N0}"
+
+msgid "{0:N0} fewer triangles · output {1:N0}"
+msgstr "{0:N0} fewer triangles · output {1:N0}"
+
+msgid "Changing one mesh's output rebalances the other unlocked meshes."
+msgstr "Changing one mesh's output rebalances the other unlocked meshes."
+
+msgid "Shape protection can limit how far a mesh can be reduced. Analyze Build checks your avatar's final triangle count."
+msgstr "Shape protection can limit how far a mesh can be reduced. Analyze Build checks your avatar's final triangle count."
+
+msgid "Mesh outputs are measured before later build tools run. Preview counts are labeled separately. Analyze Build checks the final total."
+msgstr "Mesh outputs are measured before later build tools run. Preview counts are labeled separately. Analyze Build checks the final total."
+
+msgid "Start with the largest meshes. If an output edit has no effect, review that mesh's protection settings and check its shape in motion."
+msgstr "Start with the largest meshes. If an output edit has no effect, review that mesh's protection settings and check its shape in motion."
+
+msgid "{0}: last preview {1:N0}; original {2:N0}."
+msgstr "{0}: last preview {1:N0}; original {2:N0}."
+
+msgid "{0}: {1:N0} source triangles; output not measured yet."
+msgstr "{0}: {1:N0} source triangles; output not measured yet."
+
+msgid "{0}: output {1:N0}; original {2:N0}."
+msgstr "{0}: output {1:N0}; original {2:N0}."
+
+msgid "{0}: last measured {1:N0}; original {2:N0}. Analyze to update."
+msgstr "{0}: last measured {1:N0}; original {2:N0}. Analyze to update."
+
+msgid " Fixed for Auto Adjust."
+msgstr " Fixed for Auto Adjust."
+
+msgid "Meshes being simplified"
+msgstr "Meshes being simplified"

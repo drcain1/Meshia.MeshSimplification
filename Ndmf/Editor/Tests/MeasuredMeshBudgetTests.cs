@@ -323,14 +323,109 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             });
         }
 
+        [TestCase(60, 60)]
+        [TestCase(100, 100)]
+        [TestCase(150, 150)]
+        public void OutputEditsSearchMeasuredCountsInBothDirections(int desired, int expected)
+        {
+            using var mesh = new MeasuredMeshResponse(0, 200, 60, 100, x => x + 40,
+                evaluateAsync: x => Task.FromResult(Math.Min(200, x + 40)));
+            var target = MeasuredMeshBudget.FindOutputTargetAsync(mesh, 60, desired, () => true).GetAwaiter().GetResult();
+            Assert.AreEqual(expected, mesh.Outputs[target]);
+            if (desired == 100) Assert.AreEqual(60, target, "Displaying 100 must not rewrite the request to 100.");
+        }
+
+        [Test]
+        public void OutputEditPlateauKeepsOriginalRequest()
+        {
+            using var mesh = new MeasuredMeshResponse(0, 200, 60, 100, _ => 100,
+                evaluateAsync: _ => Task.FromResult(100));
+            Assert.AreEqual(60, MeasuredMeshBudget.FindOutputTargetAsync(mesh, 60, 80, () => true).GetAwaiter().GetResult());
+            Assert.AreEqual(60, MeasuredMeshBudget.FindOutputTargetAsync(mesh, 60, 120, () => true).GetAwaiter().GetResult());
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void OutputEditAppliesMeasuredRequestAndReportsPlateaus(bool plateau)
+        {
+            WithInspector((component, inspector) =>
+            {
+                component.AutoAdjustEnabled = false;
+                Seed(inspector, 32, _ => 8);
+                var inputs = (MeasuredMeshSet)inspector.GetType().GetField("measuredMeshes", Inst).GetValue(inspector);
+                inputs.Meshes[0] = new MeasuredMeshResponse(0, 12, 6, 8, x => plateau ? 8 : x + 2,
+                    evaluateAsync: x => Task.FromResult(plateau ? 8 : x + 2));
+                var apply = inspector.GetType().GetMethod("ApplyOutputEditAsync", Inst);
+                var task = (Task)apply.Invoke(inspector, new object[] { new VisualElement(), 0, 5, 0 });
+                task.GetAwaiter().GetResult();
+                Assert.AreEqual(plateau ? 6 : 3, component.Entries[0].TargetTriangleCount);
+                Assert.IsTrue(component.Entries.Skip(1).All(x => x.TargetTriangleCount == 6));
+                if (plateau)
+                {
+                    Assert.AreEqual(0, inspector.GetType().GetField("outputFeedbackIndex", Inst).GetValue(inspector));
+                    StringAssert.Contains("No output change", (string)inspector.GetType().GetField("outputFeedback", Inst).GetValue(inspector));
+                }
+                else
+                {
+                    Assert.AreEqual(5, inputs.Meshes[0].Outputs[3]);
+                    Undo.PerformUndo();
+                    Assert.AreEqual(6, component.Entries[0].TargetTriangleCount);
+                }
+            });
+        }
+
+        [UnityTest]
+        public System.Collections.IEnumerator SupersededOutputEditsNeverChangeAllocations()
+        {
+            // The first evaluation yields; a newer edit supersedes it before completion.
+            Task pending = null;
+            var completion = new TaskCompletionSource<int>();
+            WithInspector((component, inspector) =>
+            {
+                Seed(inspector, 32, _ => 8);
+                var type = inspector.GetType();
+                var inputs = (MeasuredMeshSet)type.GetField("measuredMeshes", Inst).GetValue(inspector);
+                inputs.Meshes[0] = new MeasuredMeshResponse(0, 12, 6, 8, _ => 5,
+                    evaluateAsync: _ => completion.Task);
+                pending = (Task)type.GetMethod("ApplyOutputEditAsync", Inst).Invoke(inspector,
+                    new object[] { new VisualElement(), 0, 5, 0 });
+                Assert.IsFalse(pending.IsCompleted);
+                type.GetField("outputEditSerial", Inst).SetValue(inspector, 1);
+                completion.SetResult(5);
+                // Completed tasks resume on a later editor update; destroying the inspector
+                // also exercises ownership/cancellation without modifying the avatar.
+                Assert.IsTrue(component.Entries.All(x => x.TargetTriangleCount == 6));
+            });
+            while (!pending.IsCompleted) yield return null;
+            Assert.IsFalse(pending.IsFaulted);
+        }
+
+        [Test]
+        public void UnmeasuredOutputIsUnknownInsteadOfAnAllocation()
+        {
+            WithInspector((component, inspector) =>
+            {
+                var row = new TemplateContainer { userData = 0 };
+                row.Add(new SliderInt { name = "TargetTriangleCountSlider" });
+                row.Add(new IntegerField { name = "TargetTriangleCountField" });
+                row.Add(new TextField { name = "UnknownOutputField", value = "—" });
+                row.Add(new Label { name = "MeasuredOutputHint" });
+                inspector.GetType().GetMethod("RefreshAllocationFields", Inst).Invoke(inspector, new object[] { row });
+                Assert.AreEqual(DisplayStyle.None, row.Q<IntegerField>("TargetTriangleCountField").style.display.value);
+                Assert.AreEqual(DisplayStyle.Flex, row.Q<TextField>("UnknownOutputField").style.display.value);
+                Assert.IsFalse(row.Q<SliderInt>("TargetTriangleCountSlider").enabledSelf);
+                Assert.AreEqual("?", row.Q<Label>("MeasuredOutputHint").text);
+            });
+        }
+
         private const BindingFlags Inst = BindingFlags.NonPublic | BindingFlags.Instance;
         private const BindingFlags Stat = BindingFlags.NonPublic | BindingFlags.Static;
 
         [TestCase("match", "", false)]
         [TestCase("rounding", "", false)]
-        [TestCase("different", "!", true)]
-        [TestCase("unchanged", "!", true)]
-        [TestCase("saving", "−", true)]
+        [TestCase("different", "", false)]
+        [TestCase("unchanged", "", false)]
+        [TestCase("saving", "", false)]
         [TestCase("pending", "…", true)]
         [TestCase("stale", "?", true)]
         [TestCase("excluded", "", false)]
@@ -360,14 +455,14 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Assert.AreEqual(expected, hint.text);
                 Assert.AreEqual(visible ? DisplayStyle.None : DisplayStyle.Flex, row.Q<Label>("TriangleCountDivider").style.display.value);
                 Assert.AreEqual(visible, hint.style.display.value == DisplayStyle.Flex);
-                if (scenario == "unchanged") StringAssert.Contains("has not changed its output", hint.tooltip);
-                if (scenario == "pending") StringAssert.Contains("Updating", hint.tooltip);
+                if (scenario == "different" || scenario == "unchanged" || scenario == "pending" || scenario == "stale")
+                    Assert.AreEqual(12, row.Q<IntegerField>("TargetTriangleCountField").value, "Show actual or last measured output, never the internal request.");
+                if (scenario == "pending") StringAssert.Contains("Measuring", hint.tooltip);
                 if (scenario == "stale") StringAssert.Contains("out of date", hint.tooltip);
-                if (scenario == "different" || scenario == "unchanged")
-                    Assert.Greater(hint.style.color.value.r, hint.style.color.value.b, "Amber marks constrained output.");
+                if (scenario == "stale") Assert.IsFalse(row.Q<IntegerField>("TargetTriangleCountField").enabledSelf);
                 if (scenario == "saving")
                 {
-                    Assert.Greater(hint.style.color.value.g, hint.style.color.value.r);
+                    Assert.AreEqual(3, row.Q<IntegerField>("TargetTriangleCountField").value);
                     StringAssert.Contains("6 → 3", hint.tooltip);
                 }
                 if (scenario == "stale")
@@ -453,19 +548,25 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             });
         }
 
-        private static void Seed(UnityEditor.Editor inspector, int total, Func<int, int> response)
+        internal static void Seed(UnityEditor.Editor inspector, int total, Func<int, int> response)
         {
             var type = inspector.GetType();
             var component = (MeshiaCascadingAvatarMeshSimplifier)inspector.target;
             Undo.FlushUndoRecordObjects();
             var snapshot = type.GetMethod("CaptureAllocations", Inst).Invoke(inspector, null);
-            snapshot.GetType().GetField("Outputs").SetValue(snapshot, Enumerable.Repeat(response(6), 4).ToArray());
+            snapshot.GetType().GetField("Outputs").SetValue(snapshot, component.Entries.Select(e => response(e.TargetTriangleCount)).ToArray());
             var set = new MeasuredMeshSet
             {
                 Settings = (string)snapshot.GetType().GetField("Settings").GetValue(snapshot),
                 InputRevision = (int)type.GetField("meshInputRevision", Stat).GetValue(null)
             };
-            for (var i = 0; i < 4; i++) set.Meshes[i] = new MeasuredMeshResponse(i, 12, 6, response(6), response);
+            for (var i = 0; i < component.Entries.Count; i++)
+            {
+                var count = component.Entries[i].TargetTriangleCount;
+                set.Meshes[i] = new MeasuredMeshResponse(i, 12, count, response(count), response,
+                    evaluateAsync: n => Task.FromResult(response(n)));
+            }
+            ((MeasuredMeshSet)type.GetField("measuredMeshes", Inst).GetValue(inspector))?.Dispose();
             type.GetField("measuredMeshes", Inst).SetValue(inspector, set);
             var revision = (int)type.GetProperty("CurrentAnalysisRevision", Stat).GetValue(null);
             var result = Activator.CreateInstance(type.GetNestedType("BuildAnalysisResult", BindingFlags.NonPublic),
