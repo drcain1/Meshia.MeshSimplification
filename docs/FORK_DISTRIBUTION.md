@@ -93,6 +93,29 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.0-beta.1` introduces measured output controls for cascading avatar
+budgets. After analysis, mesh rows show output triangles alongside the original
+count. Editing an output count searches for a matching simplification request;
+pending, stale, and unattainable results are distinguished without adding another
+line to each mesh. Internal requests remain available in calculation details.
+Per-mesh reduction tools measure possible savings before applying them, while
+ordinary edits continue to redistribute the remaining budget with Auto Adjust.
+
+Automatic fitting uses measured responses, bounds each run's reductions, and
+restores the starting allocations when it cannot fit within those limits. It
+does not relax mesh protections. FA-QEM now consistently defaults Maximum Surface
+Deviation to `0.0005`; explicitly saved values, including zero, are retained.
+The deviation control supports finer adjustments, and English/Japanese text and
+README guidance describe the updated behavior.
+
+All 269 EditMode tests passed locally in Unity 2022.3.22f1, with no failures or
+skips. A representative full NDMF analysis completed below its requested triangle
+limit without changing saved settings; the live inspector showed the measured
+per-mesh output. All 12 distribution tests and release prerequisite checks passed.
+This is a prerelease for further avatar testing, not a new VRChat or package-client
+installation certification. Hosted Unity test execution is separate from these
+local results. Stable `1.0.1` remains available.
+
 Version `1.0.1` fixes Analyze Build immediately reporting "Out of date" after
 build plugins record delayed Undo changes on temporary materials or animation
 assets. Analysis completion flushes these records while build invalidation is
