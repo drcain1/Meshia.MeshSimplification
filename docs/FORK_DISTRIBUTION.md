@@ -93,6 +93,22 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.0-beta.3` fixes language changes incorrectly marking the current
+analysis out of date. Nested property drawers emit change notifications while
+translating labels; the cascading inspector now checks whether serialized settings
+actually changed before invalidating the result. Real protection and allocation
+edits still invalidate measurements. Embedded mesh settings share the inspector's
+language selector; a standalone options drawer retains its own selector.
+
+All 61 relevant inspector/localization EditMode tests passed in Unity 2022.3.22f1,
+with no failures or skips. Regression coverage confirms that switching English and
+Japanese preserves measured results and cached inputs, while real protection edits
+invalidate them. Standalone and embedded language controls are covered. Live Unity
+compilation has no errors, and the maintainer confirmed the updated behavior.
+All 12 distribution tests and release prerequisite checks passed. This patch
+changes inspector behavior only; geometry algorithms, defaults, dependencies, and
+saved avatar settings are unchanged. Stable `1.0.1` remains available.
+
 Version `1.1.0-beta.2` speeds up repeated FA-QEM output edits by reusing triangle
 counts recorded along the normal collapse sequence. Requests outside the cached
 range trigger one asynchronous count-only measurement; changes to captured inputs
