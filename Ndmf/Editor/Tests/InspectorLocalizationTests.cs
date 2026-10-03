@@ -15,6 +15,64 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         public class TestWindow : EditorWindow { }
 
         [UnityTest]
+        public IEnumerator LanguageChangesPreserveMeasuredCountsAndOnlyShowOnePicker()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var avatar = new GameObject("Language freshness test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            GameObject.CreatePrimitive(PrimitiveType.Cube).transform.SetParent(avatar.transform);
+            var child = new GameObject("Settings"); child.transform.SetParent(avatar.transform);
+            var component = child.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.RefreshEntries(); component.AutoAdjustEnabled = false;
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            const System.Reflection.BindingFlags inst = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            const System.Reflection.BindingFlags stat = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var type = inspector.GetType();
+            var key = (string)type.GetMethod("GetBuildAnalysisResultKey", stat).Invoke(null, new object[] { component });
+            try
+            {
+                LocalizationProvider.CurrentLocale = "en";
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                root.Q<Toggle>("OptionsToggle").value = true;
+                for (var i = 0; i < 10; i++) yield return null;
+                MeasuredMeshBudgetTests.Seed(inspector, 12, _ => 12);
+                var before = EditorJsonUtility.ToJson(component);
+                var revision = type.GetProperty("CurrentAnalysisRevision", stat).GetValue(null);
+                var inputs = type.GetField("meshInputRevision", stat).GetValue(null);
+                var changes = new System.Collections.Generic.List<string>();
+                root.RegisterCallback<UnityEditor.UIElements.SerializedPropertyChangeEvent>(evt => changes.Add(evt.changedProperty.propertyPath));
+                foreach (var language in new[] { "ja", "en" })
+                {
+                    root.Q<DropdownField>("LanguagePicker").value = language;
+                    for (var i = 0; i < 10; i++) yield return null;
+                    Undo.FlushUndoRecordObjects();
+                    Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                    Assert.AreEqual(revision, type.GetProperty("CurrentAnalysisRevision", stat).GetValue(null),
+                        "Changing labels invalidated analysis. Property events: " + string.Join(", ", changes));
+                    Assert.AreEqual(inputs, type.GetField("meshInputRevision", stat).GetValue(null));
+                    Assert.AreEqual(1, root.Query<DropdownField>("LanguagePicker").ToList().Count(x => x.resolvedStyle.display != DisplayStyle.None));
+                    Assert.IsTrue(root.Q<IntegerField>("TargetTriangleCountField").enabledInHierarchy);
+                }
+                var protection = root.Q<Toggle>("PreserveBorderEdgesToggle");
+                protection.value = !protection.value;
+                for (var i = 0; i < 5; i++) yield return null;
+                Undo.FlushUndoRecordObjects();
+                Assert.AreNotEqual(revision, type.GetProperty("CurrentAnalysisRevision", stat).GetValue(null), "Real mesh edits must still invalidate analysis.");
+                Assert.AreNotEqual(inputs, type.GetField("meshInputRevision", stat).GetValue(null), "Real protection edits must discard cached inputs.");
+            }
+            finally
+            {
+                window.Close();
+                ((System.Collections.IDictionary)type.GetField("BuildAnalysisCache", stat).GetValue(null)).Remove(key);
+                SessionState.EraseString(key); Undo.ClearUndo(component);
+                Object.DestroyImmediate(inspector); Object.DestroyImmediate(avatar);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator CalculationIndicatorCoversQueuedAndRunningWorkWithoutMovingRows()
         {
             var locale = LocalizationProvider.CurrentLocale;
@@ -846,6 +904,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                         LocalizationProvider.CurrentLocale = language;
                         for (var i = 0; i < 10; i++) yield return null;
                         AssertAlgorithmOptions(root, kind);
+                        Assert.AreEqual(1, root.Query<DropdownField>("LanguagePicker").ToList().Count(x => x.resolvedStyle.display != DisplayStyle.None));
                         Assert.AreEqual(options, component.options, "Visibility changes must preserve saved options.");
                     }
                 }

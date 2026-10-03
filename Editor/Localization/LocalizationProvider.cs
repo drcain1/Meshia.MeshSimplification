@@ -12,6 +12,7 @@ namespace Meshia.MeshSimplification.Editor.Localization
     public static class LocalizationProvider
     {
         private const string DefaultLocale = "en";
+        private const string LanguagePickerOwnerClass = "meshia-language-picker-owner";
 
         [AssemblyCL4EELocalization]
         internal static Localization Localization { get; } = new("ca7beb49d3e85244e803080472c014c2", DefaultLocale);
@@ -49,6 +50,20 @@ namespace Meshia.MeshSimplification.Editor.Localization
                         Capture(field.label, text => field.label = text);
                         if (field.name == "LanguagePicker")
                         {
+                            root.AddToClassList(LanguagePickerOwnerClass);
+                            updates.Add(() =>
+                            {
+                                // Embedded options share their inspector's language control.
+                                // A standalone options drawer still needs its own picker.
+                                var hasParentPicker = false;
+                                for (var parent = root.parent; parent != null; parent = parent.parent)
+                                    if (parent.ClassListContains(LanguagePickerOwnerClass))
+                                    {
+                                        hasParentPicker = true;
+                                        break;
+                                    }
+                                field.style.display = hasParentPicker ? DisplayStyle.None : DisplayStyle.Flex;
+                            });
                             field.choices = Localization.LocalizationByIsoCode.Keys.ToList();
                             field.formatListItemCallback = code => Tr("locale:" + code);
                             field.formatSelectedValueCallback = code => Tr("locale:" + code);

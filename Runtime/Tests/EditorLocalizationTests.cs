@@ -34,6 +34,8 @@ namespace Meshia.MeshSimplification.Tests
                 window.rootVisualElement.Add(root);
                 window.Show();
                 for (var i = 0; i < 5; i++) yield return null;
+                Assert.AreEqual(DisplayStyle.Flex, root.Q<DropdownField>("LanguagePicker").resolvedStyle.display,
+                    "A standalone options drawer needs its own language picker.");
                 var before = EditorJsonUtility.ToJson(host);
                 LocalizationProvider.CurrentLocale = "ja";
                 Assert.AreEqual("ボーンによる変形の保護", root.Q<Foldout>("SkinningProtectionGroup").text);

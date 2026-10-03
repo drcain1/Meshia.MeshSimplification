@@ -312,8 +312,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             attachedToRootWarning.style.display = Target.transform.parent == null ? DisplayStyle.Flex : DisplayStyle.None;
 
+            var observedSettings = EditorJsonUtility.ToJson(Target);
             root.RegisterCallback<SerializedPropertyChangeEvent>(changeEvent =>
             {
+                // PropertyField forwards label changes from nested drawers as property
+                // notifications too. Only changed data makes a measured build stale.
+                var currentSettings = EditorJsonUtility.ToJson(Target);
+                if (currentSettings == observedSettings) return;
+                observedSettings = currentSettings;
                 if (changeEvent.changedProperty.propertyPath !=
                     nameof(MeshiaCascadingAvatarMeshSimplifier.AutoAdjustEnabled))
                 {
