@@ -22,12 +22,21 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
     [CustomEditor(typeof(MeshiaCascadingAvatarMeshSimplifier))]
     internal class MeshiaCascadingAvatarMeshSimplifierEditor : UnityEditor.Editor
     {
+        [Serializable]
+        private sealed class AllocationSnapshot
+        {
+            public int[] Counts = Array.Empty<int>();
+            public int[] Outputs = Array.Empty<int>();
+            public string Settings = string.Empty;
+        }
+
         private readonly struct BuildAnalysisResult
         {
             internal readonly int TriangleCount;
             internal readonly int EstimatedBeforeDownstreamTriangleCount;
             internal readonly int Revision;
             internal readonly string? Error;
+            internal readonly AllocationSnapshot? Allocations;
 
             internal BuildAnalysisResult(
                 int triangleCount,
@@ -39,6 +48,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 EstimatedBeforeDownstreamTriangleCount = estimatedBeforeDownstreamTriangleCount;
                 Revision = revision;
                 Error = error;
+                Allocations = null;
+            }
+
+            internal BuildAnalysisResult(int triangleCount, int estimate, int revision, string? error,
+                AllocationSnapshot? allocations) : this(triangleCount, estimate, revision, error)
+            {
+                Allocations = allocations;
             }
         }
 
@@ -49,6 +65,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             public int EstimatedBeforeDownstreamTriangleCount;
             public int Revision;
             public string? Error;
+            public AllocationSnapshot? Allocations;
         }
 
         private const string AnalysisRevisionSessionKey =
@@ -57,9 +74,18 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             "Meshia.MeshSimplification.CascadingTriangleAnalysis.Result.";
 
         private static readonly Dictionary<string, BuildAnalysisResult> BuildAnalysisCache = new();
+        private MeasuredMeshSet? measuredMeshes;
+        private MeasuredMeshSet? retainedStartingMeshes;
+        private static int meshInputRevision;
+        private bool estimateScheduled;
+        private bool estimateRunning;
+        private string failedEstimate = string.Empty;
         private static bool s_analysisInProgress;
         private static int CurrentAnalysisRevision => SessionState.GetInt(AnalysisRevisionSessionKey, 0);
         private int pendingBudgetEntry = -1;
+        private int lastAnalysisReduction;
+        private string lastAnalysisRunMessage = string.Empty;
+        private int lastAnalysisRunRevision = -1;
 
         [SerializeField] VisualTreeAsset editorVisualTreeAsset = null!;
         [SerializeField] VisualTreeAsset entryEditorVisualTreeAsset = null!;
@@ -74,15 +100,33 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         {
             Undo.postprocessModifications -= OnPostprocessModifications;
             Undo.postprocessModifications += OnPostprocessModifications;
-            Undo.undoRedoPerformed -= InvalidateTriangleAnalysis;
-            Undo.undoRedoPerformed += InvalidateTriangleAnalysis;
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            Undo.undoRedoPerformed += OnUndoRedo;
+            EditorApplication.projectChanged -= InvalidateMeshInputs;
+            EditorApplication.projectChanged += InvalidateMeshInputs;
         }
 
         private static UndoPropertyModification[] OnPostprocessModifications(UndoPropertyModification[] modifications)
         {
+            if (!s_analysisInProgress && modifications.Any(m =>
+                m.currentValue.target is not MeshiaCascadingAvatarMeshSimplifier ||
+                !(m.currentValue.propertyPath.EndsWith("TargetTriangleCount", StringComparison.Ordinal) ||
+                  m.currentValue.propertyPath == "BuildTriangleReserve" || m.currentValue.propertyPath == "AutoAdjustEnabled")))
+                meshInputRevision++;
             InvalidateTriangleAnalysis();
             return modifications;
         }
+
+        private static void InvalidateMeshInputs() { if (!s_analysisInProgress) meshInputRevision++; }
+        private static void OnUndoRedo() { InvalidateMeshInputs(); InvalidateTriangleAnalysis(); }
+        private void OnDisable()
+        {
+            measuredMeshes?.Dispose();
+            if (retainedStartingMeshes != measuredMeshes) retainedStartingMeshes?.Dispose();
+            measuredMeshes = retainedStartingMeshes = null;
+        }
+        private bool HasMeasuredInputs(string settings) => measuredMeshes != null &&
+            measuredMeshes.InputRevision == meshInputRevision && measuredMeshes.Settings == settings;
 
         private static void InvalidateTriangleAnalysis()
         {
@@ -92,6 +136,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
 
             SessionState.SetInt(AnalysisRevisionSessionKey, CurrentAnalysisRevision + 1);
+
             DownstreamTriangleEstimator.Invalidate();
         }
 
@@ -147,6 +192,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             VisualElement root = new();
             editorVisualTreeAsset.CloneTree(root);
+            root.RegisterCallback<DetachFromPanelEvent>(_ => estimateScheduled = false);
 
             serializedObject.Update();
 
@@ -154,10 +200,21 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var attachedToRootWarning = root.Q<HelpBox>("AttachedToRootWarning");
             var mainElement = root.Q<VisualElement>("MainElement");
             var targetTriangleCountField = root.Q<IntegerField>("TargetTriangleCountField");
+            targetTriangleCountField.isDelayed = true;
             var targetTriangleCountPresetDropdownField = root.Q<DropdownField>("TargetTriangleCountPresetDropdownField");
             var adjustButton = root.Q<Button>("AdjustButton");
             var autoAdjustEnabledToggle = root.Q<Toggle>("AutoAdjustEnabledToggle");
             var analyzeNdmfBuildButton = root.Q<Button>("AnalyzeNdmfBuildButton");
+
+            root.Q<Button>("ClearBuildReserveButton").clicked += () =>
+            {
+                serializedObject.Update();
+                serializedObject.FindProperty(nameof(MeshiaCascadingAvatarMeshSimplifier.BuildTriangleReserve)).intValue = 0;
+                serializedObject.ApplyModifiedProperties();
+                lastAnalysisReduction = 0;
+                InvalidateTriangleAnalysis();
+                RefreshBudgetGuidance(root);
+            };
 
             var removeInvalidEntriesButton = root.Q<Button>("RemoveInvalidEntriesButton");
             var resetButton = root.Q<Button>("ResetButton");
@@ -245,8 +302,19 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             });
 
 
+            var observedBudget = Target.TargetTriangleCount;
             targetTriangleCountField.RegisterValueChangedCallback(changeEvent =>
             {
+                // Calibration at another budget is not valid here. Commit the field
+                // once (Enter/focus loss), rather than redistributing while typing.
+                if (changeEvent.newValue != observedBudget)
+                {
+                    observedBudget = changeEvent.newValue;
+                    TargetTriangleCountProperty.intValue = changeEvent.newValue;
+                    serializedObject.FindProperty(nameof(MeshiaCascadingAvatarMeshSimplifier.BuildTriangleReserve)).intValue = 0;
+                    serializedObject.ApplyModifiedProperties();
+                    failedEstimate = string.Empty;
+                }
                 if (!TargetTriangleCountPresetValueToName.TryGetValue(changeEvent.newValue, out var name))
                 {
                     name = "Custom";
@@ -317,6 +385,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             };
             resetButton.clicked += () =>
             {
+                serializedObject.FindProperty(nameof(MeshiaCascadingAvatarMeshSimplifier.BuildTriangleReserve)).intValue = 0;
+                lastAnalysisReduction = 0;
                 var originalTriangleCount = GetTotalOriginalTriangleCount();
                 var resetTargetTriangleCount = TargetTriangleCountProperty.intValue;
                 var excludedTriangleCount = 0;
@@ -673,17 +743,36 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private void RefreshBudgetGuidance(VisualElement root)
         {
             var budget = Target.TargetTriangleCount;
-            root.Q<Label>("AllocationSummary").text = Format("Allocated: {0:N0} / {1:N0}",
-                GetTotalSimplifiedTriangleCount(false), budget);
+            var runSummary = root.Q<Label>("AnalysisRunSummary");
+            runSummary.text = lastAnalysisRunRevision == CurrentAnalysisRevision ? lastAnalysisRunMessage : string.Empty;
+            runSummary.style.display = string.IsNullOrEmpty(runSummary.text) ? DisplayStyle.None : DisplayStyle.Flex;
+            root.Q<Label>("AllocationSummary").text = Tr("Estimated output: analyze to update");
+            var reserve = Target.BuildTriangleReserve;
+            root.Q<VisualElement>("BuildReserveRow").style.display = reserve != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q<Button>("ClearBuildReserveButton").style.display = reserve != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            root.Q<Label>("BuildReserveSummary").text = reserve < 0
+                ? Format("Build allocation boost: {0:N0} triangles", -(long)reserve)
+                : Format("Allocation allowance: {0:N0} triangles", reserve);
             var result = root.Q<Label>("BuildResultSummary");
+            result.style.display = DisplayStyle.Flex;
             var summary = root.Q<Label>("BudgetSummary");
             var warning = false;
             var failed = false;
             var outOfDate = false;
+            root.Q<Label>("AllocationSummary").tooltip = Tr("Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result.");
             if (TryGetBuildAnalysisResult(Target, out var analysis))
             {
                 failed = !string.IsNullOrEmpty(analysis.Error);
                 outOfDate = analysis.Revision != CurrentAnalysisRevision;
+                // Upgrade a still-current session result without requiring a build.
+                // A stale legacy result has no trustworthy allocation baseline.
+                if (!failed && !outOfDate && analysis.Allocations == null)
+                {
+                    analysis = new BuildAnalysisResult(analysis.TriangleCount,
+                        analysis.EstimatedBeforeDownstreamTriangleCount, analysis.Revision, analysis.Error, CaptureAllocations());
+                    StoreBuildAnalysisResult(Target, analysis);
+                }
+                if (!failed) RefreshAllocationProjection(root, analysis);
                 if (failed)
                 {
                     result.text = Tr("Build result: unavailable");
@@ -692,11 +781,16 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 else if (outOfDate)
                 {
                     result.text = Format("Last build: {0:N0} - Out of date", analysis.TriangleCount);
-                    summary.text = Tr("Settings changed. Analyze again to update the result.");
+                    summary.text = lastAnalysisReduction > 0
+                        ? Format("Auto Adjust lowered allocations by {0:N0} triangles. Analyze again to verify.", lastAnalysisReduction)
+                        : lastAnalysisReduction < 0
+                            ? Format("Auto Adjust raised allocations by {0:N0} triangles. Analyze again to verify.", -(long)lastAnalysisReduction)
+                            : Tr("Settings changed. Analyze again to update the result.");
                 }
                 else
                 {
                     result.text = Format("Build result: {0:N0}", analysis.TriangleCount);
+                    result.style.display = DisplayStyle.None;
                     warning = analysis.TriangleCount > budget;
                     summary.text = warning
                         ? Format("{0:N0} triangles over budget", analysis.TriangleCount - budget)
@@ -735,7 +829,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             if (root.Q<Foldout>("CalculationDetails").value)
             {
-                var details = new List<string> { Format("Original triangles: {0:N0}", GetTotalOriginalTriangleCount()),
+                var details = new List<string> { Format("Allocated: {0:N0} / {1:N0}", GetTotalSimplifiedTriangleCount(false), budget),
+                    Format("Original triangles: {0:N0}", GetTotalOriginalTriangleCount()),
                     HasCompletePreviewCounts()
                         ? Format("Meshia output (last preview): {0:N0}", GetTotalSimplifiedTriangleCount(true))
                         : Tr("Preview counts are not available for every mesh.") };
@@ -1007,6 +1102,101 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         static Dictionary<int, string> TargetTriangleCountPresetValueToName { get; } = TargetTriangleCountPresetNameToValue.ToDictionary(keyValue => keyValue.Value, keyValue => keyValue.Key);
 
 
+        private AllocationSnapshot CaptureAllocations()
+        {
+            // Compare allocation edits separately from algorithm/protection/exclusion
+            // edits. The latter cannot be estimated from a simple triangle delta.
+            var settings = EditorJsonUtility.ToJson(Target);
+            settings = System.Text.RegularExpressions.Regex.Replace(settings,
+                "\"(?:TargetTriangleCount|BuildTriangleReserve)\":-?\\d+", "\"allocation\":0");
+            settings = System.Text.RegularExpressions.Regex.Replace(settings,
+                "\"AutoAdjustEnabled\":(?:true|false)", "\"AutoAdjustEnabled\":false");
+            return new AllocationSnapshot
+            {
+                Counts = Target.Entries.Select(entry => TryGetSimplifiedTriangleCount(entry, false, out var count) ? count : -1).ToArray(),
+                Settings = settings,
+            };
+        }
+
+        private void RefreshAllocationProjection(VisualElement root, BuildAnalysisResult analysis)
+        {
+            var label = root.Q<Label>("AllocationSummary");
+            if (analysis.Allocations is not { } baseline) return;
+            var current = CaptureAllocations();
+            if (current.Settings != baseline.Settings || current.Counts.Length != baseline.Counts.Length) return;
+            var changed = Enumerable.Range(0, current.Counts.Length)
+                .Where(i => current.Counts[i] != baseline.Counts[i]).ToArray();
+            if (changed.Length == 0)
+            {
+                if (analysis.Revision == CurrentAnalysisRevision)
+                    label.text = Format("Measured output: {0:N0} / {1:N0}", analysis.TriangleCount, Target.TargetTriangleCount);
+                return;
+            }
+            if (!HasMeasuredInputs(current.Settings) || baseline.Outputs.Length != current.Counts.Length ||
+                changed.Any(i => baseline.Outputs[i] < 0 || !measuredMeshes!.Meshes.ContainsKey(i))) return;
+            var missing = changed.Where(i => !measuredMeshes!.Meshes[i].Outputs.ContainsKey(current.Counts[i])).ToArray();
+            if (missing.Length > 0)
+            {
+                var key = string.Join(",", current.Counts);
+                if (failedEstimate == key) return;
+                label.text = Tr("Estimated output: measuring changed meshes...");
+                if (!estimateScheduled && !estimateRunning && !s_analysisInProgress)
+                {
+                    estimateScheduled = true;
+                    root.schedule.Execute(() =>
+                    {
+                        estimateScheduled = false;
+                        if (this == null || target == null || s_analysisInProgress ||
+                            !HasMeasuredInputs(current.Settings) || !CaptureAllocations().Counts.SequenceEqual(current.Counts)) return;
+                        _ = MeasureAllocationProjectionAsync(root, current, missing, key);
+                    }).StartingIn(250);
+                }
+                return;
+            }
+            var projected = Math.Max(0L, analysis.TriangleCount + changed.Sum(i =>
+                (long)measuredMeshes!.Meshes[i].Outputs[current.Counts[i]] - baseline.Outputs[i]));
+            label.text = projected > Target.TargetTriangleCount
+                ? Format("Estimated output: ~{0:N0} / {1:N0} ({2:N0} over)", projected, Target.TargetTriangleCount, projected - Target.TargetTriangleCount)
+                : Format("Estimated output: ~{0:N0} / {1:N0} ({2:N0} spare)", projected, Target.TargetTriangleCount, Target.TargetTriangleCount - projected);
+            label.tooltip = Tr("Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result.");
+        }
+
+        private async System.Threading.Tasks.Task MeasureAllocationProjectionAsync(
+            VisualElement root, AllocationSnapshot current, int[] missing, string key)
+        {
+            if (estimateRunning || measuredMeshes == null) return;
+            var inputs = measuredMeshes;
+            estimateRunning = true;
+            bool StillCurrent() => this != null && target != null && !s_analysisInProgress &&
+                inputs == measuredMeshes && HasMeasuredInputs(current.Settings) &&
+                CaptureAllocations().Settings == current.Settings &&
+                CaptureAllocations().Counts.SequenceEqual(current.Counts);
+            try
+            {
+                foreach (var i in missing)
+                {
+                    // Coalesce edits: finish the running job, then skip any remaining
+                    // outdated requests. The next refresh schedules the latest values.
+                    if (!StillCurrent()) break;
+                    await inputs.Meshes[i].MeasureAsync(current.Counts[i]);
+                }
+            }
+            catch (Exception exception)
+            {
+                if (StillCurrent())
+                {
+                    failedEstimate = key;
+                    Debug.LogException(exception, Target);
+                }
+            }
+            finally
+            {
+                estimateRunning = false;
+                if (this != null && target != null && root.panel != null && !s_analysisInProgress)
+                    RefreshBudgetGuidance(root);
+            }
+        }
+
         private int GetTotalSimplifiedTriangleCount(bool usePreview)
         {
             var totalCount = 0;
@@ -1130,6 +1320,17 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var count = Target.Entries[index].TargetTriangleCount;
             itemRoot.Q<SliderInt>("TargetTriangleCountSlider")?.SetValueWithoutNotify(count);
             itemRoot.Q<IntegerField>("TargetTriangleCountField")?.SetValueWithoutNotify(count);
+            var tooltip = Tr("Requested triangles. Geometry protection may keep the actual output above this value.");
+            if (TryGetBuildAnalysisResult(Target, out var result) && result.Allocations is { } baseline &&
+                baseline.Settings == CaptureAllocations().Settings && index < baseline.Outputs.Length && baseline.Outputs[index] >= 0)
+            {
+                var output = baseline.Outputs[index];
+                if (HasMeasuredInputs(baseline.Settings) && measuredMeshes!.Meshes.TryGetValue(index, out var mesh) &&
+                    mesh.Outputs.TryGetValue(count, out var measured)) output = measured;
+                tooltip = Format("Requested: {0:N0}. Last measured Meshia output: {1:N0}, before later build steps.", count, output);
+            }
+            itemRoot.Q<SliderInt>("TargetTriangleCountSlider").tooltip = tooltip;
+            itemRoot.Q<IntegerField>("TargetTriangleCountField").tooltip = tooltip;
         }
 
         private void SetManualAllocation(int index, int value)
@@ -1142,6 +1343,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var previous = entry.TargetTriangleCount;
             if (value == previous) return;
 
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
+
             // Handle both controls explicitly: serialized binding refreshes must never
             // masquerade as another user edit and recursively redistribute the budget.
             EntriesProperty.GetArrayElementAtIndex(index)
@@ -1152,15 +1356,18 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             {
                 AdjustQuality(index);
             }
+            Undo.FlushUndoRecordObjects();
+            Undo.CollapseUndoOperations(undoGroup);
             InvalidateTriangleAnalysis();
         }
 
         private void AdjustQuality(int fixedIndex = -1)
         {
             serializedObject.ApplyModifiedProperties();
-            // Allocate the user's requested count. Downstream/analysis estimates are
-            // informational and must not silently replace the slider budget.
-            var targetTotalCount = Math.Max(0, TargetTriangleCountProperty.intValue);
+            // Only successful full builds calibrate allocations in either direction.
+            // The requested final budget remains unchanged; preview estimates cannot change it.
+            var targetTotalCount = (int)Math.Min(int.MaxValue, Math.Max(0L,
+                (long)TargetTriangleCountProperty.intValue - Target.BuildTriangleReserve));
 
             var target = Target;
             var entries = target.Entries;
@@ -1272,63 +1479,249 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
         }
 
+        internal enum BuildFitStop
+        {
+            Measured, WithinBudget, Cancelled, Failed, NoProgress, NoCapacity, Limit
+        }
+
+        // A fitting run commits only a verified target-range result. All other
+        // exits roll back every trial, not merely the last unsuccessful step.
+        internal static BuildFitStop RunBoundedBuildFit(bool autoAdjust, int budget,
+            Func<int, bool> cancelBeforeBuild, Func<int?> measure, Func<bool> correct, Action? rollback = null)
+        {
+            var maxBuilds = autoAdjust ? 4 : 1;
+            long previousDistance = long.MaxValue;
+            var attemptedCorrection = false;
+            BuildFitStop Finish(BuildFitStop stop)
+            {
+                if (attemptedCorrection && stop != BuildFitStop.WithinBudget && stop != BuildFitStop.Measured)
+                    rollback?.Invoke();
+                return stop;
+            }
+            try
+            {
+                if (cancelBeforeBuild(0)) return Finish(BuildFitStop.Cancelled);
+                for (var pass = 0; pass < maxBuilds; pass++)
+                {
+                    var measured = measure();
+                    if (!measured.HasValue) return Finish(BuildFitStop.Failed);
+                    if (!autoAdjust) return Finish(BuildFitStop.Measured);
+                    var excess = (long)measured.Value - budget;
+                    var distance = excess > 0 ? excess : Math.Max(0, -excess - Math.Max(1, budget / 1000));
+                    if (distance == 0) return Finish(BuildFitStop.WithinBudget);
+                    if (distance >= previousDistance) return Finish(BuildFitStop.NoProgress);
+                    if (pass + 1 == maxBuilds) return Finish(BuildFitStop.Limit);
+                    if (cancelBeforeBuild(pass + 1)) return Finish(BuildFitStop.Cancelled);
+                    attemptedCorrection = true;
+                    if (!correct()) return Finish(BuildFitStop.NoCapacity);
+                    previousDistance = distance;
+                }
+                return Finish(BuildFitStop.Limit);
+            }
+            catch
+            {
+                if (attemptedCorrection) rollback?.Invoke();
+                throw;
+            }
+        }
+
         private void AnalyzeNdmfBuild(Button button)
         {
+            if (s_analysisInProgress) return;
+            lastAnalysisReduction = 0;
+            lastAnalysisRunMessage = string.Empty;
             var avatarRoot = RuntimeUtil.FindAvatarInParents(Target.transform);
             if (avatarRoot == null)
             {
                 StoreBuildAnalysisResult(Target, new BuildAnalysisResult(
-                    0,
-                    0,
-                    CurrentAnalysisRevision,
-                    "Could not find the avatar root."));
+                    0, 0, CurrentAnalysisRevision, "Could not find the avatar root."));
                 return;
             }
 
             var originalButtonText = button.text;
-            GameObject? clone = null;
-            var finalTriangleCount = 0;
-            var estimatedBeforeDownstreamTriangleCount = GetTotalEstimatedFinalTriangleCount(true);
-            string? analysisError = null;
             var previousDisablePreviewDepth = NDMFPreview.DisablePreviewDepth;
+            var autoAdjust = Target.AutoAdjustEnabled;
+            var maxBuilds = autoAdjust ? 4 : 1;
+            var completed = 0;
+            var allocatedBeforeBuild = 0;
+            var startingAllocations = Target.Entries.Select(entry => entry.TargetTriangleCount).ToArray();
+            var startingReserve = Target.BuildTriangleReserve;
+            BuildAnalysisResult? startingAnalysis = null;
+            retainedStartingMeshes = null;
+            void RestoreStartingAllocations()
+            {
+                if (Target.BuildTriangleReserve == startingReserve &&
+                    Target.Entries.Select(entry => entry.TargetTriangleCount).SequenceEqual(startingAllocations)) return;
+                Undo.RecordObject(Target, Tr("Correct allocations from build"));
+                for (var i = 0; i < startingAllocations.Length; i++)
+                    Target.Entries[i].TargetTriangleCount = startingAllocations[i];
+                Target.BuildTriangleReserve = startingReserve;
+                if (measuredMeshes != retainedStartingMeshes) measuredMeshes?.Dispose();
+                measuredMeshes = retainedStartingMeshes;
+                EditorUtility.SetDirty(Target);
+                serializedObject.Update();
+                SessionState.SetInt(AnalysisRevisionSessionKey, CurrentAnalysisRevision + 1);
+                DownstreamTriangleEstimator.Invalidate();
+                if (startingAnalysis is { } baseline)
+                    StoreBuildAnalysisResult(Target, new BuildAnalysisResult(baseline.TriangleCount,
+                        baseline.EstimatedBeforeDownstreamTriangleCount, CurrentAnalysisRevision, baseline.Error, baseline.Allocations));
+            }
+            Undo.IncrementCurrentGroup();
+            var undoGroup = Undo.GetCurrentGroup();
             s_analysisInProgress = true;
             NDMFPreview.DisablePreviewDepth = previousDisablePreviewDepth + 1;
             button.SetEnabled(false);
             button.text = Tr("Analyzing...");
-
             try
             {
-                EditorUtility.DisplayProgressBar("Meshia", Tr("Analyzing the complete NDMF avatar build..."), 0.5f);
-                clone = Instantiate(avatarRoot.gameObject);
+                var stop = RunBoundedBuildFit(autoAdjust, Target.TargetTriangleCount,
+                    pass => EditorUtility.DisplayCancelableProgressBar("Meshia",
+                        Format("Analyzing build {0} of {1}. Cancel stops before the next build.", pass + 1, maxBuilds),
+                        (float)pass / maxBuilds),
+                    () =>
+                    {
+                        lastAnalysisReduction = 0;
+                        allocatedBeforeBuild = GetTotalSimplifiedTriangleCount(false);
+                        var analysis = MeasureNdmfBuild(avatarRoot.gameObject);
+                        StoreBuildAnalysisResult(Target, analysis);
+                        if (completed == 0 && string.IsNullOrEmpty(analysis.Error))
+                        {
+                            startingAnalysis = analysis;
+                            retainedStartingMeshes = measuredMeshes;
+                        }
+                        completed++;
+                        return string.IsNullOrEmpty(analysis.Error) ? (int?)analysis.TriangleCount : null;
+                    },
+                    () => ApplyAnalyzedBudgetCorrection(allocatedBeforeBuild),
+                    RestoreStartingAllocations);
+                if (stop != BuildFitStop.WithinBudget && stop != BuildFitStop.Measured)
+                    failedEstimate = string.Empty;
+                var reason = stop switch
+                {
+                    BuildFitStop.WithinBudget => Tr("Target range reached."),
+                    BuildFitStop.Cancelled => Tr("Cancelled. Kept the allocations from before this run."),
+                    BuildFitStop.Failed => Tr("A trial build failed. Kept the starting allocations; any displayed baseline result belongs to those settings."),
+                    BuildFitStop.NoProgress => Tr("Fitting stopped improving. Restored all allocations and the allowance from before this run."),
+                    BuildFitStop.NoCapacity => Tr("Cannot safely fit this budget. Kept the starting allocations; review exclusions, locks, or protections."),
+                    BuildFitStop.Limit => Tr("Reached the four-build limit without fitting. Restored the starting allocations and their measured result."),
+                    _ => string.Empty,
+                };
+                lastAnalysisRunMessage = Format("Builds analyzed: {0}.", completed) + " " + reason;
+                lastAnalysisRunRevision = CurrentAnalysisRevision;
+            }
+            catch (OperationCanceledException)
+            {
+                RestoreStartingAllocations();
+                lastAnalysisRunMessage = Tr("Cancelled. Kept the allocations from before this run.");
+                lastAnalysisRunRevision = CurrentAnalysisRevision;
+            }
+            catch (Exception exception)
+            {
+                RestoreStartingAllocations();
+                Debug.LogException(exception, Target);
+                lastAnalysisRunMessage = Tr("Analysis interrupted. Restored the starting allocations; analyze again if their result is out of date.");
+                lastAnalysisRunRevision = CurrentAnalysisRevision;
+                failedEstimate = string.Empty;
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+                NDMFPreview.DisablePreviewDepth = previousDisablePreviewDepth;
+                button.text = originalButtonText;
+                button.SetEnabled(true);
+                if (retainedStartingMeshes != measuredMeshes) retainedStartingMeshes?.Dispose();
+                retainedStartingMeshes = null;
+                try
+                {
+                    // Drain generated Undo records while the analysis guard is active.
+                    Undo.FlushUndoRecordObjects();
+                    Undo.CollapseUndoOperations(undoGroup);
+                }
+                finally
+                {
+                    EditorApplication.delayCall += CompleteTriangleAnalysis;
+                    UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+                }
+            }
+        }
+
+        private BuildAnalysisResult MeasureNdmfBuild(GameObject avatarRoot)
+        {
+            var allocations = CaptureAllocations();
+            allocations.Outputs = Enumerable.Repeat(-1, Target.Entries.Count).ToArray();
+            var captured = new MeasuredMeshSet { Settings = allocations.Settings, InputRevision = meshInputRevision };
+            GameObject? clone = null;
+            MeshiaCascadingAvatarMeshSimplifier? cloneComponent = null;
+            void CaptureMesh(GameObject root, Renderer renderer, Mesh source, MeshSimplificationTarget targetValue,
+                MeshSimplifierOptions options, System.Collections.BitArray? preserve, Mesh output)
+            {
+                if (root != clone || cloneComponent == null) return;
+                var index = cloneComponent.Entries.FindIndex(entry => entry.Enabled && entry.GetTargetRenderer(cloneComponent) == renderer);
+                if (index < 0) return;
+                var sourceCopy = Instantiate(source);
+                sourceCopy.hideFlags = HideFlags.HideAndDontSave;
+                var sourceCount = sourceCopy.GetTriangleCount();
+                var bones = preserve == null ? null : (System.Collections.BitArray)preserve.Clone();
+                var requested = Target.Entries[index].TargetTriangleCount;
+                var produced = output.GetTriangleCount();
+                allocations.Outputs[index] = produced;
+                if (captured.Meshes.TryGetValue(index, out var old)) old.Dispose();
+                captured.Meshes[index] = new MeasuredMeshResponse(index, sourceCount, requested, produced, count =>
+                {
+                    var destination = new Mesh();
+                    try
+                    {
+                        var trial = targetValue;
+                        trial.Value = trial.Kind == MeshSimplificationTargetKind.BlenderDecimateRatio
+                            ? Mathf.Clamp01(count / (float)Math.Max(1, sourceCount)) : count;
+                        MeshSimplifier.SimplifyWithReport(sourceCopy, trial, options, bones, destination);
+                        return destination.GetTriangleCount();
+                    }
+                    finally { DestroyImmediate(destination); }
+                }, sourceCopy, async count =>
+                {
+                    var destination = new Mesh();
+                    try
+                    {
+                        var trial = targetValue;
+                        trial.Value = trial.Kind == MeshSimplificationTargetKind.BlenderDecimateRatio
+                            ? Mathf.Clamp01(count / (float)Math.Max(1, sourceCount)) : count;
+                        await MeshSimplifier.SimplifyAsync(sourceCopy, trial, options, bones, destination);
+                        return destination.GetTriangleCount();
+                    }
+                    finally { DestroyImmediate(destination); }
+                });
+            }
+            var finalTriangleCount = 0;
+            var estimate = GetTotalEstimatedFinalTriangleCount(true);
+            string? error = null;
+            try
+            {
+                clone = Instantiate(avatarRoot);
                 clone.name = $"{avatarRoot.name} (Meshia Triangle Analysis)";
                 clone.SetActive(true);
+                var componentPath = AnimationUtility.CalculateTransformPath(Target.transform, avatarRoot.transform);
+                var cloneTransform = string.IsNullOrEmpty(componentPath) ? clone.transform : clone.transform.Find(componentPath);
+                var componentIndex = Array.IndexOf(Target.GetComponents<MeshiaCascadingAvatarMeshSimplifier>(), Target);
+                cloneComponent = cloneTransform == null ? null : cloneTransform.GetComponents<MeshiaCascadingAvatarMeshSimplifier>().ElementAtOrDefault(componentIndex);
+                NdmfPlugin.MeshMeasured += CaptureMesh;
                 var buildContext = AvatarProcessor.ProcessAvatar(clone, AmbientPlatform.CurrentPlatform);
-                if (!buildContext.Successful)
-                {
-                    analysisError = "Build reported errors; count may be incomplete.";
-                }
-
+                if (!buildContext.Successful) error = "Build reported errors; count may be incomplete.";
                 foreach (var renderer in clone.GetComponentsInChildren<Renderer>(true))
                 {
                     if (renderer is MeshRenderer or SkinnedMeshRenderer && RendererUtility.GetMesh(renderer) is { } mesh)
-                    {
                         finalTriangleCount += mesh.GetTriangleCount();
-                    }
                 }
-
             }
             catch (Exception exception)
             {
                 Debug.LogException(exception, Target);
-                analysisError = exception.Message;
+                error = exception.Message;
             }
             finally
             {
-                if (clone != null)
-                {
-                    DestroyImmediate(clone);
-                }
-
+                NdmfPlugin.MeshMeasured -= CaptureMesh;
+                if (clone != null) DestroyImmediate(clone);
                 try
                 {
                     AvatarProcessor.CleanTemporaryAssets();
@@ -1336,21 +1729,49 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 catch (Exception exception)
                 {
                     Debug.LogException(exception, Target);
+                    error ??= exception.Message;
                 }
-
-                EditorUtility.ClearProgressBar();
-                NDMFPreview.DisablePreviewDepth = previousDisablePreviewDepth;
-                button.text = originalButtonText;
-                button.SetEnabled(true);
+                // Build plugin Undo records must not invalidate the next sample.
+                Undo.FlushUndoRecordObjects();
             }
+            if (string.IsNullOrEmpty(error))
+            {
+                if (measuredMeshes != retainedStartingMeshes) measuredMeshes?.Dispose();
+                measuredMeshes = captured;
+                failedEstimate = string.Empty;
+            }
+            else captured.Dispose();
+            return new BuildAnalysisResult(finalTriangleCount, estimate, CurrentAnalysisRevision, error, allocations);
+        }
 
-            StoreBuildAnalysisResult(Target, new BuildAnalysisResult(
-                finalTriangleCount,
-                estimatedBeforeDownstreamTriangleCount,
-                CurrentAnalysisRevision,
-                analysisError));
-            EditorApplication.delayCall += CompleteTriangleAnalysis;
-            UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+        private bool ApplyAnalyzedBudgetCorrection(int analyzedAllocation)
+        {
+            if (!Target.AutoAdjustEnabled || !TryGetBuildAnalysisResult(Target, out var analysis) ||
+                analysis.Revision != CurrentAnalysisRevision || !string.IsNullOrEmpty(analysis.Error) ||
+                GetTotalSimplifiedTriangleCount(false) != analyzedAllocation ||
+                !HasMeasuredInputs(CaptureAllocations().Settings)) return false;
+            var tolerance = Math.Max(1, Target.TargetTriangleCount / 1000);
+            var difference = (long)Target.TargetTriangleCount - analysis.TriangleCount;
+            if (difference >= 0 && difference <= tolerance) return false;
+            if (difference > 0) difference -= tolerance / 2;
+            var candidates = measuredMeshes!.Meshes.Values.Where(mesh =>
+                mesh.Index < Target.Entries.Count && Target.Entries[mesh.Index].Enabled && !Target.Entries[mesh.Index].Fixed).ToArray();
+            var targets = Target.Entries.Select(entry => entry.TargetTriangleCount).ToArray();
+            if (candidates.Length == 0) return false;
+            var plan = MeasuredMeshBudget.Plan(candidates, targets, difference,
+                () => EditorUtility.DisplayCancelableProgressBar("Meshia", Tr("Measuring mesh responses..."), .5f));
+            if (plan.Count == 0) return false;
+            Undo.RecordObject(Target, Tr("Correct allocations from build"));
+            foreach (var item in plan) Target.Entries[item.Key].TargetTriangleCount = item.Value;
+            var allocated = GetTotalSimplifiedTriangleCount(false);
+            Target.BuildTriangleReserve = (int)Math.Max(int.MinValue, Math.Min(int.MaxValue, (long)Target.TargetTriangleCount - allocated));
+            EditorUtility.SetDirty(Target);
+            serializedObject.Update();
+            lastAnalysisReduction = analyzedAllocation - allocated;
+            Undo.FlushUndoRecordObjects();
+            SessionState.SetInt(AnalysisRevisionSessionKey, CurrentAnalysisRevision + 1);
+            DownstreamTriangleEstimator.Invalidate();
+            return true;
         }
 
         private static void CompleteTriangleAnalysis()
@@ -1389,7 +1810,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 stored.TriangleCount,
                 stored.EstimatedBeforeDownstreamTriangleCount,
                 stored.Revision,
-                string.IsNullOrEmpty(stored.Error) ? null : stored.Error);
+                string.IsNullOrEmpty(stored.Error) ? null : stored.Error, stored.Allocations);
             BuildAnalysisCache[key] = result;
             return true;
         }
@@ -1406,6 +1827,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 EstimatedBeforeDownstreamTriangleCount = result.EstimatedBeforeDownstreamTriangleCount,
                 Revision = result.Revision,
                 Error = result.Error,
+                Allocations = result.Allocations,
             }));
         }
 

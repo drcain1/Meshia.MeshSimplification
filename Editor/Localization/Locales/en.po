@@ -194,8 +194,8 @@ msgstr "Enable Auto Adjust"
 msgid "Analyze NDMF Build"
 msgstr "Analyze NDMF Build"
 
-msgid "Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count."
-msgstr "Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count."
+msgid "Builds a temporary avatar clone through the complete NDMF pipeline. With Auto Adjust enabled, fits and verifies allocations using up to four builds; otherwise analyzes once."
+msgstr "Builds a temporary avatar clone through the complete NDMF pipeline. With Auto Adjust enabled, fits and verifies allocations using up to four builds; otherwise analyzes once."
 
 msgid "Remove Invalid Entries"
 msgstr "Remove Invalid Entries"
@@ -629,8 +629,8 @@ msgstr "Apply Conservative Defaults to All Meshes"
 msgid "Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported."
 msgstr "Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported."
 
-msgid "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
-msgstr "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
+msgid "Some meshes may stay above their targets to preserve their shape. Auto Adjust keeps your protection settings. Click Analyze Build to check your avatar's final triangle count."
+msgstr "Some meshes may stay above their targets to preserve their shape. Auto Adjust keeps your protection settings. Click Analyze Build to check your avatar's final triangle count."
 
 msgid "{0}: {1:N0} triangles in last preview; requested {2:N0}."
 msgstr "{0}: {1:N0} triangles in last preview; requested {2:N0}."
@@ -653,8 +653,8 @@ msgstr "An allocation goal, not a hard cap. Protection can stop reduction above 
 msgid "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
 msgstr "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
 
-msgid "Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget."
-msgstr "Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget."
+msgid "Changing a mesh target redistributes the remaining allocation across other unlocked meshes. The edited target stays fixed. Analyze Build fits and verifies the final budget using up to four builds. Protection is never relaxed."
+msgstr "Changing a mesh target redistributes the remaining allocation across other unlocked meshes. The edited target stays fixed. Analyze Build fits and verifies the final budget using up to four builds. Protection is never relaxed."
 
 msgid "Find ways to reduce"
 msgstr "Find ways to reduce"
@@ -677,14 +677,14 @@ msgstr "AAO removal guide"
 msgid "Shape Changer guide"
 msgstr "Shape Changer guide"
 
-msgid "Preview and source counts below are not final per-mesh build counts. Downstream tools may remove, merge, or add geometry. Savings and the exact limiting protection have not been measured."
-msgstr "Preview and source counts below are not final per-mesh build counts. Downstream tools may remove, merge, or add geometry. Savings and the exact limiting protection have not been measured."
+msgid "These counts are from the original meshes or the last preview. Use Analyze Build to check the final total."
+msgstr "These counts are from the original meshes or the last preview. Use Analyze Build to check the final total."
 
-msgid "Above allocation: review the largest overruns first. Open mesh settings to adjust that mesh's allocation or protection, and compare the result in animated poses. A lower target alone may not reduce it further."
-msgstr "Above allocation: review the largest overruns first. Open mesh settings to adjust that mesh's allocation or protection, and compare the result in animated poses. A lower target alone may not reduce it further."
+msgid "Start with meshes furthest above their targets. If lowering a target has no effect, review that mesh's protection settings and check its shape in motion."
+msgstr "Start with meshes furthest above their targets. If lowering a target has no effect, review that mesh's protection settings and check its shape in motion."
 
-msgid "Not being simplified: enable reduction in mesh settings if appropriate. For optional accessories you never use, consider removing them from the build. Fixed allocations are retained by Auto Adjust; review them manually."
-msgstr "Not being simplified: enable reduction in mesh settings if appropriate. For optional accessories you never use, consider removing them from the build. Fixed allocations are retained by Auto Adjust; review them manually."
+msgid "Meshes listed as Not being simplified have reduction turned off. Enable it in mesh settings to include them. Unlock targets you want Auto Adjust to change."
+msgstr "Meshes listed as Not being simplified have reduction turned off. Enable it in mesh settings to include them. Unlock targets you want Auto Adjust to change."
 
 msgid "Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below."
 msgstr "Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below."
@@ -847,3 +847,102 @@ msgstr "Preview counts are not available for every mesh."
 
 msgid "Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards."
 msgstr "Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards."
+
+msgid "Allocation allowance: {0:N0} triangles"
+msgstr "Allocation allowance: {0:N0} triangles"
+
+msgid "Reset build correction"
+msgstr "Reset build correction"
+
+msgid "Correct allocations from build"
+msgstr "Correct allocations from build"
+
+msgid "Auto Adjust lowered allocations by {0:N0} triangles. Analyze again to verify."
+msgstr "Auto Adjust lowered allocations by {0:N0} triangles. Analyze again to verify."
+
+msgid "Measured build corrections are retained by Adjust and Auto Adjust. Slider edits redistribute allocations without changing this correction. Analyze Build verifies the final count."
+msgstr "Measured build corrections are retained by Adjust and Auto Adjust. Slider edits redistribute allocations without changing this correction. Analyze Build verifies the final count."
+
+msgid "Clear the saved build correction. Existing allocations remain until you adjust them again."
+msgstr "Clear the saved build correction. Existing allocations remain until you adjust them again."
+
+msgid "Build allocation boost: {0:N0} triangles"
+msgstr "Build allocation boost: {0:N0} triangles"
+
+msgid "Auto Adjust raised allocations by {0:N0} triangles. Analyze again to verify."
+msgstr "Auto Adjust raised allocations by {0:N0} triangles. Analyze again to verify."
+
+msgid "Analyzing build {0} of {1}. Cancel stops before the next build."
+msgstr "Analyzing build {0} of {1}. Cancel stops before the next build."
+
+msgid "Target range reached."
+msgstr "Target range reached."
+
+msgid "Cancelled. Kept the allocations from before this run."
+msgstr "Cancelled. Kept the allocations from before this run."
+
+msgid "A trial build failed. Kept the starting allocations; any displayed baseline result belongs to those settings."
+msgstr "A trial build failed. Kept the starting allocations; any displayed baseline result belongs to those settings."
+
+msgid "Fitting stopped improving. Restored all allocations and the allowance from before this run."
+msgstr "Fitting stopped improving. Restored all allocations and the allowance from before this run."
+
+msgid "Cannot safely fit this budget. Kept the starting allocations; review exclusions, locks, or protections."
+msgstr "Cannot safely fit this budget. Kept the starting allocations; review exclusions, locks, or protections."
+
+msgid "Reached the four-build limit without fitting. Restored the starting allocations and their measured result."
+msgstr "Reached the four-build limit without fitting. Restored the starting allocations and their measured result."
+
+msgid "Builds analyzed: {0}."
+msgstr "Builds analyzed: {0}."
+
+msgid "Analysis interrupted. Restored the starting allocations; analyze again if their result is out of date."
+msgstr "Analysis interrupted. Restored the starting allocations; analyze again if their result is out of date."
+
+msgid "Allocation change since build: {0:+#,##0;-#,##0;0} triangles"
+msgstr "Allocation change since build: {0:+#,##0;-#,##0;0} triangles"
+
+msgid "{0:N0} removed from some meshes; {1:N0} added to others."
+msgstr "{0:N0} removed from some meshes; {1:N0} added to others."
+
+msgid "Allocation-only estimate: {0:N0} triangles; {1:N0} still over budget."
+msgstr "Allocation-only estimate: {0:N0} triangles; {1:N0} still over budget."
+
+msgid "Allocation-only estimate: {0:N0} triangles; {1:N0} below budget."
+msgstr "Allocation-only estimate: {0:N0} triangles; {1:N0} below budget."
+
+msgid "Assumes each allocated triangle changes the build by one. Geometry protection and other build changes can differ. Analyze Build verifies the actual result."
+msgstr "Assumes each allocated triangle changes the build by one. Geometry protection and other build changes can differ. Analyze Build verifies the actual result."
+
+msgid "Allocated: {0:N0} / {1:N0} (est. {2:N0} over)"
+msgstr "Allocated: {0:N0} / {1:N0} (est. {2:N0} over)"
+
+msgid "Allocated: {0:N0} / {1:N0} (est. {2:N0} spare)"
+msgstr "Allocated: {0:N0} / {1:N0} (est. {2:N0} spare)"
+
+msgid "Measuring mesh responses..."
+msgstr "Measuring mesh responses..."
+
+msgid "Estimated output: analyze to update"
+msgstr "Estimated output: analyze to update"
+
+msgid "Estimated output: measuring changed meshes..."
+msgstr "Estimated output: measuring changed meshes..."
+
+msgid "Measured output: {0:N0} / {1:N0}"
+msgstr "Measured output: {0:N0} / {1:N0}"
+
+msgid "Estimated output: ~{0:N0} / {1:N0} ({2:N0} over)"
+msgstr "Estimated output: ~{0:N0} / {1:N0} ({2:N0} over)"
+
+msgid "Estimated output: ~{0:N0} / {1:N0} ({2:N0} spare)"
+msgstr "Estimated output: ~{0:N0} / {1:N0} ({2:N0} spare)"
+
+msgid "Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result."
+msgstr "Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result."
+
+msgid "Requested triangles. Geometry protection may keep the actual output above this value."
+msgstr "Requested triangles. Geometry protection may keep the actual output above this value."
+
+msgid "Requested: {0:N0}. Last measured Meshia output: {1:N0}, before later build steps."
+msgstr "Requested: {0:N0}. Last measured Meshia output: {1:N0}, before later build steps."

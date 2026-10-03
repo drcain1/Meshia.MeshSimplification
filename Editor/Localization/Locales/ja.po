@@ -189,8 +189,8 @@ msgstr "自動調整を有効化"
 msgid "Analyze NDMF Build"
 msgstr "NDMFビルドを解析"
 
-msgid "Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count."
-msgstr "アバターの一時コピーをNDMFの全工程でビルドし、最終的な三角形数を正確に確認します。"
+msgid "Builds a temporary avatar clone through the complete NDMF pipeline. With Auto Adjust enabled, fits and verifies allocations using up to four builds; otherwise analyzes once."
+msgstr "アバターの一時コピーをNDMFの全工程でビルドします。自動調整が有効なら最大4回のビルドで配分を調整・検証し、無効なら1回だけ解析します。"
 
 msgid "Remove Invalid Entries"
 msgstr "無効な項目を削除"
@@ -624,8 +624,8 @@ msgstr "全メッシュに保守的な初期設定を適用"
 msgid "Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported."
 msgstr "各メッシュの保護設定と関節を保護するボーンの選択を、保守的な初期設定に置き換えます。アルゴリズム、目標三角形数、有効・固定の選択は維持されます。元に戻す操作に対応しています。"
 
-msgid "Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget."
-msgstr "三角形数の目標より保護を優先します。自動調整は配分のみを変更し、保護を解除しません。プレビューの数値が古い場合があるため、NDMFビルド解析で最終的な数を確認してください。"
+msgid "Some meshes may stay above their targets to preserve their shape. Auto Adjust keeps your protection settings. Click Analyze Build to check your avatar's final triangle count."
+msgstr "形状を保つため、一部のメッシュは目標の三角形数を超えることがあります。自動調整でも保護設定は維持されます。「ビルド解析」でアバターの最終的な三角形数を確認してください。"
 
 msgid "{0}: {1:N0} triangles in last preview; requested {2:N0}."
 msgstr "{0}：直近のプレビューは {1:N0} 三角形、目標は {2:N0}。"
@@ -648,8 +648,8 @@ msgstr "配分の目標であり、最終的な数の上限を保証するもの
 msgid "Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count."
 msgstr "ロックされていないメッシュに予算を再配分します。手動で下げた目標数が上がる場合があります。最終的な三角形数は保証されません。"
 
-msgid "Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget."
-msgstr "指定した予算を双方向に再配分します。メッシュの目標数を下げると他のロックされていない目標数が上がり、上げると他が下がります。編集中のメッシュと固定配分は維持します。推定値や保護設定によって予算は変わりません。"
+msgid "Changing a mesh target redistributes the remaining allocation across other unlocked meshes. The edited target stays fixed. Analyze Build fits and verifies the final budget using up to four builds. Protection is never relaxed."
+msgstr "メッシュの目標を変更すると、残りの配分を他の固定されていないメッシュに再配分します。編集中の目標は維持します。ビルド解析は最大4回で最終予算に調整・検証します。保護は緩めません。"
 
 msgid "Find ways to reduce"
 msgstr "削減方法を確認"
@@ -672,14 +672,14 @@ msgstr "AAOの削除ガイド"
 msgid "Shape Changer guide"
 msgstr "Shape Changerのガイド"
 
-msgid "Preview and source counts below are not final per-mesh build counts. Downstream tools may remove, merge, or add geometry. Savings and the exact limiting protection have not been measured."
-msgstr "以下はプレビューまたは元のメッシュの数であり、ビルド後の各メッシュの最終的な数ではありません。後続のツールで削除・統合・追加される場合があります。削減可能な数や、どの保護が削減を制限したかは計測していません。"
+msgid "These counts are from the original meshes or the last preview. Use Analyze Build to check the final total."
+msgstr "ここに表示する数は、元のメッシュまたは前回のプレビューの三角形数です。最終的な合計は「ビルド解析」で確認してください。"
 
-msgid "Above allocation: review the largest overruns first. Open mesh settings to adjust that mesh's allocation or protection, and compare the result in animated poses. A lower target alone may not reduce it further."
-msgstr "配分超過：超過が大きいメッシュから見直してください。メッシュ設定を開いて配分や保護を調整し、動かした状態で比較します。目標数を下げるだけでは、さらに削減できない場合があります。"
+msgid "Start with meshes furthest above their targets. If lowering a target has no effect, review that mesh's protection settings and check its shape in motion."
+msgstr "まず、目標数を大きく超えているメッシュから見直してください。目標を下げても数が変わらない場合は、そのメッシュの保護設定を確認し、変更後はアバターを動かして形状を確かめてください。"
 
-msgid "Not being simplified: enable reduction in mesh settings if appropriate. For optional accessories you never use, consider removing them from the build. Fixed allocations are retained by Auto Adjust; review them manually."
-msgstr "軽量化対象外：必要に応じてメッシュ設定で軽量化を有効にしてください。使用しないアクセサリーはビルドから除外することも検討してください。固定配分は自動調整で維持されるため、手動で見直します。"
+msgid "Meshes listed as Not being simplified have reduction turned off. Enable it in mesh settings to include them. Unlock targets you want Auto Adjust to change."
+msgstr "「軽量化対象外」のメッシュは削減がオフになっています。対象にするにはメッシュ設定で有効にしてください。自動調整に任せたい目標はロックを解除してください。"
 
 msgid "Requested budget: {0:N0} triangles. Final count not analyzed yet. Analyze NDMF Build to measure it, or find ways to reduce below."
 msgstr "目標：{0:N0} 三角形。最終的な数は未解析です。NDMFビルド解析で計測するか、下のボタンから削減方法を確認してください。"
@@ -842,3 +842,102 @@ msgstr "一部のメッシュのプレビュー数をまだ取得できていま
 
 msgid "Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards."
 msgstr "ボーンウェイトの保護は、Blender Decimate に切り替わった後の処理にのみ適用されます。UV ループの削減では専用の保護処理を使用します。"
+
+msgid "Allocation allowance: {0:N0} triangles"
+msgstr "配分の余裕: {0:N0} 三角形"
+
+msgid "Reset build correction"
+msgstr "ビルド補正をリセット"
+
+msgid "Correct allocations from build"
+msgstr "ビルド結果に基づいて配分を補正"
+
+msgid "Auto Adjust lowered allocations by {0:N0} triangles. Analyze again to verify."
+msgstr "自動調整で配分を {0:N0} 三角形減らしました。再解析で結果を確認してください。"
+
+msgid "Measured build corrections are retained by Adjust and Auto Adjust. Slider edits redistribute allocations without changing this correction. Analyze Build verifies the final count."
+msgstr "ビルド実測による補正は、手動調整と自動調整でも維持されます。スライダーの編集では補正を変更せず配分を再調整します。最終的な数はビルド解析で確認してください。"
+
+msgid "Clear the saved build correction. Existing allocations remain until you adjust them again."
+msgstr "保存されたビルド補正を解除します。再調整するまで現在の配分は維持されます。"
+
+msgid "Build allocation boost: {0:N0} triangles"
+msgstr "ビルド用の追加配分: {0:N0} 三角形"
+
+msgid "Auto Adjust raised allocations by {0:N0} triangles. Analyze again to verify."
+msgstr "自動調整で配分を {0:N0} 三角形増やしました。再解析して確認してください。"
+
+msgid "Analyzing build {0} of {1}. Cancel stops before the next build."
+msgstr "ビルド {0}/{1} を解析中です。キャンセルすると次のビルドの前に停止します。"
+
+msgid "Target range reached."
+msgstr "目標範囲に到達しました。"
+
+msgid "Cancelled. Kept the allocations from before this run."
+msgstr "キャンセルしました。実行前の配分を維持しました。"
+
+msgid "A trial build failed. Kept the starting allocations; any displayed baseline result belongs to those settings."
+msgstr "試行ビルドが失敗したため開始時の配分を維持しました。表示される基準結果はその設定に対応します。"
+
+msgid "Fitting stopped improving. Restored all allocations and the allowance from before this run."
+msgstr "改善が止まったため、配分と補正をすべて実行前の状態に戻しました。"
+
+msgid "Cannot safely fit this budget. Kept the starting allocations; review exclusions, locks, or protections."
+msgstr "この予算には安全に調整できません。開始時の配分を維持しました。対象外メッシュ、固定配分、保護を見直してください。"
+
+msgid "Reached the four-build limit without fitting. Restored the starting allocations and their measured result."
+msgstr "4回のビルドで目標に到達しなかったため、開始時の配分とその計測結果に戻しました。"
+
+msgid "Builds analyzed: {0}."
+msgstr "解析したビルド数: {0}。"
+
+msgid "Analysis interrupted. Restored the starting allocations; analyze again if their result is out of date."
+msgstr "解析が中断されました。開始時の配分に戻しました。結果が古い場合は再解析してください。"
+
+msgid "Allocation change since build: {0:+#,##0;-#,##0;0} triangles"
+msgstr "ビルド時からの配分変化: {0:+#,##0;-#,##0;0} 三角形"
+
+msgid "{0:N0} removed from some meshes; {1:N0} added to others."
+msgstr "一部のメッシュで {0:N0} 減り、他で {1:N0} 増えています。"
+
+msgid "Allocation-only estimate: {0:N0} triangles; {1:N0} still over budget."
+msgstr "配分変化のみからの推定: {0:N0} 三角形、あと {1:N0} 超過。"
+
+msgid "Allocation-only estimate: {0:N0} triangles; {1:N0} below budget."
+msgstr "配分変化のみからの推定: {0:N0} 三角形、予算まで {1:N0} の余裕。"
+
+msgid "Assumes each allocated triangle changes the build by one. Geometry protection and other build changes can differ. Analyze Build verifies the actual result."
+msgstr "配分の変化が同じ数だけビルドに反映されると仮定した推定です。形状保護や他のビルド設定によって実際の数は異なります。ビルド解析で確認してください。"
+
+msgid "Allocated: {0:N0} / {1:N0} (est. {2:N0} over)"
+msgstr "配分: {0:N0} / {1:N0}（推定 {2:N0} 超過）"
+
+msgid "Allocated: {0:N0} / {1:N0} (est. {2:N0} spare)"
+msgstr "配分: {0:N0} / {1:N0}（推定 {2:N0} の余裕）"
+
+msgid "Measuring mesh responses..."
+msgstr "各メッシュの変化を計測中..."
+
+msgid "Estimated output: analyze to update"
+msgstr "出力数の推定: ビルド解析で更新してください"
+
+msgid "Estimated output: measuring changed meshes..."
+msgstr "出力数の推定: 変更したメッシュを計測中..."
+
+msgid "Measured output: {0:N0} / {1:N0}"
+msgstr "実測出力数: {0:N0} / {1:N0}"
+
+msgid "Estimated output: ~{0:N0} / {1:N0} ({2:N0} over)"
+msgstr "推定出力数: 約 {0:N0} / {1:N0}（{2:N0} 超過）"
+
+msgid "Estimated output: ~{0:N0} / {1:N0} ({2:N0} spare)"
+msgstr "推定出力数: 約 {0:N0} / {1:N0}（残り {2:N0}）"
+
+msgid "Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result."
+msgstr "各メッシュの実測変化と直近の完全なビルド結果から推定します。後続のビルド処理によって結果が異なる場合があります。ビルド解析で最終結果を確認してください。"
+
+msgid "Requested triangles. Geometry protection may keep the actual output above this value."
+msgstr "三角形数の目標です。形状の保護により、実際の出力数がこの値を超える場合があります。"
+
+msgid "Requested: {0:N0}. Last measured Meshia output: {1:N0}, before later build steps."
+msgstr "目標: {0:N0}。直近の Meshia 実測出力数: {1:N0}（後続のビルド処理前）。"

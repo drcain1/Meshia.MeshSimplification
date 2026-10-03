@@ -14,6 +14,203 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
     {
         public class TestWindow : EditorWindow { }
 
+        [TestCase(0)]
+        [TestCase(4)]
+        [TestCase(-4)]
+        public void ManualRedistributionPreservesBuildCorrectionAndUndo(int reserve)
+        {
+            var avatar = new GameObject("Manual redistribution", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            for (var i = 0; i < 2; i++) GameObject.CreatePrimitive(PrimitiveType.Cube).transform.SetParent(avatar.transform);
+            var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.RefreshEntries(); component.TargetTriangleCount = 12 + reserve;
+            component.BuildTriangleReserve = reserve; component.AutoAdjustEnabled = true;
+            foreach (var entry in component.Entries) entry.TargetTriangleCount = 6;
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var type = inspector.GetType();
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            try
+            {
+                Undo.FlushUndoRecordObjects();
+                var before = EditorJsonUtility.ToJson(component);
+                type.GetMethod("SetManualAllocation", flags).Invoke(inspector, new object[] { 0, 3 });
+                CollectionAssert.AreEqual(new[] { 3, 9 }, component.Entries.Select(e => e.TargetTriangleCount));
+                Assert.AreEqual(reserve, component.BuildTriangleReserve);
+                Assert.IsTrue(component.AutoAdjustEnabled);
+                var reduced = EditorJsonUtility.ToJson(component);
+                Undo.PerformUndo(); Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                Undo.PerformRedo(); Assert.AreEqual(reduced, EditorJsonUtility.ToJson(component));
+                Object.DestroyImmediate(inspector); inspector = UnityEditor.Editor.CreateEditor(component);
+                type.GetMethod("AdjustQuality", flags).Invoke(inspector, new object[] { -1 });
+                Assert.AreEqual(reduced, EditorJsonUtility.ToJson(component), "Reopening or adjusting must preserve the calibrated allocation total.");
+                type.GetMethod("SetManualAllocation", flags).Invoke(inspector, new object[] { 0, 5 });
+                CollectionAssert.AreEqual(new[] { 5, 7 }, component.Entries.Select(e => e.TargetTriangleCount));
+                Assert.AreEqual(reserve, component.BuildTriangleReserve);
+                Assert.AreEqual(12 + reserve, component.TargetTriangleCount);
+            }
+            finally
+            {
+                Undo.ClearUndo(component); Object.DestroyImmediate(inspector); Object.DestroyImmediate(avatar);
+            }
+        }
+
+        [TestCase("stall")]
+        [TestCase("limit")]
+        [TestCase("cancel")]
+        [TestCase("capacity")]
+        [TestCase("failure")]
+        [TestCase("exception")]
+        [TestCase("success")]
+        public void FittingCommitsOnlySuccessAndRestoresEveryTrialOtherwise(string scenario)
+        {
+            var targets = new[] { 100, 200 };
+            var allowance = 10;
+            var builds = 0;
+            var corrections = 0;
+            var rollbacks = 0;
+            var displayedCount = 0;
+            var counts = scenario == "stall" ? new[] { 76000, 74000, 73000, 73000 }
+                : scenario == "success" ? new[] { 76000, 74000, 70000 }
+                : new[] { 76000, 74000, 73000, 72000 };
+            void Run()
+            {
+                Editor.MeshiaCascadingAvatarMeshSimplifierEditor.RunBoundedBuildFit(true, 70000,
+                    next => scenario == "cancel" && next == 2,
+                    () =>
+                    {
+                        if (scenario == "exception" && builds == 2) throw new System.InvalidOperationException("Build error");
+                        if (scenario == "failure" && builds == 2) return null;
+                        displayedCount = counts[builds++];
+                        return (int?)displayedCount;
+                    },
+                    () =>
+                    {
+                        if (scenario == "capacity" && corrections == 2) return false;
+                        targets[0] -= 20; targets[1] -= 40; allowance += 60; corrections++;
+                        return true;
+                    },
+                    () => { targets[0] = 100; targets[1] = 200; allowance = 10; displayedCount = 76000; rollbacks++; });
+            }
+            if (scenario == "exception") Assert.Throws<System.InvalidOperationException>(() => Run());
+            else Run();
+            if (scenario == "success")
+            {
+                CollectionAssert.AreEqual(new[] { 60, 120 }, targets);
+                Assert.AreEqual(130, allowance);
+                Assert.AreEqual(70000, displayedCount);
+                Assert.AreEqual(0, rollbacks);
+            }
+            else
+            {
+                CollectionAssert.AreEqual(new[] { 100, 200 }, targets, "Restore the starting allocations, not the previous trial.");
+                Assert.AreEqual(10, allowance);
+                Assert.AreEqual(76000, displayedCount, "Restored settings must display their baseline measurement.");
+                Assert.AreEqual(1, rollbacks);
+            }
+        }
+
+        [TestCase(71000)]
+        [TestCase(72000)]
+        public void NonImprovingProbeRestoresThePreviousMeasuredAllocation(int probeCount)
+        {
+            var allocation = 100;
+            var previousAllocation = allocation;
+            var displayedCount = 0;
+            var builds = 0;
+            var restored = false;
+            var stop = Editor.MeshiaCascadingAvatarMeshSimplifierEditor.RunBoundedBuildFit(true, 70000,
+                _ => false,
+                () => { displayedCount = builds++ == 0 ? 71000 : probeCount; return displayedCount; },
+                () => { previousAllocation = allocation; allocation = 50; return true; },
+                () => { allocation = previousAllocation; displayedCount = 71000; restored = true; });
+            Assert.AreEqual(Editor.MeshiaCascadingAvatarMeshSimplifierEditor.BuildFitStop.NoProgress, stop);
+            Assert.IsTrue(restored);
+            Assert.AreEqual(100, allocation);
+            Assert.AreEqual(71000, displayedCount);
+            Assert.AreEqual(2, builds);
+        }
+
+        [UnityTest]
+        public IEnumerator ChangingBudgetClearsCalibrationButInspectorBindingDoesNot()
+        {
+            var avatar = new GameObject("Budget change test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            for (var i = 0; i < 4; i++) GameObject.CreatePrimitive(PrimitiveType.Cube).transform.SetParent(avatar.transform);
+            var settings = new GameObject("Settings"); settings.transform.SetParent(avatar.transform);
+            var component = settings.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.RefreshEntries(); component.TargetTriangleCount = 30; component.BuildTriangleReserve = 4;
+            foreach (var entry in component.Entries) entry.TargetTriangleCount = 4;
+            component.Entries[0].Enabled = false;
+            component.Entries[1].Fixed = true; component.Entries[1].TargetTriangleCount = 6;
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            try
+            {
+                var root = inspector.CreateInspectorGUI(); window.rootVisualElement.Add(root); window.Show();
+                UnityEditor.UIElements.BindingExtensions.Bind(root, inspector.serializedObject);
+                yield return null;
+                yield return null;
+                Assert.AreEqual(4, component.BuildTriangleReserve, "Opening the inspector must preserve calibration.");
+                var field = root.Q<IntegerField>("TargetTriangleCountField");
+                Assert.IsTrue(field.isDelayed, "Typing partial budget digits must not redistribute allocations.");
+                field.value = 24;
+                yield return null;
+                Assert.AreEqual(24, component.TargetTriangleCount);
+                Assert.AreEqual(0, component.BuildTriangleReserve);
+                Assert.AreEqual(3, component.Entries[2].TargetTriangleCount);
+                Assert.AreEqual(3, component.Entries[3].TargetTriangleCount);
+                Assert.AreEqual(6, component.Entries[1].TargetTriangleCount);
+            }
+            finally
+            {
+                window.Close();
+                Undo.ClearUndo(component);
+                Object.DestroyImmediate(inspector); Object.DestroyImmediate(avatar);
+            }
+        }
+
+        [TestCase(true, new[] { 66016, 68657, 69985 }, -1, true, "WithinBudget", 3, 2)]
+        [TestCase(true, new[] { 70780, 70293, 70000 }, -1, true, "WithinBudget", 3, 2)]
+        [TestCase(false, new[] { 66016 }, -1, true, "Measured", 1, 0)]
+        [TestCase(true, new[] { 69930 }, -1, true, "WithinBudget", 1, 0)]
+        [TestCase(true, new[] { 74000, 73000, 72000, 71000, 70000 }, -1, true, "Limit", 4, 3)]
+        [TestCase(true, new[] { 66000, 67000, 68000, 69000, 70000 }, -1, true, "Limit", 4, 3)]
+        [TestCase(true, new[] { 71000, 71000 }, -1, true, "NoProgress", 2, 1)]
+        [TestCase(true, new[] { 71000, 72000 }, -1, true, "NoProgress", 2, 1)]
+        [TestCase(true, new[] { 66000, 65000 }, -1, true, "NoProgress", 2, 1)]
+        [TestCase(true, new[] { 71000 }, -1, false, "NoCapacity", 1, 0)]
+        [TestCase(true, new[] { -1 }, -1, true, "Failed", 1, 0)]
+        [TestCase(true, new[] { 71000, -1 }, -1, true, "Failed", 2, 1)]
+        [TestCase(true, new[] { 71000 }, 0, true, "Cancelled", 0, 0)]
+        [TestCase(true, new[] { 71000 }, 1, true, "Cancelled", 1, 0)]
+        [TestCase(true, new[] { 71000, 70500 }, 2, true, "Cancelled", 2, 1)]
+        public void AutomaticFitIsBoundedAndNeverChangesAllocationsAfterItsLastMeasurement(
+            bool auto, int[] counts, int cancelAt, bool capacity, string expectedStop, int expectedBuilds, int expectedCorrections)
+        {
+            var builds = 0;
+            var corrections = 0;
+            var settingsVersion = 0;
+            var measuredVersion = 0;
+            var stop = Editor.MeshiaCascadingAvatarMeshSimplifierEditor.RunBoundedBuildFit(auto, 70000,
+                next => next == cancelAt,
+                () =>
+                {
+                    measuredVersion = settingsVersion;
+                    var count = counts[builds++];
+                    return count < 0 ? (int?)null : count;
+                },
+                () =>
+                {
+                    if (!capacity) return false;
+                    corrections++;
+                    settingsVersion++;
+                    return true;
+                });
+            Assert.AreEqual(expectedStop, stop.ToString());
+            Assert.AreEqual(expectedBuilds, builds);
+            Assert.AreEqual(expectedCorrections, corrections);
+            Assert.AreEqual(measuredVersion, settingsVersion, "Do not leave a correction unmeasured after stopping.");
+        }
+
         [Test]
         public void AnalysisCompletionIgnoresPendingBuildUndoButStillInvalidatesRealEdits()
         {
@@ -125,7 +322,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         }
 
         [UnityTest]
-        public IEnumerator AutoAdjustRedistributesBothWaysAndPreservesEditedAndLockedMeshes()
+        public IEnumerator AutoAdjustRedistributesBothDirectionsWithoutChangingEditedOrLockedMeshes()
         {
             var avatar = new GameObject("Budget test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
             for (var i = 0; i < 3; i++)
@@ -150,12 +347,14 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Undo.IncrementCurrentGroup();
                 rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 2;
                 for (var i = 0; i < 10; i++) yield return null;
-                CollectionAssert.AreEqual(new[] { 2, 8, 8 }, component.Entries.Select(e => e.TargetTriangleCount), "Lowering one target returns its budget to unlocked peers.");
+                CollectionAssert.AreEqual(new[] { 2, 8, 8 }, component.Entries.Select(e => e.TargetTriangleCount), "Lowering one target returns its allocation to unlocked peers.");
+                Assert.AreEqual(0, component.BuildTriangleReserve);
                 Assert.AreEqual(2, rows[0].Q<IntegerField>("TargetTriangleCountField").value);
-                StringAssert.Contains("18", root.Q<Label>("AllocationSummary").text);
+                StringAssert.Contains("analyze", root.Q<Label>("AllocationSummary").text);
                 Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
                 for (var i = 0; i < 10; i++) yield return null;
                 CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount));
+                Assert.AreEqual(0, component.BuildTriangleReserve, "Redistribution must not create a build allowance.");
                 rows[0].Q<IntegerField>("TargetTriangleCountField").value = 10;
                 for (var i = 0; i < 10; i++) yield return null;
                 CollectionAssert.AreEqual(new[] { 10, 4, 4 }, component.Entries.Select(e => e.TargetTriangleCount), "Raising a target takes budget from unlocked peers.");
@@ -170,7 +369,8 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 CollectionAssert.AreEqual(new[] { 12, 0, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Raising a target may reduce unlocked peers, never the edited or locked row.");
                 rows[0].Q<SliderInt>("TargetTriangleCountSlider").value = 6;
                 for (var i = 0; i < 10; i++) yield return null;
-                CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Returning budget must revive a zero allocation while preserving the lock.");
+                CollectionAssert.AreEqual(new[] { 6, 6, 6 }, component.Entries.Select(e => e.TargetTriangleCount), "Lowering a target restores zeroed unlocked peers while preserving locked allocations.");
+                Assert.AreEqual(0, component.BuildTriangleReserve);
                 component.Entries[2].Fixed = false; component.AutoAdjustEnabled = false; EditorUtility.SetDirty(component);
                 rows[1].Q<IntegerField>("TargetTriangleCountField").value = 12;
                 for (var i = 0; i < 10; i++) yield return null;
@@ -416,7 +616,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     summary.ClassListContains("budget-warning"));
                 Assert.AreEqual(analyzed && error != null, summary.ClassListContains("budget-error"));
                 Assert.AreEqual(analyzed && stale, resultLabel.ClassListContains("budget-out-of-date"));
-                StringAssert.Contains("4", root.Q<Label>("AllocationSummary").text);
+                Assert.IsNotEmpty(root.Q<Label>("AllocationSummary").text);
                 if (analyzed && error == null)
                 {
                     StringAssert.Contains(triangles.ToString("N0"), resultLabel.text);

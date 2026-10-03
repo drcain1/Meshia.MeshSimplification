@@ -16,6 +16,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 #endif
     internal sealed class NdmfPlugin : Plugin<NdmfPlugin>
     {
+        // Analysis subscribes only while building its own transient avatar clone.
+        internal static event System.Action<GameObject, Renderer, Mesh, MeshSimplificationTarget,
+            MeshSimplifierOptions, BitArray?, Mesh>? MeshMeasured;
         private sealed class Work
         {
             internal readonly Renderer Renderer;
@@ -263,6 +266,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
         private static void Commit(BuildContext context, Work work)
         {
+            MeshMeasured?.Invoke(context.AvatarRootObject, work.Renderer, work.Source,
+                work.Target, work.Options, work.PreserveBones, work.Simplified);
             if (work.Target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount &&
                 work.Simplified.GetTriangleCount() > work.Target.Value + 1)
                 Debug.LogWarning(Meshia.MeshSimplification.Editor.Localization.LocalizationProvider.Format(

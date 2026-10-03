@@ -14,22 +14,27 @@
         </ui:GroupBox>
         <ui:GroupBox style="flex-direction: row;">
             <ui:Button text="Adjust" tooltip="Redistribute the budget across unlocked meshes. This can raise targets you lowered manually. It does not guarantee the final count." name="AdjustButton" />
-            <ui:Toggle label="Enable Auto Adjust" tooltip="Redistribute the requested budget in both directions. Lowering a mesh raises other unlocked targets; raising it lowers them. The edited mesh and locked allocations are retained. Estimates and protection do not change the budget." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
+            <ui:Toggle label="Enable Auto Adjust" tooltip="Changing a mesh target redistributes the remaining allocation across other unlocked meshes. The edited target stays fixed. Analyze Build fits and verifies the final budget using up to four builds. Protection is never relaxed." binding-path="AutoAdjustEnabled" name="AutoAdjustEnabledToggle" />
         </ui:GroupBox>
         <ui:Foldout name="EstimatesAndBuildDetails" text="Triangle budget" value="true">
-            <ui:Label name="AllocationSummary" tooltip="The triangle counts requested by your sliders, including meshes excluded from reduction. Geometry protection can make the actual result higher." style="white-space: normal;" />
+            <ui:Label name="AllocationSummary" tooltip="Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result." style="white-space: normal;" />
             <ui:Label name="BuildResultSummary" style="white-space: normal;" />
             <ui:Label name="BudgetSummary" style="white-space: normal; margin-top: 3px; margin-bottom: 3px;" />
             <ui:VisualElement style="flex-direction: row; flex-wrap: wrap;">
-                <ui:Button text="Analyze Build" tooltip="Builds a temporary avatar clone through the complete NDMF pipeline and reports its exact final triangle count." name="AnalyzeNdmfBuildButton" />
+                <ui:Button text="Analyze Build" tooltip="Builds a temporary avatar clone through the complete NDMF pipeline. With Auto Adjust enabled, fits and verifies allocations using up to four builds; otherwise analyzes once." name="AnalyzeNdmfBuildButton" />
                 <ui:Button text="Find ways to reduce" name="FindBudgetReductionsButton" />
             </ui:VisualElement>
+            <ui:Label name="AnalysisRunSummary" style="white-space: normal; display: none;" />
             <ui:Foldout name="CalculationDetails" text="Calculation details" value="false">
+                <ui:VisualElement name="BuildReserveRow" style="flex-direction: row; flex-wrap: wrap; display: none;">
+                    <ui:Label name="BuildReserveSummary" style="white-space: normal;" tooltip="Measured build corrections are retained by Adjust and Auto Adjust. Slider edits redistribute allocations without changing this correction. Analyze Build verifies the final count." />
+                    <ui:Button name="ClearBuildReserveButton" text="Reset build correction" tooltip="Clear the saved build correction. Existing allocations remain until you adjust them again." style="display: none;" />
+                </ui:VisualElement>
                 <ui:Label name="TriangleCountLabel" style="white-space: normal;" />
                 <ui:VisualElement name="PreviewShortfalls" style="display: none;">
                     <ui:HelpBox name="PreviewShortfallSummary" message-type="Info" />
                 </ui:VisualElement>
-                <ui:Label text="Protection takes priority over the triangle target. Auto Adjust changes allocations, never disables guards. Preview counts may be stale; Analyze NDMF Build verifies the final budget." style="white-space: normal;" />
+                <ui:Label text="Some meshes may stay above their targets to preserve their shape. Auto Adjust keeps your protection settings. Click Analyze Build to check your avatar's final triangle count." style="white-space: normal;" />
                 <ui:GroupBox style="flex-direction: row;">
                     <ui:Button text="Remove Invalid Entries" name="RemoveInvalidEntriesButton" />
                     <ui:Button text="Reset" name="ResetButton" />
@@ -42,9 +47,9 @@
                 <ui:Button name="AaoRemovalGuideButton" text="AAO removal guide" />
                 <ui:Button name="ShapeChangerGuideButton" text="Shape Changer guide" />
             </ui:VisualElement>
-            <ui:Label text="Preview and source counts below are not final per-mesh build counts. Downstream tools may remove, merge, or add geometry. Savings and the exact limiting protection have not been measured." style="white-space: normal;" />
-            <ui:Label text="Above allocation: review the largest overruns first. Open mesh settings to adjust that mesh's allocation or protection, and compare the result in animated poses. A lower target alone may not reduce it further." style="white-space: normal;" />
-            <ui:Label text="Not being simplified: enable reduction in mesh settings if appropriate. For optional accessories you never use, consider removing them from the build. Fixed allocations are retained by Auto Adjust; review them manually." style="white-space: normal;" />
+            <ui:Label text="These counts are from the original meshes or the last preview. Use Analyze Build to check the final total." style="white-space: normal;" />
+            <ui:Label text="Start with meshes furthest above their targets. If lowering a target has no effect, review that mesh's protection settings and check its shape in motion." style="white-space: normal;" />
+            <ui:Label text="Meshes listed as Not being simplified have reduction turned off. Enable it in mesh settings to include them. Unlock targets you want Auto Adjust to change." style="white-space: normal;" />
             <ui:ScrollView name="BudgetMeshScroll" style="max-height: 300px;">
                 <ui:VisualElement name="BudgetMeshRows" />
             </ui:ScrollView>

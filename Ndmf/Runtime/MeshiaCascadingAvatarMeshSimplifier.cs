@@ -44,6 +44,9 @@ namespace Meshia.MeshSimplification.Ndmf
         public List<MeshiaCascadingAvatarMeshSimplifierRendererEntry> Entries = new();
         public int TargetTriangleCount = 70000;
         public bool AutoAdjustEnabled = true;
+        /// <summary>Signed allowance from complete builds: positive reserves budget, negative restores headroom. Never relaxes geometry protection.</summary>
+        [HideInInspector] public int BuildTriangleReserve;
+
 
         public void RefreshEntries()
         {
