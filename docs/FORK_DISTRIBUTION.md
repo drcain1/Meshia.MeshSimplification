@@ -93,6 +93,21 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.1` fixes mesh object fields displaying None after switching
+inspector languages. References remained intact; the localization visitor was
+replaying the placeholder text captured before each row received its renderer.
+Object fields now translate only their authored label and tooltip, leaving
+Unity responsible for displaying the current object. Mesh settings, geometry,
+protection defaults, and package dependencies are unchanged.
+
+Both regression checks reproduced the issue before the fix. All 59 inspector
+EditMode tests passed in Unity 2022.3.22f1 after the fix, with no failures or skips,
+including late assignment, reused fields, panel reattachment, reference/display
+consistency, and analysis freshness. Live English/Japanese switching retained
+all 34 inspected object-field names and left avatar settings unchanged; Unity
+compilation had no errors. All 12 distribution tests and release prerequisites
+passed. This UI-only patch does not claim a new VRChat or package-client test.
+
 Version `1.1.0` promotes the `1.1.0-beta.4` implementation unchanged to stable.
 It includes measured per-mesh output controls, asynchronous FA-QEM count reuse,
 bounded automatic budget fitting with rollback, background calculation status,
