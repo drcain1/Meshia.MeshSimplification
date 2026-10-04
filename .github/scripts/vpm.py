@@ -198,17 +198,17 @@ def build_listing(out, empty=False):
 <h1>{html.escape(settings["name"])}</h1>
 <p>An independent fork of Meshia by Ram.Type-0, maintained by drcain1.</p>
 <p>The main additions in this fork are <strong>FA-QEM</strong> (the default),
-<strong>Blender Decimate</strong>, and <strong>UV Loop Dissolve</strong>:
-three geometry-reduction modes for lowering avatar polygon counts while keeping existing textures and materials.</p>
+<strong>Blender Decimate</strong>, <strong>UV Loop Dissolve</strong>,
+<strong>per-mesh shape and deformation protection</strong>, and
+<strong>automatic triangle-count adjustment based on actual NDMF build measurements</strong>.
+Reduce avatar polygon counts while keeping existing textures and materials,
+and fit your triangle budget while respecting each mesh's chosen protections.</p>
 <p lang="ja">このフォークの主な追加機能は、<strong>FA-QEM</strong>（標準）、
-<strong>Blender Decimate</strong>、<strong>UV Loop Dissolve</strong> の3つの軽量化モードです。
-既存のテクスチャとマテリアルを維持しながら、アバターのポリゴン数を削減できます。</p>
-<p>Choose <strong>shape and deformation protection per mesh</strong>.
-<strong>Automatic triangle-count adjustment uses actual NDMF build measurements</strong>
-to refine allocations toward your avatar's triangle budget while respecting your chosen protections.</p>
-<p lang="ja"><strong>メッシュごとに形状とボーンによる変形の保護を設定</strong>できます。
-<strong>NDMF ビルドの実測値に基づく三角形数の自動調整</strong>にも対応し、
-選択した保護を維持しながら、アバターの目標三角形数に近づくよう配分を調整します。</p>
+<strong>Blender デシメート</strong>、<strong>UV Loop Dissolve</strong>、
+<strong>メッシュごとの形状・ボーンによる変形の保護</strong>、
+<strong>NDMF ビルドの実測値に基づく三角形数の自動調整</strong>です。
+既存のテクスチャとマテリアルを維持しながらアバターを軽量化し、
+各メッシュで選択した保護を維持しながら目標三角形数に近づくよう配分を調整します。</p>
 <p>FA-QEM paper / <span lang="ja">FA-QEM の参考論文</span>:
 <a href="https://arxiv.org/html/2605.14029v1">Fast and Robust Mesh Simplification for Generated and Real-World 3D Assets</a> (arXiv).</p>
 <p>{status}</p>
