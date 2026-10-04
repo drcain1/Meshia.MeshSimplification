@@ -203,6 +203,12 @@ three geometry-reduction modes for lowering avatar polygon counts while keeping 
 <p lang="ja">このフォークの主な追加機能は、<strong>FA-QEM</strong>（標準）、
 <strong>Blender Decimate</strong>、<strong>UV Loop Dissolve</strong> の3つの軽量化モードです。
 既存のテクスチャとマテリアルを維持しながら、アバターのポリゴン数を削減できます。</p>
+<p>Choose <strong>shape and deformation protection per mesh</strong>.
+<strong>Automatic triangle-count adjustment uses actual NDMF build measurements</strong>
+to refine allocations toward your avatar's triangle budget while respecting your chosen protections.</p>
+<p lang="ja"><strong>メッシュごとに形状とボーンによる変形の保護を設定</strong>できます。
+<strong>NDMF ビルドの実測値に基づく三角形数の自動調整</strong>にも対応し、
+選択した保護を維持しながら、アバターの目標三角形数に近づくよう配分を調整します。</p>
 <p>FA-QEM paper / <span lang="ja">FA-QEM の参考論文</span>:
 <a href="https://arxiv.org/html/2605.14029v1">Fast and Robust Mesh Simplification for Generated and Real-World 3D Assets</a> (arXiv).</p>
 <p>{status}</p>
