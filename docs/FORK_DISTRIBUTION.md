@@ -93,6 +93,25 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.0` promotes the `1.1.0-beta.4` implementation unchanged to stable.
+It includes measured per-mesh output controls, asynchronous FA-QEM count reuse,
+bounded automatic budget fitting with rollback, background calculation status,
+the green/yellow/gray protection cycle, and English/Japanese localization fixes.
+The README now gives practical English/Japanese steps for holes and distorted
+shapes, including surface-deviation tuning, bone-weight protection, and the
+triangle-budget tradeoff. It also corrects the older description of guards
+bypassed by No protection. No avatar settings or algorithm defaults change
+between beta.4 and this stable release.
+
+The unchanged implementation passed all 293 local Meshia EditMode tests in
+Unity 2022.3.22f1 with no failures or skips for beta.4. All 12 distribution tests
+and release prerequisites were rerun for 1.1.0. Release archives are checked
+against the committed source and published feed checksums. Hosted Unity test
+execution remains separate and can be skipped without license credentials.
+The maintainer approved stable publication after live inspector use and a
+successful tail-settings correction. No fresh 1.1.0 VCC/ALCOM upgrade or VRChat
+validation is claimed. Existing stable and beta releases remain available.
+
 Version `1.1.0-beta.4` adds a per-mesh protection cycle: green for geometry
 and deformation protection, yellow for geometry-only or partial protection, and
 gray for No protection. Gray explicitly bypasses shape, boundary, seam, FA-QEM
