@@ -49,6 +49,13 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     for (var i = 0; i < 10; i++) yield return null;
                     Undo.FlushUndoRecordObjects();
                     Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                    var objectField = root.Q<UnityEditor.UIElements.ObjectField>("TargetObjectField");
+                    var expectedRenderer = avatar.GetComponentInChildren<Renderer>();
+                    Assert.AreSame(expectedRenderer, objectField.value);
+                    StringAssert.Contains(expectedRenderer.name,
+                        string.Join(" | ", objectField.Query<TextElement>().ToList().Select(label => label.text)),
+                        "Language changes must preserve the displayed renderer name, not just the reference.");
+
                     Assert.AreEqual(revision, type.GetProperty("CurrentAnalysisRevision", stat).GetValue(null),
                         "Changing labels invalidated analysis. Property events: " + string.Join(", ", changes));
                     Assert.AreEqual(inputs, type.GetField("meshInputRevision", stat).GetValue(null));
@@ -68,6 +75,55 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 ((System.Collections.IDictionary)type.GetField("BuildAnalysisCache", stat).GetValue(null)).Remove(key);
                 SessionState.EraseString(key); Undo.ClearUndo(component);
                 Object.DestroyImmediate(inspector); Object.DestroyImmediate(avatar);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ObjectFieldLocalizationPreservesLateBoundAndReusedValues()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var first = new GameObject("First renderer");
+            var second = new GameObject("Second renderer");
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            try
+            {
+                LocalizationProvider.CurrentLocale = "en";
+                var root = new VisualElement();
+                var field = new UnityEditor.UIElements.ObjectField("Options")
+                {
+                    objectType = typeof(GameObject), tooltip = "Show mesh options"
+                };
+                root.Add(field);
+                // ListView rows are localized before bindItem assigns their renderer.
+                LocalizationProvider.Bind(root);
+                window.rootVisualElement.Add(root); window.Show();
+                foreach (var current in new[] { first, second })
+                {
+                    field.SetValueWithoutNotify(current);
+                    var valueChanges = 0;
+                    EventCallback<ChangeEvent<Object>> onChange = _ => valueChanges++;
+                    field.RegisterValueChangedCallback(onChange);
+                    foreach (var language in new[] { "ja", "en", "ja" })
+                    {
+                        LocalizationProvider.CurrentLocale = language;
+                        root.RemoveFromHierarchy();
+                        window.rootVisualElement.Add(root);
+                        for (var i = 0; i < 3; i++) yield return null;
+                        Assert.AreSame(current, field.value);
+                        StringAssert.Contains(current.name,
+                            string.Join(" | ", field.Query<TextElement>().ToList().Select(label => label.text)));
+                        Assert.AreEqual(LocalizationProvider.Tr("Options"), field.label);
+                        Assert.AreEqual(LocalizationProvider.Tr("Show mesh options"), field.tooltip);
+                        Assert.AreEqual(0, valueChanges);
+                    }
+                    field.UnregisterValueChangedCallback(onChange);
+                }
+            }
+            finally
+            {
+                window.Close();
+                Object.DestroyImmediate(first); Object.DestroyImmediate(second);
                 LocalizationProvider.CurrentLocale = locale;
             }
         }

@@ -45,6 +45,9 @@ namespace Meshia.MeshSimplification.Editor.Localization
                 switch (element)
                 {
                     case ListView _: return; // Virtualized rows localize themselves.
+                    // Unity owns the object-name/None display and refreshes it as values change.
+                    // Capturing its child text here would replay the pre-binding placeholder.
+                    case ObjectField field: Capture(field.label, text => field.label = text); return;
                     case PropertyField field: Capture(field.label, text => field.label = text); return;
                     case DropdownField field:
                         Capture(field.label, text => field.label = text);
