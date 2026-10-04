@@ -139,9 +139,20 @@ Start with the defaults and give visually important hair a larger budget. To exp
 
 **Boundary Weight**, **Normal Weight**, and **Swept Area Weight** change collapse ranking; they do not release border or seam locks, and lowering them does not guarantee further reduction. **Smart Link** does not weld disconnected hair pieces for FA-QEM.
 
-**Some safeguards cannot be switched off:** material-membership and local topology checks, rejection of very short edges and degenerate surviving faces, and protection of distinct-index source faces that are flat at rest on meshes with skin weights or blend shapes. Those flat faces can open during animation, so FA-QEM retains them and locks their vertices even with border and seam protection off. There is no user-facing switch to disable that flat-face safeguard.
+**Turning off border and seam protection still leaves other guards active.** These include material-membership checks and protection of distinct-index source faces that are flat at rest on meshes with skin weights or blend shapes. Those flat faces can open during animation, so FA-QEM retains them and locks their vertices. Gray **No protection** bypasses these guards too; basic connectivity and finite-number checks remain.
 
 Compare the original and simplified hair from the front, back, and side, including strand tips and overlaps. Then test hair motion, expressions, and clothing toggles in Play Mode or VRChat. **Preview UVs** helps inspect UV changes but cannot validate animation. Verify the final budget with **Analyze NDMF Build** or the built avatar. If cracks or silhouette loss appear, restore the option and recover triangles from another mesh. These protections reduce risk; they do not guarantee hole-free hair in every pose.
+
+##### Troubleshooting holes or distorted shapes
+
+If a mesh develops holes, sharp dents, or stretched triangles after FA-QEM simplification:
+
+1. Click the mesh entry to select the affected object, then open its **cog**. Make sure its protection icon is not gray (**No protection**), which bypasses the settings below.
+2. In **FA-QEM settings**, check **Maximum Surface Deviation**. **`0` disables this protection.** If it is disabled, try `0.0005` as a starting point. If it is already enabled, try a smaller positive value to keep the result closer to the original surface.
+3. Adjust in small steps and compare the affected area. For example, if `0.002` damages the shape, try `0.0019`, then lower it further if needed. These are examples, not universal settings: the value is relative to each mesh's size. A smaller positive value gives tighter protection; a larger value allows more movement and may permit more reduction.
+4. If the problem appears when the mesh moves, also enable **bone-weight protection**. A **Maximum Skin Weight Distance** of `0.25` is a starting point; lower it if deformation still breaks. Check moving poses, especially for tails, hair, shoes, and joints.
+
+Tighter protection can retain more triangles than requested. Give that mesh more of the budget and reduce another mesh if needed, then run **Analyze Build** again to verify the avatar total. Surface deviation limits shape changes; it does not repair existing holes or guarantee separation between clothing layers. If gaps remain, check **Preserve Border Edges** and **Lock Coincident Split Vertices**, compare against the original mesh, and inspect overlapping layers in Play Mode.
 
 ##### FA-QEM controls
 
@@ -378,9 +389,20 @@ FA-QEM の **関節付近の頂点を保持（Preserve Vertices Near Joints）**
 
 **境界の重み（Boundary Weight）**、**法線の重み（Normal Weight）**、**境界移動面積の重み（Swept Area Weight）** は統合候補の優先順位に関わる重みで、境界やシームの固定を解除する設定ではありません。値を下げても、必ず三角形数が減るとは限りません。**Smart Link** も、FA-QEM で離れた髪のパーツを溶接する機能ではありません。
 
-**オフにできない安全策もあります。** マテリアル所属と局所的なトポロジーの検査、極端に短いエッジや統合後に退化する面の拒否、アニメーションで開く可能性がある面の保護は常に有効です。ボーンウェイトまたはブレンドシェイプを持つメッシュでは、異なる頂点インデックスを持ち、初期状態で面積がゼロの面を保持して頂点を固定します。境界とシームの保護がオフでも適用され、この面の保護を無効にするユーザー向けのスイッチはありません。
+**境界とシームの保護をオフにしても、ほかの保護は残ります。** マテリアル所属の検査や、ボーンウェイトまたはブレンドシェイプを持つメッシュで、異なる頂点インデックスを持ち、初期状態で面積がゼロの面を保護する処理などです。このような面はアニメーション中に開く場合があるため、FA-QEM は面を保持して頂点を固定します。灰色の **保護なし** ではこれらの保護も無効になりますが、基本的な接続と数値の整合性チェックは維持されます。
 
 元の髪と軽量化後の髪を正面・背面・側面から比較し、毛先や重なりを確認してください。その後、Play Mode または VRChat で髪の動き、表情、衣装の切り替えも確認します。**UVをプレビュー（Preview UVs）** は UV の変化を確認する補助であり、アニメーション品質の確認にはなりません。最終的な三角形数は **Analyze NDMF Build** またはビルド後のアバターで確認してください。亀裂や輪郭の崩れが出る場合は設定を戻し、他のメッシュから削減量を確保してください。これらの保護は問題を減らすためのもので、すべてのポーズで髪に穴が開かないことを保証するものではありません。
+
+##### 穴や形状の崩れが出たとき
+
+FA-QEM で軽量化した後に穴、鋭いへこみ、引き伸ばされた三角形が現れた場合は、次の順に確認してください。
+
+1. メッシュ行をクリックして対象のオブジェクトを選択し、**歯車** を開きます。保護アイコンが灰色の **保護なし** になっていないことを確認してください。灰色では以下の保護設定が適用されません。
+2. **FA-QEM設定** の **元の表面からのずれの上限（Maximum Surface Deviation）** を確認します。**`0` は保護を無効にする値です。** 無効になっている場合は、まず `0.0005` を試してください。すでに有効な場合は、正の値を小さくすると元の表面からのずれをより厳しく制限できます。
+3. 少しずつ調整して、問題のある部分を比較します。例えば `0.002` で形状が崩れる場合は `0.0019` を試し、必要ならさらに下げてください。これは調整例であり、すべてのメッシュに適した値ではありません。メッシュの大きさに対する比率なので、正の値を小さくするほど保護が強くなり、大きくするほど形状の変化を許容して削減しやすくなる場合があります。
+4. 動かしたときに崩れる場合は、**ボーンによる変形の保護** も有効にしてください。**ボーンウェイト差の上限（Maximum Skin Weight Distance）** は `0.25` を目安に試し、まだ崩れる場合は下げます。特に尻尾、髪、靴、関節付近は、動かした状態で確認してください。
+
+保護を強めると、指定した数より多くの三角形が残ることがあります。そのメッシュへの配分を増やし、必要なら別のメッシュで削減量を確保してから、**ビルドを解析（Analyze Build）** でアバター全体の数を再確認してください。表面からのずれの制限は形状の変化を抑える機能で、元からある穴を修復したり、重なった衣装の貫通を完全に防いだりするものではありません。隙間が残る場合は **境界エッジを保持** と **同じ位置にある分離頂点の固定** も確認し、元のメッシュと比較して、Play Mode で重なる部分を確認してください。
 
 ##### FA-QEM の設定
 
