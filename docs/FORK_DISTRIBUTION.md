@@ -118,6 +118,23 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.1.3-beta.3` simplifies experimental texture preservation inside each
+mesh's cogwheel: one toggle, Low/Medium/High strength presets, and an editable
+number on the same row. Custom values remain supported; the method selector and
+Advanced foldout are removed. New and reset options default to enabled with
+Medium strength (5000). Existing initialized settings retain their strength and
+legacy method until explicitly re-enabled or reset. Narrow inspector layouts
+keep the controls visible, and preset/numeric changes stay synchronized.
+
+Validation: 62 inspector EditMode tests passed in Unity 2022.3.22f1, including
+300/360/500-pixel layouts in English and Japanese, custom values, Undo, reset,
+and serialized-settings preservation. Both live validation editors compiled
+without errors. All 12 distribution tests and the release prerequisite check
+passed. Geometry implementation is unchanged from beta.2; the new Medium default
+changes the strength for new/reset options, with no automatic migration of saved
+meshes. Texture preservation remains experimental. No new in-game validation is
+claimed for this UI release or for the Medium default.
+
 Version `1.1.3-beta.2` adds experimental per-mesh texture-mapping preservation
 for FA-QEM, including a joint vertex-position/UV solve and tangent rebuilding.
 New settings and Reset Options enable both controls at strength 1000. Existing
