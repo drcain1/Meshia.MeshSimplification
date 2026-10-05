@@ -93,6 +93,53 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+### Future improvement: texture mapping near UV seams
+
+Investigate whether simplification can better preserve texture mapping and shading
+in triangles next to UV seams, especially for fine normal-map details. Locking
+coincident split vertices protects the seam vertices, but does not guarantee that
+mapping across neighbouring triangles remains unchanged as the mesh is reduced.
+
+Status: investigation idea, not a confirmed Meshia defect. In the reported case,
+freezing the normal map in LAC and using a 1x divisor resolved the major shading
+distortion. A minor discontinuity remained near a suspected UV seam; its cause
+has not been isolated from texture processing or the original material/mesh.
+The separately reproduced blend-shape shading-offset bug is already fixed in
+`1.1.3-beta.1` and should not be treated as proof of this issue's cause.
+
+Before implementation, compare Meshia on/off with texture processing, pose,
+material, and camera held fixed, and inspect the source/output UVs and textures.
+If simplification introduces the discontinuity, evaluate a UV-distortion cost or
+guard for collapses near seams, and preservation of the surrounding shading data.
+Use synthetic seam fixtures with fine texture details to check mapping continuity,
+normal/tangent behaviour, and the triangle-count and performance tradeoffs.
+Any additional protection should be an explicit per-mesh choice with clear
+budget implications; exact appearance preservation is not guaranteed.
+
+### Release history
+
+Version `1.1.3-beta.2` adds experimental per-mesh texture-mapping preservation
+for FA-QEM, including a joint vertex-position/UV solve and tangent rebuilding.
+New settings and Reset Options enable both controls at strength 1000. Existing
+saved choices retain their values; users can disable either control per mesh.
+The gray No protection state bypasses UV preservation. Texture images are not
+modified. Existing shape, boundary and deformation protections continue to apply;
+UV preservation does not guarantee perfect mapping or prevent all gaps.
+
+The UV attribute quadric is adapted from touma-tw's MIT-licensed Meshia fork;
+source attribution and the license notice are retained. Private comparison tools,
+research notes, avatar fixtures and rendered comparisons are excluded from this
+release and its public commit history. The earlier seam investigation above
+remains relevant for incomplete mapping coverage and broader compatibility.
+
+Local Unity 2022.3.22f1 validation passed 331 EditMode tests, including solve
+fallbacks, mirrored UVs, tangent/deformation data, asynchronous/batch equivalence,
+count profiles, settings identity, saved opt-outs, localization and Undo/Reset.
+The user reported a successful in-game visual check on a test avatar at strength
+1000. This is not a claim of exhaustive pose/material coverage or a new VCC/ALCOM
+installation test. Hosted test availability is reported separately from local tests.
+
+
 Version `1.1.3-beta.1` fixes blend-shape shading offsets being normalized during
 vertex merging. Normal and tangent deltas now retain their magnitude under both
 edge and barycentric interpolation. The defect was reproduced with FA-QEM and
