@@ -93,6 +93,23 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.3-beta.1` fixes blend-shape shading offsets being normalized during
+vertex merging. Normal and tangent deltas now retain their magnitude under both
+edge and barycentric interpolation. The defect was reproduced with FA-QEM and
+Blender Decimate: small shading adjustments could become unit-length offsets,
+causing abrupt shading changes when the affected blend shape is active. This
+changes shading data, not normal-map textures or saved protection settings.
+
+All 304 local Meshia EditMode tests passed in Unity 2022.3.22f1, with no failures
+or skips. Nine new regression cases cover interpolation modes, synchronous and
+asynchronous simplification, multiple frames, and zero shading offsets. Six cases
+failed before the fix. A live synthetic-mesh check confirmed that normal/tangent
+offsets of 0.02/0.03 remain unchanged rather than becoming 1.0. The running editor
+reported no compilation errors or warnings. The reported in-game artifact has
+not yet been confirmed on the affected avatar; this beta is available for that
+comparison. No new VRChat or package-client installation validation is claimed.
+Stable `1.1.2` remains available.
+
 Version `1.1.2` removes two editor compiler warnings. Cascading previews use
 explicit render-group equality on NDMF 1.13 and newer, preserving the component
 and entry-index identity used previously. A version guard retains the legacy API
