@@ -12,6 +12,30 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
     public class PreviewSkinningPolicyTests
     {
         [Test]
+        public void RenderGroupIdentityIncludesComponentAndEntryIndex()
+        {
+            var first = new GameObject("First group owner");
+            var second = new GameObject("Second group owner");
+            try
+            {
+                var renderer = first.AddComponent<SkinnedMeshRenderer>();
+                var component = first.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+                var other = second.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+                var group = MeshiaCascadingAvatarMeshSimplifierPreview.CreateRenderGroup(renderer, component, 0);
+                var same = MeshiaCascadingAvatarMeshSimplifierPreview.CreateRenderGroup(renderer, component, 0);
+                Assert.AreEqual(group, same);
+                Assert.AreEqual(group.GetHashCode(), same.GetHashCode());
+                Assert.AreEqual((component, 0), group.GetData<(MeshiaCascadingAvatarMeshSimplifier, int)>());
+                Assert.AreNotEqual(group, MeshiaCascadingAvatarMeshSimplifierPreview.CreateRenderGroup(renderer, component, 1));
+                Assert.AreNotEqual(group, MeshiaCascadingAvatarMeshSimplifierPreview.CreateRenderGroup(renderer, other, 0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(first); Object.DestroyImmediate(second);
+            }
+        }
+
+        [Test]
         public void JointSelectionResolvesHumanoidSlotsIndependentlyOfBorderSelection()
         {
             var root = new GameObject("Joint selection fixture");
@@ -218,7 +242,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
                     c.Entries.Add(new MeshiaCascadingAvatarMeshSimplifierRendererEntry(renderer)
                     { Options = options, DisableProtections = unprotected, Algorithm = MeshiaCascadingSimplificationAlgorithm.FaQem,
                         TargetTriangleCount = 30, PreserveBorderEdgesBones = 0 });
-                    group = RenderGroup.For(renderer).WithData((c, 0));
+                    group = MeshiaCascadingAvatarMeshSimplifierPreview.CreateRenderGroup(renderer, c, 0);
                     filter = new MeshiaCascadingAvatarMeshSimplifierPreview();
                 }
                 else

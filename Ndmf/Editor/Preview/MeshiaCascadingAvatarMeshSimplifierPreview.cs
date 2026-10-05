@@ -13,6 +13,19 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
 {
     internal class MeshiaCascadingAvatarMeshSimplifierPreview : MeshiaMeshSimplifierPreviewBase<MeshiaCascadingAvatarMeshSimplifierPreview>
     {
+        internal static RenderGroup CreateRenderGroup(Renderer renderer,
+            MeshiaCascadingAvatarMeshSimplifier component, int index)
+        {
+#if ENABLE_NDMF_EXPLICIT_RENDER_GROUP_EQUALITY
+            // Match the legacy tuple equality: component identity plus entry index.
+            return RenderGroup.For(renderer).WithData((component, index),
+                EqualityComparer<(MeshiaCascadingAvatarMeshSimplifier, int)>.Default);
+#else
+            // NDMF before 1.13 does not expose the explicit-comparer overload.
+            return RenderGroup.For(renderer).WithData((component, index));
+#endif
+        }
+
         public override ImmutableList<RenderGroup> GetTargetGroups(ComputeContext context)
         {
             var groups = new List<RenderGroup>();
@@ -32,7 +45,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                         if (!targetEnabled) continue;
 
                         var renderer = component.Entries[index].GetTargetRenderer(component)!;
-                        groups.Add(RenderGroup.For(renderer).WithData<(MeshiaCascadingAvatarMeshSimplifier, int)>((component, index)));
+                        groups.Add(CreateRenderGroup(renderer, component, index));
                     }
                 }
             }

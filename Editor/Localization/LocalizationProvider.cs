@@ -26,7 +26,7 @@ namespace Meshia.MeshSimplification.Editor.Localization
         /// <summary>Gets or sets the shared editor language.</summary>
         public static string CurrentLocale
         {
-            get { _ = Tr("Language"); return Localization.CurrentLocaleCode; }
+            get { _ = Tr("Language"); return Localization.CurrentLocaleCode ?? DefaultLocale; }
             set { _ = Tr("Language"); Localization.CurrentLocaleCode = value; }
         }
 
