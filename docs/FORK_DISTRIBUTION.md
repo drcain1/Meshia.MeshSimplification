@@ -93,24 +93,25 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
-### Future improvement: texture mapping near UV seams
+### Original investigation: texture mapping near UV seams
 
 Investigate whether simplification can better preserve texture mapping and shading
 in triangles next to UV seams, especially for fine normal-map details. Locking
 coincident split vertices protects the seam vertices, but does not guarantee that
 mapping across neighbouring triangles remains unchanged as the mesh is reduced.
 
-Status: investigation idea, not a confirmed Meshia defect. In the reported case,
+Original report: an investigation idea, not a confirmed Meshia defect. In that case,
 freezing the normal map in LAC and using a 1x divisor resolved the major shading
 distortion. A minor discontinuity remained near a suspected UV seam; its cause
 has not been isolated from texture processing or the original material/mesh.
 The separately reproduced blend-shape shading-offset bug is already fixed in
 `1.1.3-beta.1` and should not be treated as proof of this issue's cause.
 
-Before implementation, compare Meshia on/off with texture processing, pose,
+For further seam investigations, compare Meshia on/off with texture processing, pose,
 material, and camera held fixed, and inspect the source/output UVs and textures.
-If simplification introduces the discontinuity, evaluate a UV-distortion cost or
-guard for collapses near seams, and preservation of the surrounding shading data.
+The UV-aware scoring and joint shape/UV optimization shipped in `1.1.3-beta.2`
+address texture-mapping preservation, but do not establish the cause of every
+seam discontinuity. Isolate any remaining issues before adding further guards.
 Use synthetic seam fixtures with fine texture details to check mapping continuity,
 normal/tangent behaviour, and the triangle-count and performance tradeoffs.
 Any additional protection should be an explicit per-mesh choice with clear
@@ -132,8 +133,8 @@ and serialized-settings preservation. Both live validation editors compiled
 without errors. All 12 distribution tests and the release prerequisite check
 passed. Geometry implementation is unchanged from beta.2; the new Medium default
 changes the strength for new/reset options, with no automatic migration of saved
-meshes. Texture preservation remains experimental. No new in-game validation is
-claimed for this UI release or for the Medium default.
+meshes. Texture preservation remains experimental. At publication, no new in-game
+validation was claimed for this UI release or for the Medium default.
 
 Version `1.1.3-beta.2` adds experimental per-mesh texture-mapping preservation
 for FA-QEM, including a joint vertex-position/UV solve and tangent rebuilding.
