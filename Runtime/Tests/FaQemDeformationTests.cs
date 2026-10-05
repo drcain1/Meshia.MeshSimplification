@@ -9,6 +9,90 @@ namespace Meshia.MeshSimplification.Tests
 {
     public class FaQemDeformationTests
     {
+        [TestCase(MeshSimplificationTargetKind.FaQemTriangleCount, false, false)]
+        [TestCase(MeshSimplificationTargetKind.FaQemTriangleCount, true, false)]
+        [TestCase(MeshSimplificationTargetKind.FaQemTriangleCount, false, true)]
+        [TestCase(MeshSimplificationTargetKind.FaQemTriangleCount, true, true)]
+        [TestCase(MeshSimplificationTargetKind.BlenderDecimateRatio, false, false)]
+        [TestCase(MeshSimplificationTargetKind.BlenderDecimateRatio, false, true)]
+        [TestCase(MeshSimplificationTargetKind.AbsoluteTriangleCount, false, false)]
+        [TestCase(MeshSimplificationTargetKind.AbsoluteTriangleCount, true, false)]
+        [TestCase(MeshSimplificationTargetKind.UvLoopDissolveTriangleCount, false, true)]
+        public async System.Threading.Tasks.Task ShouldPreserveBlendShapeShadingDeltaMagnitude(
+            MeshSimplificationTargetKind kind, bool barycentric, bool asynchronous)
+        {
+            var source = new Mesh();
+            var output = new Mesh();
+            try
+            {
+                const int size = 12;
+                var vertices = new Vector3[(size + 1) * (size + 1)];
+                var normals = new Vector3[vertices.Length];
+                var tangents = new Vector4[vertices.Length];
+                var uv = new Vector2[vertices.Length];
+                var triangles = new System.Collections.Generic.List<int>();
+                for (var y = 0; y <= size; y++)
+                for (var x = 0; x <= size; x++)
+                {
+                    var i = y * (size + 1) + x;
+                    vertices[i] = new Vector3(x / (float)size, y / (float)size, 0);
+                    normals[i] = Vector3.forward;
+                    tangents[i] = new Vector4(1, 0, 0, 1);
+                    uv[i] = new Vector2(vertices[i].x, vertices[i].y);
+                    if (x == size || y == size) continue;
+                    triangles.AddRange(new[] { i, i + 1, i + size + 2, i, i + size + 2, i + size + 1 });
+                }
+                source.vertices = vertices; source.normals = normals;
+                source.tangents = tangents; source.uv = uv; source.triangles = triangles.ToArray();
+                // These are offsets from the base directions, not unit vectors.
+                var normalDelta = new Vector3(.02f, 0, 1).normalized - Vector3.forward;
+                var tangentDelta = new Vector3(1, .03f, 0).normalized - Vector3.right;
+                var dn = new Vector3[vertices.Length];
+                var dt = new Vector3[vertices.Length];
+                for (var frame = 1; frame <= 2; frame++)
+                {
+                    for (var i = 0; i < vertices.Length; i++)
+                    {
+                        dn[i] = normalDelta * (frame * .5f);
+                        dt[i] = tangentDelta * (frame * .5f);
+                    }
+                    source.AddBlendShapeFrame("Shading adjustment", frame * 50,
+                        new Vector3[vertices.Length], dn, dt);
+                }
+                source.AddBlendShapeFrame("Zero shading", 100, new Vector3[vertices.Length], null, null);
+                var options = MeshSimplifierOptions.Default;
+                options.UseBarycentricCoordinateInterpolation = barycentric;
+                var target = new MeshSimplificationTarget { Kind = kind,
+                    Value = kind == MeshSimplificationTargetKind.BlenderDecimateRatio ? .25f : 72 };
+                if (asynchronous) await MeshSimplifier.SimplifyAsync(source, target, options, output);
+                else MeshSimplifier.Simplify(source, target, options, output);
+                Assert.Less(output.vertexCount, source.vertexCount, "Must exercise attribute merging.");
+                Assert.AreEqual(2, output.blendShapeCount);
+                Assert.AreEqual(2, output.GetBlendShapeFrameCount(0));
+                foreach (var mesh in new[] { source, output })
+                {
+                    var actualNormals = new Vector3[mesh.vertexCount];
+                    var actualTangents = new Vector3[mesh.vertexCount];
+                    var actualVertices = new Vector3[mesh.vertexCount];
+                    for (var shape = 0; shape < 2; shape++)
+                    for (var frame = 0; frame < mesh.GetBlendShapeFrameCount(shape); frame++)
+                    {
+                        mesh.GetBlendShapeFrameVertices(shape, frame, actualVertices, actualNormals, actualTangents);
+                        var factor = shape == 0 ? (frame + 1) * .5f : 0;
+                        for (var i = 0; i < mesh.vertexCount; i++)
+                        {
+                            Assert.Less(Vector3.Distance(normalDelta * factor, actualNormals[i]), 1e-5f,
+                                $"Normal delta at shape {shape}, frame {frame}, vertex {i}");
+                            Assert.Less(Vector3.Distance(tangentDelta * factor, actualTangents[i]), 1e-5f,
+                                $"Tangent delta at shape {shape}, frame {frame}, vertex {i}");
+                            Assert.AreEqual(Vector3.zero, actualVertices[i]);
+                        }
+                    }
+                }
+            }
+            finally { Object.DestroyImmediate(source); Object.DestroyImmediate(output); }
+        }
+
         [TestCase(true, false, 0f)]
         [TestCase(true, false, 0.01f)]
         [TestCase(false, true, 0f)]

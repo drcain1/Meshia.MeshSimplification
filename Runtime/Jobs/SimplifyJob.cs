@@ -1287,9 +1287,10 @@ namespace Meshia.MeshSimplification
                     deltaVertices[vertexA] = math.lerp(deltaVertices[vertexA], deltaVertices[vertexB], lerpFactor);
 
 
-                    deltaNormals[vertexA] = math.normalizesafe(math.lerp(deltaNormals[vertexA], deltaNormals[vertexB], lerpFactor));
+                    // Blend-shape deltas are offsets, not directions: normalization changes their strength.
+                    deltaNormals[vertexA] = math.lerp(deltaNormals[vertexA], deltaNormals[vertexB], lerpFactor);
 
-                    deltaTangents[vertexA] = math.normalizesafe(math.lerp(deltaTangents[vertexA], deltaTangents[vertexB], lerpFactor));
+                    deltaTangents[vertexA] = math.lerp(deltaTangents[vertexA], deltaTangents[vertexB], lerpFactor);
                 }
             }
         }
@@ -1307,8 +1308,9 @@ namespace Meshia.MeshSimplification
                     var deltaNormals = frame.DeltaNormals;
                     var deltaTangents = frame.DeltaTangents;
                     deltaVertices[destinationVertex] = deltaVertices[triangle.x] * barycentricCoordinate.x + deltaVertices[triangle.y] * barycentricCoordinate.y + deltaVertices[triangle.z] * barycentricCoordinate.z;
-                    deltaNormals[destinationVertex] = math.normalizesafe(deltaNormals[triangle.x] * barycentricCoordinate.x + deltaNormals[triangle.y] * barycentricCoordinate.y + deltaNormals[triangle.z] * barycentricCoordinate.z);
-                    deltaTangents[destinationVertex] = math.normalizesafe(deltaTangents[triangle.x] * barycentricCoordinate.x + deltaTangents[triangle.y] * barycentricCoordinate.y + deltaTangents[triangle.z] * barycentricCoordinate.z);
+                    // Preserve offset magnitudes here, just as in the edge interpolation path.
+                    deltaNormals[destinationVertex] = deltaNormals[triangle.x] * barycentricCoordinate.x + deltaNormals[triangle.y] * barycentricCoordinate.y + deltaNormals[triangle.z] * barycentricCoordinate.z;
+                    deltaTangents[destinationVertex] = deltaTangents[triangle.x] * barycentricCoordinate.x + deltaTangents[triangle.y] * barycentricCoordinate.y + deltaTangents[triangle.z] * barycentricCoordinate.z;
 
 
                 }
