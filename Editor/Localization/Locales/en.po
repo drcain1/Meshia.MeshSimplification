@@ -1111,3 +1111,22 @@ msgstr "Click to keep geometry protection only."
 
 msgid "Click to turn off all protections for this mesh."
 msgstr "Click to turn off all protections for this mesh."
+
+msgid "Preserve texture mapping (experimental)"
+msgstr "Preserve texture mapping (experimental)"
+
+msgid "UV protection strength"
+msgstr "UV protection strength"
+
+msgid "Helps retain texture patterns while reducing triangles. May trade some shape accuracy for less UV distortion. Does not change texture images. Turn off to compare with the usual result."
+msgstr "Helps retain texture patterns while reducing triangles. May trade some shape accuracy for less UV distortion. Does not change texture images. Turn off to compare with the usual result."
+
+msgid "Start at 1000. Try 100 for a gentler effect or 10000 for stronger texture protection. Check the shape and movement after changing it. This experimental scale is specific to FA-QEM. Analyze Build verifies the final result."
+msgstr "Start at 1000. Try 100 for a gentler effect or 10000 for stronger texture protection. Check the shape and movement after changing it. This experimental scale is specific to FA-QEM. Analyze Build verifies the final result."
+
+
+msgid "Optimize shape and UV together (experimental)"
+msgstr "Optimize shape and UV together (experimental)"
+
+msgid "Tries a joint vertex and UV placement. Keeps existing protections and falls back to the current method when the result is invalid. Rebuilds tangents for the changed mapping. Compare textures, normal maps and movement before using the result."
+msgstr "Tries a joint vertex and UV placement. Keeps existing protections and falls back to the current method when the result is invalid. Rebuilds tangents for the changed mapping. Compare textures, normal maps and movement before using the result."

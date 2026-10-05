@@ -68,10 +68,35 @@ namespace Meshia.MeshSimplification.Editor
             {
                 property.serializedObject.UpdateIfRequiredOrScript();
                 RefreshDeviation();
+                RefreshUvControls();
             }
+            RefreshDeviation();
+
+            var faQemPropertyForUv = property.FindPropertyRelative(nameof(MeshSimplifierOptions.FaQem));
+            var uvEnabled = faQemPropertyForUv.FindPropertyRelative(nameof(FaQemOptions.ExperimentalUvEnabled));
+            var uvWeight = faQemPropertyForUv.FindPropertyRelative(nameof(FaQemOptions.ExperimentalUvWeight));
+            var uvToggle = root.Q<Toggle>("ExperimentalUvToggle");
+            var uvWeightField = root.Q<FloatField>("ExperimentalUvWeightField");
+            var jointToggle = root.Q<Toggle>("ExperimentalJointUvToggle");
+            void RefreshUvControls()
+            {
+                uvWeightField.style.display = uvEnabled.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
+                jointToggle.style.display = uvEnabled.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+            uvToggle.RegisterValueChangedCallback(evt =>
+            {
+                // Old serialized meshes have a zero weight. Initialize it only when the user opts in.
+                if (evt.newValue && (!(uvWeight.floatValue > 0) || float.IsInfinity(uvWeight.floatValue)))
+                {
+                    uvWeight.floatValue = FaQemOptions.Default.ExperimentalUvWeight;
+                    property.serializedObject.ApplyModifiedProperties();
+                }
+                RefreshUvControls();
+            });
+            root.TrackPropertyValue(uvEnabled, _ => RefreshUvControls());
+            RefreshUvControls();
             root.RegisterCallback<AttachToPanelEvent>(_ => Undo.undoRedoPerformed += RefreshDeviationAfterUndo);
             root.RegisterCallback<DetachFromPanelEvent>(_ => Undo.undoRedoPerformed -= RefreshDeviationAfterUndo);
-            RefreshDeviation();
 
             var enableSmartLinkToggle = root.Q<Toggle>("EnableSmartLinkToggle");
             var smartLinkOptionsGroup = root.Q<GroupBox>("SmartLinkOptionsGroup");
@@ -175,6 +200,8 @@ namespace Meshia.MeshSimplification.Editor
                 var defaults = MeshSimplifierOptions.ConservativeAvatar;
                 property.boxedValue = defaults;
                 property.serializedObject.ApplyModifiedProperties();
+                RefreshDeviation();
+                RefreshUvControls();
             };
 
 

@@ -78,6 +78,7 @@ namespace Meshia.MeshSimplification
             options.FaQem = options.FaQem.Effective;
             options.FaQem.PreserveAttributeSeams = false;
             options.FaQem.MaxSurfaceDeviation = 0f;
+            options.FaQem.ExperimentalUvEnabled = false;
             options.FaQem.MinNormalDot = 0f;
             return options;
         }

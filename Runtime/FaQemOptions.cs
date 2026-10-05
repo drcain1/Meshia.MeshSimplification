@@ -22,6 +22,9 @@ namespace Meshia.MeshSimplification
             PreserveAttributeSeams = true,
             MinNormalDot = 0.2f,
             MaxSurfaceDeviation = 0.0005f,
+            ExperimentalUvEnabled = true,
+            ExperimentalJointUv = true,
+            ExperimentalUvWeight = 1000f,
         };
 
         /// <summary>Positive divisor applied to source triangle areas.</summary>
@@ -41,6 +44,13 @@ namespace Meshia.MeshSimplification
         /// <summary>Maximum sampled distance from the original surface, as a fraction of the mesh bounds diagonal. Zero disables this guard.</summary>
         [Range(0, 0.1f)] public float MaxSurfaceDeviation;
 
+        /// <summary>Experimental UV-aware collapse scoring, enabled by default for beta evaluation.</summary>
+        public bool ExperimentalUvEnabled;
+        /// <summary>Research-only joint position/UV placement; requires experimental UV preservation.</summary>
+        public bool ExperimentalJointUv;
+        /// <summary>Additional position/UV0 quadric weight when experimental UV preservation is enabled.</summary>
+        [Min(0)] public float ExperimentalUvWeight;
+
         /// <summary>Resolves settings absent in older serialized components to the defaults.</summary>
         public readonly FaQemOptions Effective => version == 0 ? Default : this;
 
@@ -52,7 +62,8 @@ namespace Meshia.MeshSimplification
                 !Nonnegative(value.BoundaryWeight) || !Nonnegative(value.NormalWeight) ||
                 !Nonnegative(value.AreaWeight) || !Finite(value.MinNormalDot) ||
                 value.MinNormalDot < 0 || value.MinNormalDot > 1 ||
-                !Nonnegative(value.MaxSurfaceDeviation) || value.MaxSurfaceDeviation > 0.1f)
+                !Nonnegative(value.MaxSurfaceDeviation) || value.MaxSurfaceDeviation > 0.1f ||
+                !Nonnegative(value.ExperimentalUvWeight))
             {
                 throw new ArgumentOutOfRangeException(nameof(FaQemOptions), "FA-QEM requires finite nonnegative weights, a positive area divisor, a normal threshold between zero and one, and surface deviation between zero and 0.1.");
             }
@@ -70,7 +81,8 @@ namespace Meshia.MeshSimplification
                    a.NormalWeight == b.NormalWeight && a.AreaWeight == b.AreaWeight &&
                    a.UseInverseAreaWeighting == b.UseInverseAreaWeighting &&
                    a.PreserveAttributeSeams == b.PreserveAttributeSeams && a.MinNormalDot == b.MinNormalDot &&
-                   a.MaxSurfaceDeviation == b.MaxSurfaceDeviation;
+                   a.MaxSurfaceDeviation == b.MaxSurfaceDeviation && a.ExperimentalUvWeight == b.ExperimentalUvWeight &&
+                   a.ExperimentalUvEnabled == b.ExperimentalUvEnabled && a.ExperimentalJointUv == b.ExperimentalJointUv;
         }
 
         /// <inheritdoc/>
@@ -80,7 +92,7 @@ namespace Meshia.MeshSimplification
         {
             var a = Effective;
             return HashCode.Combine(HashCode.Combine(a.PlaneAreaWeight, a.BoundaryWeight, a.NormalWeight, a.AreaWeight),
-                a.UseInverseAreaWeighting, a.PreserveAttributeSeams, a.MinNormalDot, a.MaxSurfaceDeviation);
+                a.UseInverseAreaWeighting, a.PreserveAttributeSeams, a.MinNormalDot, a.MaxSurfaceDeviation, a.ExperimentalUvWeight, a.ExperimentalUvEnabled, a.ExperimentalJointUv);
         }
     }
 }

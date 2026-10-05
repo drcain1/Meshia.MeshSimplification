@@ -20,6 +20,8 @@ namespace Meshia.MeshSimplification
             public int A, B;
             public int RevisionA, RevisionB;
             public float3 Position;
+            public float2 Uv;
+            public bool SolvedUv;
             public double Cost;
 
             public readonly int CompareTo(FaQemCandidate other)
@@ -67,6 +69,10 @@ namespace Meshia.MeshSimplification
             if (RecordFaQemCounts) FaQemTriangleCounts.Add(TriangleCount);
             InitializeFaQemJointTransitions(seamFlags);
             InitializeFaQemSourceQuadrics(sourceQuadrics, center, scale, settings);
+            using var uvQuadrics = new NativeArray<FaQemUvQuadric>(
+                settings.ExperimentalUvEnabled && settings.ExperimentalUvWeight > 0 && VertexTexCoord0Buffer.Length != 0 ? VertexPositionBuffer.Length : 0,
+                Allocator.Temp, NativeArrayOptions.ClearMemory);
+            if (uvQuadrics.Length != 0) InitializeFaQemUvQuadrics(uvQuadrics, center, scale);
             using var envelope = new FaQemSurfaceEnvelope(VertexPositionBuffer, Triangles, DiscardedTriangle,
                 center, scale, settings.MaxSurfaceDeviation);
             InitializeFaQemSeamFlags(seamFlags, settings.PreserveAttributeSeams, scale);
@@ -78,13 +84,15 @@ namespace Meshia.MeshSimplification
             using var topologyWorkspace = new FaQemTopology.Workspace(Allocator.Temp);
             using var affectedVertices = new NativeHashSet<int>(64, Allocator.Temp);
             using var affectedEdges = new NativeHashSet<int2>(384, Allocator.Temp);
-            BuildFaQemCandidates(queue, sourceQuadrics, revisions, seamFlags, center, scale, settings, envelope);
+            BuildFaQemCandidates(queue, sourceQuadrics, uvQuadrics, revisions, seamFlags, center, scale, settings, envelope);
+            var changedUv = false;
             while (TriangleCount > targetTriangleCount && queue.TryDequeue(out var candidate))
             {
                     if (IsDiscardedVertex(candidate.A) || IsDiscardedVertex(candidate.B) ||
                         candidate.RevisionA != revisions[candidate.A] || candidate.RevisionB != revisions[candidate.B] ||
                         !FaQemTopology.LinkConditionLocal(new int2(candidate.A, candidate.B), Triangles, DiscardedTriangle, VertexContainingTriangles, topologyWorkspace) ||
                         IsFaQemProtected(candidate.A, candidate.B, seamFlags, settings) ||
+                        (candidate.SolvedUv && !IsFaQemJointUvValid(new int2(candidate.A, candidate.B), candidate.Uv)) ||
                         !IsSkinningCollapseValid(candidate.A, candidate.B, candidate.Position, out _, (float)scale) ||
                         !IsFaQemPlacementValid(candidate, settings, center, scale, envelope)) continue;
 
@@ -103,8 +111,17 @@ namespace Meshia.MeshSimplification
                         Position = candidate.Position,
                         Cost = (float)math.min(candidate.Cost, float.MaxValue),
                      });
+                     if (candidate.SolvedUv)
+                     {
+                         var uv = VertexTexCoord0Buffer[survivor];
+                         uv.xy = candidate.Uv;
+                         VertexTexCoord0Buffer[survivor] = uv;
+                         changedUv = true;
+                     }
                      if (RecordFaQemCounts) FaQemTriangleCounts.Add(TriangleCount);
                      sourceQuadrics.ElementAt(survivor) = sourceQuadrics[survivor] + sourceQuadrics[removed];
+                     if (uvQuadrics.Length != 0)
+                         uvQuadrics.ElementAt(survivor) = uvQuadrics[survivor] + uvQuadrics[removed];
                      CollectFaQemStarVertices(survivor, affectedVertices);
                      // Revisions must be advanced for the complete change set
                      // before any replacement candidates are queued. Queueing
@@ -120,8 +137,9 @@ namespace Meshia.MeshSimplification
                      foreach (var affectedVertex in affectedVertices)
                          CollectFaQemOneRingEdges(affectedEdges, affectedVertex);
                      foreach (var edge in affectedEdges)
-                         EnqueueFaQemCandidate(queue, sourceQuadrics, revisions, seamFlags, edge, center, scale, settings, envelope);
+                         EnqueueFaQemCandidate(queue, sourceQuadrics, uvQuadrics, revisions, seamFlags, edge, center, scale, settings, envelope);
             }
+            if (changedUv) RebuildFaQemUvTangents();
             UseFaQem = false;
         }
 
@@ -259,7 +277,7 @@ namespace Meshia.MeshSimplification
                 quadrics[vertex] += FaQemQuadric.Plane(normal, point, weight);
         }
 
-        void BuildFaQemCandidates(NativeMinPriorityQueue<FaQemCandidate> queue, NativeArray<FaQemQuadric> sourceQuadrics,
+        void BuildFaQemCandidates(NativeMinPriorityQueue<FaQemCandidate> queue, NativeArray<FaQemQuadric> sourceQuadrics, NativeArray<FaQemUvQuadric> uvQuadrics,
             NativeArray<int> revisions, NativeArray<byte> seamFlags,
             double3 center, double scale, FaQemOptions settings, FaQemSurfaceEnvelope envelope)
         {
@@ -274,7 +292,7 @@ namespace Meshia.MeshSimplification
             }
             foreach (var edge in edges)
             {
-                EnqueueFaQemCandidate(queue, sourceQuadrics, revisions, seamFlags, edge, center, scale, settings, envelope);
+                EnqueueFaQemCandidate(queue, sourceQuadrics, uvQuadrics, revisions, seamFlags, edge, center, scale, settings, envelope);
             }
         }
 
@@ -302,7 +320,7 @@ namespace Meshia.MeshSimplification
             }
         }
 
-        void EnqueueFaQemCandidate(NativeMinPriorityQueue<FaQemCandidate> queue, NativeArray<FaQemQuadric> sourceQuadrics,
+        void EnqueueFaQemCandidate(NativeMinPriorityQueue<FaQemCandidate> queue, NativeArray<FaQemQuadric> sourceQuadrics, NativeArray<FaQemUvQuadric> uvQuadrics,
             NativeArray<int> revisions, NativeArray<byte> seamFlags, int2 edge, double3 center, double scale, FaQemOptions settings,
             FaQemSurfaceEnvelope envelope)
         {
@@ -325,6 +343,13 @@ namespace Meshia.MeshSimplification
                 if (settings.AreaWeight > 0d && !Options.PreserveBorderEdges)
                     cost += settings.AreaWeight * ComputeFaQemAreaCost(edge, position, center, scale);
                 var world = (float3)(position * scale + center);
+                if (uvQuadrics.Length != 0)
+                {
+                    var uv = PredictFaQemMergedUv(edge.x, edge.y, world);
+                    var uvCost = (uvQuadrics[edge.x] + uvQuadrics[edge.y]).ComputeError(position, (double2)uv);
+                    if (!math.isfinite(uvCost) || uvCost < -1e-8d) continue;
+                    cost += settings.ExperimentalUvWeight * math.max(0d, uvCost);
+                }
                 if (!IsSkinningCollapseValid(edge.x, edge.y, world, out var skinningPenalty, (float)scale)) continue;
                 if (Options.SkinningProtection.Enabled)
                     cost += Options.SkinningProtection.Strength * skinningPenalty * skinningPenalty;
@@ -333,6 +358,35 @@ namespace Meshia.MeshSimplification
                 if (settings.MaxSurfaceDeviation > 0f && !IsFaQemPlacementValid(candidate, settings, center, scale, envelope)) continue;
                 if (candidate.Cost < best.Cost) best = candidate;
                 if (attempt == 0) break;
+            }
+            if (settings.ExperimentalJointUv && uvQuadrics.Length != 0 &&
+                !PreservedVertexPredicator.IsPreserved(edge.x) && !PreservedVertexPredicator.IsPreserved(edge.y))
+            {
+                var uvQuadric = uvQuadrics[edge.x] + uvQuadrics[edge.y];
+                var combined = uvQuadric.WithGeometry(q, settings.ExperimentalUvWeight);
+                if (combined.TrySolveOptimal(out var jointPosition, out var jointUv) &&
+                    math.lengthsq(jointPosition - (a + b) * .5d) <= 4d * math.lengthsq(b - a) &&
+                    IsFaQemJointUvValid(edge, (float2)jointUv))
+                {
+                    var world = (float3)(jointPosition * scale + center);
+                    // Score the rounded values that will actually be written.
+                    jointPosition = ((double3)world - center) / scale;
+                    jointUv = (double2)(float2)jointUv;
+                    var uvCost = uvQuadric.ComputeError(jointPosition, jointUv);
+                    var cost = q.Evaluate(jointPosition) + settings.ExperimentalUvWeight * math.max(0d, uvCost);
+                    if (settings.AreaWeight > 0d && !Options.PreserveBorderEdges)
+                        cost += settings.AreaWeight * ComputeFaQemAreaCost(edge, jointPosition, center, scale);
+                    if (math.isfinite(uvCost) && uvCost >= -1e-8d &&
+                        IsSkinningCollapseValid(edge.x, edge.y, world, out var penalty, (float)scale))
+                    {
+                        if (Options.SkinningProtection.Enabled) cost += Options.SkinningProtection.Strength * penalty * penalty;
+                        var candidate = new FaQemCandidate { A = edge.x, B = edge.y,
+                            RevisionA = revisions[edge.x], RevisionB = revisions[edge.y], Position = world,
+                            Uv = (float2)jointUv, SolvedUv = true, Cost = math.max(0d, cost) };
+                        if (math.isfinite(cost) && candidate.Cost < best.Cost &&
+                            IsFaQemPlacementValid(candidate, settings, center, scale, envelope)) best = candidate;
+                    }
+                }
             }
             if (math.isfinite(best.Cost)) queue.Enqueue(best);
         }

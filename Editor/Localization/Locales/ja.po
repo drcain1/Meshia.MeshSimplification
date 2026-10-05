@@ -1106,3 +1106,22 @@ msgstr "クリックすると、形状の保護のみ有効にします。"
 
 msgid "Click to turn off all protections for this mesh."
 msgstr "クリックすると、このメッシュの保護をすべて無効にします。"
+
+msgid "Preserve texture mapping (experimental)"
+msgstr "テクスチャの歪みを抑える（実験的）"
+
+msgid "UV protection strength"
+msgstr "UV保護の強さ"
+
+msgid "Helps retain texture patterns while reducing triangles. May trade some shape accuracy for less UV distortion. Does not change texture images. Turn off to compare with the usual result."
+msgstr "三角形を減らす際に、テクスチャの模様を保ちやすくします。UVの歪みを抑える代わりに、形状の変化が増える場合があります。テクスチャ画像自体は変更しません。オフにすると通常の結果と比較できます。"
+
+msgid "Start at 1000. Try 100 for a gentler effect or 10000 for stronger texture protection. Check the shape and movement after changing it. This experimental scale is specific to FA-QEM. Analyze Build verifies the final result."
+msgstr "まずは1000で試してください。効果を弱めるなら100、テクスチャの保護を強めるなら10000を目安に調整し、形状や動きを確認してください。この実験的な数値はFA-QEM専用です。ビルド解析で最終結果を確認できます。"
+
+
+msgid "Optimize shape and UV together (experimental)"
+msgstr "形状とUVを同時に最適化（実験的）"
+
+msgid "Tries a joint vertex and UV placement. Keeps existing protections and falls back to the current method when the result is invalid. Rebuilds tangents for the changed mapping. Compare textures, normal maps and movement before using the result."
+msgstr "頂点位置とUVを同時に計算します。既存の保護設定を維持し、結果が不適切な場合は従来の方法を使います。変更したUVに合わせて接線を再計算します。使用前にテクスチャ、ノーマルマップ、動きを比較してください。"

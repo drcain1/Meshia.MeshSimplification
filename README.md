@@ -57,6 +57,12 @@ Use **Preview UVs** inside a renderer's cogwheel to compare the original and sim
 
 FA-QEM reduces a mesh toward an absolute triangle budget using source surface planes, boundary curvature, original-normal tangent planes, and a separate boundary swept-area penalty to rank edge collapses. Select **FA-QEM** in a renderer's cogwheel, or use **Algorithm for All Meshes** at the top of the cascading inspector.
 
+##### Texture mapping in this beta
+
+New FA-QEM settings enable **Preserve texture mapping (experimental)** and **Optimize shape and UV together (experimental)** at **UV protection strength 1000**. This helps texture patterns keep their shape as triangles are removed. You can turn off joint optimization per mesh to compare with the previous method, or turn off texture preservation entirely. The feature changes mesh positions and UV coordinates, not texture images.
+
+Saved settings keep their existing values. **Reset Options** applies the new defaults; the gray **No protection** state bypasses texture preservation. After adjusting it, check the textures and shading while the avatar moves, then use **Analyze Build** to verify the final triangle count. For thin strips such as clothing straps, keep **Preserve Border Edges** enabled if the ends develop gaps.
+
 ##### Initial settings and protection presets
 
 New entries whose renderer GameObject is named **Body** (case-insensitive) start **excluded from simplification**, because many avatars use that name for the face. This is a naming convention, not face detection: `Body_base` is not excluded by this rule, and differently named faces must be excluded manually. You can explicitly enable a `Body` entry if desired. Refreshing entries preserves existing choices; the allocation **Reset** button restores this name-based default.
@@ -403,6 +409,12 @@ FA-QEM で軽量化した後に穴、鋭いへこみ、引き伸ばされた三�
 4. 動かしたときに崩れる場合は、**ボーンによる変形の保護** も有効にしてください。**ボーンウェイト差の上限（Maximum Skin Weight Distance）** は `0.25` を目安に試し、まだ崩れる場合は下げます。特に尻尾、髪、靴、関節付近は、動かした状態で確認してください。
 
 保護を強めると、指定した数より多くの三角形が残ることがあります。そのメッシュへの配分を増やし、必要なら別のメッシュで削減量を確保してから、**ビルドを解析（Analyze Build）** でアバター全体の数を再確認してください。表面からのずれの制限は形状の変化を抑える機能で、元からある穴を修復したり、重なった衣装の貫通を完全に防いだりするものではありません。隙間が残る場合は **境界エッジを保持** と **同じ位置にある分離頂点の固定** も確認し、元のメッシュと比較して、Play Mode で重なる部分を確認してください。
+
+##### このベータ版のテクスチャ保護
+
+新しい FA-QEM 設定では、**テクスチャの歪みを抑える（実験的）** と **形状とUVを同時に最適化（実験的）** がオンになり、UV保護の強さは **1000** から始まります。三角形を減らしたときの模様の歪みを抑えるための設定です。メッシュごとに同時最適化をオフにして従来の方法と比較したり、テクスチャ保護をオフにしたりできます。変更するのは頂点位置とUV座標で、テクスチャ画像自体は変更しません。
+
+保存済みの設定値はそのまま維持します。**Reset Options** を使うと新しい初期値に戻ります。灰色の **保護なし** ではテクスチャ保護も無効になります。変更後はアバターを動かして模様や陰影を確認し、**ビルドを解析** で最終的な三角形数を確認してください。衣装のストラップなど細い部分の端に隙間ができる場合は、**境界エッジを保持（Preserve Border Edges）** を有効にしてください。
 
 ##### FA-QEM の設定
 

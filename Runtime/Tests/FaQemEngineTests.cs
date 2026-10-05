@@ -44,11 +44,16 @@ namespace Meshia.MeshSimplification.Tests
             finally { Object.DestroyImmediate(source); Object.DestroyImmediate(output); Object.DestroyImmediate(guarded); }
         }
 
-        [TestCase(false, false)]
-        [TestCase(true, false)]
-        [TestCase(false, true)]
-        [TestCase(true, true)]
-        public void ShouldMatchFreshRunsAcrossRecordedCountSequence(bool borders, bool deformed)
+        [TestCase(false, false, 0f)]
+        [TestCase(true, false, 0f)]
+        [TestCase(false, true, 0f)]
+        [TestCase(true, true, 0f)]
+        [TestCase(false, false, 10f)]
+        [TestCase(true, false, 1000f)]
+        [TestCase(true, true, 10f)]
+        [TestCase(true, false, 1000f, true)]
+        [TestCase(true, true, 1000f, true)]
+        public void ShouldMatchFreshRunsAcrossRecordedCountSequence(bool borders, bool deformed, float uvWeight, bool joint = false)
         {
             var source = MakeGrid(8, 8);
             var output = new Mesh();
@@ -56,6 +61,17 @@ namespace Meshia.MeshSimplification.Tests
             {
                 var options = MeshSimplifierOptions.Default;
                 options.PreserveBorderEdges = borders;
+                options.FaQem.ExperimentalUvEnabled = uvWeight > 0;
+                options.FaQem.ExperimentalUvWeight = uvWeight;
+                options.FaQem.ExperimentalJointUv = joint;
+                if (uvWeight > 0)
+                {
+                    var uv = new Vector2[source.vertexCount];
+                    var positions = source.vertices;
+                    for (var i = 0; i < uv.Length; i++)
+                        uv[i] = new Vector2(positions[i].x / 8 + .05f * Mathf.Sin(positions[i].y), positions[i].y / 8);
+                    source.uv = uv;
+                }
                 if (deformed)
                 {
                     var points = source.vertices;
