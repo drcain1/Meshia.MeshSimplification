@@ -93,6 +93,21 @@ rejects compiled artifacts. License/attribution requirements still apply to our 
 
 ## Geometry-only release validation
 
+Version `1.1.2` removes two editor compiler warnings. Cascading previews use
+explicit render-group equality on NDMF 1.13 and newer, preserving the component
+and entry-index identity used previously. A version guard retains the legacy API
+for older NDMF releases. The localization getter now falls back to English if
+the library has no current locale. No simplification algorithms, protection
+defaults, avatar settings, or package dependencies change.
+
+All 75 affected preview and inspector EditMode tests passed in Unity 2022.3.22f1
+with NDMF 1.14.8, without failures or skips. Regression coverage checks preview
+group identity; a live missing-locale check confirmed the English fallback.
+The running editor reported no compilation errors or warnings. Older NDMF
+compatibility was checked against its API source, not a separate execution of
+the test suite. All 12 distribution tests and release prerequisites passed.
+No new VRChat or package-client installation validation is claimed for this patch.
+
 Version `1.1.1` fixes mesh object fields displaying None after switching
 inspector languages. References remained intact; the localization visitor was
 replaying the placeholder text captured before each row received its renderer.
