@@ -85,17 +85,14 @@ namespace Meshia.MeshSimplification.Editor
             var uvControls = root.Q<VisualElement>("UvPreservationControls");
             var uvSlider = root.Q<SliderInt>("UvStrengthSlider");
             var uvPreset = root.Q<DropdownField>("UvStrengthPreset");
-            var uvMethod = root.Q<DropdownField>("UvMethodField");
-            const string jointMethod = "Joint shape and UV";
-            const string legacyMethod = "Ranking only (legacy)";
-            uvMethod.choices = new System.Collections.Generic.List<string> { jointMethod, legacyMethod };
+            var uvNumber = root.Q<FloatField>("ExperimentalUvWeightField");
             var uvWeights = new[] { 1000f, 5000f, 10000f };
             var uvNames = new[] { "Low", "Medium", "High" };
             void RefreshUvControls()
             {
                 uvToggle.SetValueWithoutNotify(uvEnabled.boolValue);
+                uvNumber.SetValueWithoutNotify(uvWeight.floatValue);
                 uvControls.style.display = uvEnabled.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
-                uvMethod.SetValueWithoutNotify(uvJoint.boolValue ? jointMethod : legacyMethod);
                 var preset = System.Array.IndexOf(uvWeights, uvWeight.floatValue);
                 // A custom value has no exact slider position. Display the nearest
                 // preset, but keep its Custom label and never rewrite the saved value.
@@ -135,13 +132,6 @@ namespace Meshia.MeshSimplification.Editor
                 var preset = System.Array.IndexOf(uvNames, evt.newValue);
                 if (preset < 0) return;
                 uvWeight.floatValue = uvWeights[preset];
-                property.serializedObject.ApplyModifiedProperties();
-                RefreshUvControls();
-            });
-            uvMethod.RegisterValueChangedCallback(evt =>
-            {
-                if (evt.target != uvMethod || !uvMethod.choices.Contains(evt.newValue)) return;
-                uvJoint.boolValue = evt.newValue == jointMethod;
                 property.serializedObject.ApplyModifiedProperties();
                 RefreshUvControls();
             });

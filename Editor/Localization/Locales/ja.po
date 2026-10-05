@@ -1144,29 +1144,11 @@ msgstr "中"
 msgid "High"
 msgstr "強"
 
-msgid "Advanced"
-msgstr "詳細設定"
-
-msgid "Method"
-msgstr "方式"
-
-msgid "Joint shape and UV"
-msgstr "形状とUVの同時最適化"
-
-msgid "Ranking only (legacy)"
-msgstr "候補の評価のみ（従来方式）"
-
-msgid "Custom strength"
-msgstr "カスタムの強さ"
-
 msgid "Choose Low, Medium or High. Higher strength gives texture patterns more influence during simplification. Moving this slider replaces a custom strength with a preset."
 msgstr "弱・中・強から選びます。強くすると模様の保持をより重視します。スライダーを動かすと、カスタム値は選んだプリセットに置き換わります。"
 
-msgid "Choose a strength preset. Custom keeps the saved numeric value in Advanced."
-msgstr "強さのプリセットを選びます。カスタムの場合は、詳細設定の保存済み数値を使用します。"
+msgid "Choose a strength preset, or enter a custom value beside it."
+msgstr "強さのプリセットを選ぶか、隣の数値欄に任意の値を入力します。"
 
-msgid "Joint shape and UV is the current method. Ranking only (legacy) keeps the earlier method for comparison and saved meshes."
-msgstr "現在の方式は形状とUVの同時最適化です。候補の評価のみ（従来方式）は、比較や保存済みメッシュのために残しています。"
-
-msgid "Advanced numeric value. Low = 1000, Medium = 5000, High = 10000. Other saved values remain Custom. Zero disables the extra UV calculation."
-msgstr "詳細な数値指定です。弱は1000、中は5000、強は10000です。それ以外の保存済み値はカスタムとして保持します。0にするとUVの追加計算を無効にします。"
+msgid "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
+msgstr "弱 = 1000、中 = 5000、強 = 10000。それ以外の値はカスタムになります。0 にすると追加の UV 計算を無効にします。"

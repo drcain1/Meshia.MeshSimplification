@@ -37,11 +37,19 @@
 
 #UvStrengthSlider .unity-base-field__label {
     flex-shrink: 1;
-    min-width: 60px;
-    width: 140px;
+    min-width: 40px;
+    width: 60px;
 }
 
 #UvStrengthPreset {
     min-width: 0;
+    margin-right: 0;
+}
+
+#ExperimentalUvWeightField {
+    width: 64px;
+    min-width: 0;
+    flex-shrink: 0;
+    margin-left: 4px;
     margin-right: 0;
 }

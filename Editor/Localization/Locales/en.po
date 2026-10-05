@@ -1149,29 +1149,11 @@ msgstr "Medium"
 msgid "High"
 msgstr "High"
 
-msgid "Advanced"
-msgstr "Advanced"
-
-msgid "Method"
-msgstr "Method"
-
-msgid "Joint shape and UV"
-msgstr "Joint shape and UV"
-
-msgid "Ranking only (legacy)"
-msgstr "Ranking only (legacy)"
-
-msgid "Custom strength"
-msgstr "Custom strength"
-
 msgid "Choose Low, Medium or High. Higher strength gives texture patterns more influence during simplification. Moving this slider replaces a custom strength with a preset."
 msgstr "Choose Low, Medium or High. Higher strength gives texture patterns more influence during simplification. Moving this slider replaces a custom strength with a preset."
 
-msgid "Choose a strength preset. Custom keeps the saved numeric value in Advanced."
-msgstr "Choose a strength preset. Custom keeps the saved numeric value in Advanced."
+msgid "Choose a strength preset, or enter a custom value beside it."
+msgstr "Choose a strength preset, or enter a custom value beside it."
 
-msgid "Joint shape and UV is the current method. Ranking only (legacy) keeps the earlier method for comparison and saved meshes."
-msgstr "Joint shape and UV is the current method. Ranking only (legacy) keeps the earlier method for comparison and saved meshes."
-
-msgid "Advanced numeric value. Low = 1000, Medium = 5000, High = 10000. Other saved values remain Custom. Zero disables the extra UV calculation."
-msgstr "Advanced numeric value. Low = 1000, Medium = 5000, High = 10000. Other saved values remain Custom. Zero disables the extra UV calculation."
+msgid "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
+msgstr "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."

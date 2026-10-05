@@ -61,7 +61,7 @@ FA-QEM reduces a mesh toward an absolute triangle budget using source surface pl
 
 Inside each mesh's **cogwheel → FA-QEM Options**, **Preserve texture mapping** is on by default at **Medium** for new settings and Reset Options. Its single checkbox enables UV-aware scoring and joint shape/UV optimization together. The strength slider snaps to **Low / Medium / High** (1000 / 5000 / 10000 internally); the adjacent selector also lets you choose a preset directly. Higher strength gives texture patterns more influence during simplification. The feature changes mesh positions and UV coordinates, not texture images.
 
-**Advanced** contains the method selector and a custom numeric strength. Existing ranking-only settings remain **Ranking only (legacy)**, and non-preset values display **Custom**. Opening the inspector or switching language never changes those saved values. Turning the main checkbox off and back on explicitly selects the current joint method; changing strength alone retains the saved method. Existing initialized settings retain their strength. The gray **No protection** state bypasses texture preservation.
+The editable number beside the strength preset shows the current value. Entering a non-preset value displays **Custom**; choosing Low, Medium, or High updates the number. The method selector has been removed; existing ranking-only settings retain their behavior. Opening the inspector or switching language never changes those saved values. Turning the main checkbox off and back on explicitly selects the current joint method; changing strength alone retains the saved method. Existing initialized settings retain their strength. The gray **No protection** state bypasses texture preservation.
 
 This feature remains experimental. Check textures and shading while the avatar moves, then use **Analyze Build** to verify the final triangle count. For thin strips such as clothing straps, keep **Preserve Border Edges** enabled if the ends develop gaps.
 
@@ -416,7 +416,7 @@ FA-QEM で軽量化した後に穴、鋭いへこみ、引き伸ばされた三�
 
 各メッシュの **歯車 → FA-QEM設定** にある **テクスチャの歪みを抑える** は、新しい設定とReset Optionsで **オン・強さ「中」** になります。1つのチェックボックスでUVを考慮した候補評価と形状・UVの同時最適化を有効にします。強さは **弱・中・強** の3段階（内部値は1000・5000・10000）で、スライダーか隣の選択欄から選べます。強くすると模様の保持をより重視します。変更するのは頂点位置とUV座標で、テクスチャ画像自体は変更しません。
 
-**詳細設定** には方式の選択とカスタム数値があります。保存済みの従来方式は **候補の評価のみ（従来方式）**、プリセット以外の数値は **カスタム** と表示します。設定を開いたり言語を切り替えたりしても、保存済みの値は変更しません。メインのチェックをオフにしてからオンにすると同時最適化を選択します。強さだけを変更した場合は方式を維持します。既存の初期化済み設定の強さはそのままです。灰色の **保護なし** ではテクスチャ保護も無効になります。
+強さのプリセットの隣に現在の数値を表示し、直接編集できます。プリセット以外の値を入力すると **カスタム** と表示し、弱・中・強を選ぶと数値も更新します。方式の選択欄は廃止しましたが、保存済みの従来方式の動作は維持します。設定を開いたり言語を切り替えたりしても、保存済みの値は変更しません。メインのチェックをオフにしてからオンにすると同時最適化を選択します。強さだけを変更した場合は方式を維持します。既存の初期化済み設定の強さはそのままです。灰色の **保護なし** ではテクスチャ保護も無効になります。
 
 この機能は引き続き実験的です。変更後はアバターを動かして模様や陰影を確認し、**ビルドを解析** で最終的な三角形数を確認してください。ストラップなど細い部分の端に隙間ができる場合は、**境界エッジを保持** を有効にしてください。
 
