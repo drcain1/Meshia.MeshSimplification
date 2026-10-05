@@ -20,3 +20,28 @@
 .meshia-options-uv #UvFallbackProtectionHelp {
     display: flex;
 }
+
+/* Base fields do not shrink by default. Reserve room for the named preset
+   instead of allowing the slider's intrinsic width to overflow the inspector. */
+#UvStrengthSlider {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 0;
+}
+
+#UvStrengthSlider .unity-base-field__input {
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+#UvStrengthSlider .unity-base-field__label {
+    flex-shrink: 1;
+    min-width: 60px;
+    width: 140px;
+}
+
+#UvStrengthPreset {
+    min-width: 0;
+    margin-right: 0;
+}

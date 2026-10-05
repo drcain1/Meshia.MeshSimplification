@@ -282,6 +282,50 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         }
 
         [UnityTest]
+        public IEnumerator TextureStrengthPresetFitsNarrowCogwheelLayouts()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var obj = new GameObject("UV layout test", typeof(MeshRenderer));
+            var component = obj.AddComponent<MeshiaMeshSimplifier>();
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            try
+            {
+                var before = EditorJsonUtility.ToJson(component);
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root);
+                window.Show();
+                window.position = new Rect(50, 50, 600, 800);
+                for (var i = 0; i < 10; i++) yield return null;
+                root.Q<Foldout>("FaQemOptionsGroup").value = true;
+                var slider = root.Q<SliderInt>("UvStrengthSlider");
+                var preset = root.Q<DropdownField>("UvStrengthPreset");
+                foreach (var language in new[] { "en", "ja" })
+                foreach (var width in new[] { 300f, 360f, 500f })
+                {
+                    LocalizationProvider.CurrentLocale = language;
+                    root.style.width = width;
+                    for (var i = 0; i < 5; i++) yield return null;
+                    var row = slider.parent.worldBound;
+                    Assert.Greater(preset.worldBound.width, 60, "Preset must have readable space.");
+                    Assert.LessOrEqual(preset.worldBound.xMax, row.xMax + .5f, $"{language} at {width}px");
+                    Assert.LessOrEqual(slider.worldBound.xMax, preset.worldBound.xMin);
+                    Assert.Greater(slider.Q<VisualElement>(className: "unity-base-field__input").worldBound.width, 20);
+                    Assert.AreEqual("Medium", preset.value);
+                    Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                }
+            }
+            finally
+            {
+                window.Close();
+                Undo.ClearUndo(component);
+                Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(obj);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator CalculationIndicatorCoversQueuedAndRunningWorkWithoutMovingRows()
         {
             var locale = LocalizationProvider.CurrentLocale;
