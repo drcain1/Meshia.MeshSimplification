@@ -1125,3 +1125,48 @@ msgstr "形状とUVを同時に最適化（実験的）"
 
 msgid "Tries a joint vertex and UV placement. Keeps existing protections and falls back to the current method when the result is invalid. Rebuilds tangents for the changed mapping. Compare textures, normal maps and movement before using the result."
 msgstr "頂点位置とUVを同時に計算します。既存の保護設定を維持し、結果が不適切な場合は従来の方法を使います。変更したUVに合わせて接線を再計算します。使用前にテクスチャ、ノーマルマップ、動きを比較してください。"
+
+msgid "Preserve texture mapping"
+msgstr "テクスチャの歪みを抑える"
+
+msgid "Helps texture patterns keep their shape as triangles are removed. Experimental: check the shape, shading and movement after changing it."
+msgstr "ポリゴン削減時の模様の歪みを抑えます。実験的な機能です。変更後は形状、陰影、動きを確認してください。"
+
+msgid "Strength"
+msgstr "強さ"
+
+msgid "Low"
+msgstr "弱"
+
+msgid "Medium"
+msgstr "中"
+
+msgid "High"
+msgstr "強"
+
+msgid "Advanced"
+msgstr "詳細設定"
+
+msgid "Method"
+msgstr "方式"
+
+msgid "Joint shape and UV"
+msgstr "形状とUVの同時最適化"
+
+msgid "Ranking only (legacy)"
+msgstr "候補の評価のみ（従来方式）"
+
+msgid "Custom strength"
+msgstr "カスタムの強さ"
+
+msgid "Choose Low, Medium or High. Higher strength gives texture patterns more influence during simplification. Moving this slider replaces a custom strength with a preset."
+msgstr "弱・中・強から選びます。強くすると模様の保持をより重視します。スライダーを動かすと、カスタム値は選んだプリセットに置き換わります。"
+
+msgid "Choose a strength preset. Custom keeps the saved numeric value in Advanced."
+msgstr "強さのプリセットを選びます。カスタムの場合は、詳細設定の保存済み数値を使用します。"
+
+msgid "Joint shape and UV is the current method. Ranking only (legacy) keeps the earlier method for comparison and saved meshes."
+msgstr "現在の方式は形状とUVの同時最適化です。候補の評価のみ（従来方式）は、比較や保存済みメッシュのために残しています。"
+
+msgid "Advanced numeric value. Low = 1000, Medium = 5000, High = 10000. Other saved values remain Custom. Zero disables the extra UV calculation."
+msgstr "詳細な数値指定です。弱は1000、中は5000、強は10000です。それ以外の保存済み値はカスタムとして保持します。0にするとUVの追加計算を無効にします。"

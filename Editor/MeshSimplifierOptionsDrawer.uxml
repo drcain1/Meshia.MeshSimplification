@@ -27,9 +27,17 @@
         <ui:HelpBox message-type="Info" text="Experimental. Applies to native Blender-style and FA-QEM decimation when enabled; it does not guarantee pose equivalence." />
     </ui:Foldout>
     <ui:Foldout text="FA-QEM Options" name="FaQemOptionsGroup">
-        <ui:Toggle name="ExperimentalUvToggle" label="Preserve texture mapping (experimental)" binding-path="FaQem.ExperimentalUvEnabled" tooltip="Helps retain texture patterns while reducing triangles. May trade some shape accuracy for less UV distortion. Does not change texture images. Turn off to compare with the usual result." />
-        <ui:Toggle name="ExperimentalJointUvToggle" label="Optimize shape and UV together (experimental)" binding-path="FaQem.ExperimentalJointUv" tooltip="Tries a joint vertex and UV placement. Keeps existing protections and falls back to the current method when the result is invalid. Rebuilds tangents for the changed mapping. Compare textures, normal maps and movement before using the result." />
-        <ui:FloatField name="ExperimentalUvWeightField" label="UV protection strength" binding-path="FaQem.ExperimentalUvWeight" is-delayed="true" tooltip="Start at 1000. Try 100 for a gentler effect or 10000 for stronger texture protection. Check the shape and movement after changing it. This experimental scale is specific to FA-QEM. Analyze Build verifies the final result." />
+        <ui:Toggle name="ExperimentalUvToggle" label="Preserve texture mapping" tooltip="Helps texture patterns keep their shape as triangles are removed. Experimental: check the shape, shading and movement after changing it." />
+        <ui:VisualElement name="UvPreservationControls">
+            <ui:VisualElement style="flex-direction: row; align-items: center;">
+                <ui:SliderInt name="UvStrengthSlider" label="Strength" low-value="0" high-value="2" style="flex-grow: 1;" tooltip="Choose Low, Medium or High. Higher strength gives texture patterns more influence during simplification. Moving this slider replaces a custom strength with a preset." />
+                <ui:DropdownField name="UvStrengthPreset" style="width: 90px; margin-left: 6px; flex-shrink: 0;" tooltip="Choose a strength preset. Custom keeps the saved numeric value in Advanced." />
+            </ui:VisualElement>
+            <ui:Foldout name="UvAdvancedOptions" text="Advanced" value="false">
+                <ui:DropdownField name="UvMethodField" label="Method" tooltip="Joint shape and UV is the current method. Ranking only (legacy) keeps the earlier method for comparison and saved meshes." />
+                <ui:FloatField name="ExperimentalUvWeightField" label="Custom strength" binding-path="FaQem.ExperimentalUvWeight" is-delayed="true" tooltip="Advanced numeric value. Low = 1000, Medium = 5000, High = 10000. Other saved values remain Custom. Zero disables the extra UV calculation." />
+            </ui:Foldout>
+        </ui:VisualElement>
         <ui:Toggle label="Preserve Vertices Near Joints" name="PreserveJointTransitionsToggle" binding-path="SkinningProtection.PreserveJointTransitions" tooltip="Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction." />
         <ui:FloatField label="Plane Area Divisor" tooltip="Positive divisor applied to source triangle areas in the plane metric." binding-path="FaQem.PlaneAreaWeight" />
         <ui:FloatField label="Boundary Weight" tooltip="Weight of boundary curvature constraints." binding-path="FaQem.BoundaryWeight" />

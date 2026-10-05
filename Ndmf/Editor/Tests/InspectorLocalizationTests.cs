@@ -83,7 +83,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Undo.FlushUndoRecordObjects();
                 Assert.AreNotEqual(inputs, type.GetField("meshInputRevision", stat).GetValue(null), "UV strength must invalidate count profiles too.");
                 inputs = type.GetField("meshInputRevision", stat).GetValue(null);
-                root.Q<Toggle>("ExperimentalJointUvToggle").value = true;
+                root.Q<DropdownField>("UvMethodField").value = "Ranking only (legacy)";
                 for (var i = 0; i < 5; i++) yield return null;
                 Undo.FlushUndoRecordObjects();
                 Assert.AreNotEqual(inputs, type.GetField("meshInputRevision", stat).GetValue(null), "Joint mode must invalidate cached outputs.");
@@ -164,18 +164,18 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 for (var i = 0; i < 10; i++) yield return null;
                 var toggle = root.Q<Toggle>("ExperimentalUvToggle");
                 var weight = root.Q<FloatField>("ExperimentalUvWeightField");
-                var joint = root.Q<Toggle>("ExperimentalJointUvToggle");
+                var method = root.Q<DropdownField>("UvMethodField");
+                var controls = root.Q<VisualElement>("UvPreservationControls");
+                var preset = root.Q<DropdownField>("UvStrengthPreset");
                 Assert.IsFalse(component.options.FaQem.ExperimentalUvEnabled);
                 Assert.AreEqual(0, component.options.FaQem.ExperimentalUvWeight, "Opening the UI must not edit settings.");
-                Assert.AreEqual(DisplayStyle.None, weight.style.display.value);
-                Assert.AreEqual(DisplayStyle.None, joint.style.display.value);
+                Assert.AreEqual(DisplayStyle.None, controls.style.display.value);
                 toggle.value = true;
                 for (var i = 0; i < 5; i++) yield return null;
                 Assert.IsTrue(component.options.FaQem.ExperimentalUvEnabled);
-                Assert.AreEqual(1000, component.options.FaQem.ExperimentalUvWeight);
-                Assert.AreEqual(DisplayStyle.Flex, weight.style.display.value);
-                Assert.AreEqual(DisplayStyle.Flex, joint.style.display.value);
-                joint.value = true;
+                Assert.AreEqual(5000, component.options.FaQem.ExperimentalUvWeight);
+                Assert.AreEqual(DisplayStyle.Flex, controls.style.display.value);
+                Assert.AreEqual("Joint shape and UV", method.value);
                 weight.value = 250;
                 for (var i = 0; i < 5; i++) yield return null;
                 Undo.FlushUndoRecordObjects(); Undo.IncrementCurrentGroup();
@@ -185,29 +185,99 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Assert.IsFalse(component.options.FaQem.ExperimentalUvEnabled);
                 Assert.AreEqual(250, component.options.FaQem.ExperimentalUvWeight);
                 Assert.IsTrue(component.options.FaQem.ExperimentalJointUv);
-                Assert.AreEqual(DisplayStyle.None, weight.style.display.value);
-                Assert.AreEqual(DisplayStyle.None, joint.style.display.value);
+                Assert.AreEqual(DisplayStyle.None, controls.style.display.value);
                 Undo.PerformUndo();
                 for (var i = 0; i < 5; i++) yield return null;
                 Assert.IsTrue(component.options.FaQem.ExperimentalUvEnabled);
                 Assert.AreEqual(250, component.options.FaQem.ExperimentalUvWeight);
                 Assert.IsTrue(component.options.FaQem.ExperimentalJointUv);
-                Assert.AreEqual(DisplayStyle.Flex, weight.style.display.value);
-                Assert.AreEqual(DisplayStyle.Flex, joint.style.display.value);
+                Assert.AreEqual(DisplayStyle.Flex, controls.style.display.value);
                 var reset = root.Q<Button>("ResetOptionsButton");
                 typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(reset.clickable, new object[] { null, 0 });
                 for (var i = 0; i < 5; i++) yield return null;
                 Assert.IsTrue(component.options.FaQem.ExperimentalUvEnabled);
                 Assert.IsTrue(component.options.FaQem.ExperimentalJointUv);
-                Assert.AreEqual(1000, component.options.FaQem.ExperimentalUvWeight);
-                Assert.AreEqual(DisplayStyle.Flex, weight.style.display.value);
-                Assert.AreEqual(DisplayStyle.Flex, joint.style.display.value);
+                Assert.AreEqual(5000, component.options.FaQem.ExperimentalUvWeight);
+                Assert.AreEqual(DisplayStyle.Flex, controls.style.display.value);
             }
             finally
             {
                 window.Close(); Undo.ClearUndo(component);
                 Object.DestroyImmediate(inspector); Object.DestroyImmediate(obj);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator TexturePresetsPreserveLegacyCustomValuesAndSupportUndo()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var obj = new GameObject("Legacy UV settings", typeof(MeshRenderer));
+            var component = obj.AddComponent<MeshiaMeshSimplifier>();
+            component.options.FaQem.ExperimentalUvEnabled = true;
+            component.options.FaQem.ExperimentalJointUv = false;
+            component.options.FaQem.ExperimentalUvWeight = 250;
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            try
+            {
+                var before = EditorJsonUtility.ToJson(component);
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root);
+                window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                var preset = root.Q<DropdownField>("UvStrengthPreset");
+                var method = root.Q<DropdownField>("UvMethodField");
+                var slider = root.Q<SliderInt>("UvStrengthSlider");
+                Assert.IsFalse(root.Q<Foldout>("UvAdvancedOptions").value);
+                Assert.IsNull(root.Q<Toggle>("ExperimentalJointUvToggle"));
+                foreach (var language in new[] { "ja", "en" })
+                {
+                    LocalizationProvider.CurrentLocale = language;
+                    for (var i = 0; i < 5; i++) yield return null;
+                    Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                    Assert.AreEqual("Custom", preset.value);
+                    Assert.AreEqual("Ranking only (legacy)", method.value);
+                }
+                root.Q<Foldout>("UvAdvancedOptions").value = true;
+                Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                Undo.FlushUndoRecordObjects();
+                Undo.IncrementCurrentGroup();
+                // A custom value nearest Low must still be selectable as Low.
+                preset.value = "Low";
+                for (var i = 0; i < 5; i++) yield return null;
+                Undo.FlushUndoRecordObjects();
+                Assert.AreEqual(1000, component.options.FaQem.ExperimentalUvWeight);
+                Assert.IsFalse(component.options.FaQem.ExperimentalJointUv);
+                Undo.PerformUndo();
+                for (var i = 0; i < 5; i++) yield return null;
+                Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                Assert.AreEqual("Custom", preset.value);
+                slider.value = 1;
+                for (var i = 0; i < 5; i++) yield return null;
+                Assert.AreEqual(5000, component.options.FaQem.ExperimentalUvWeight);
+                Assert.AreEqual("Medium", preset.value);
+                slider.value = 2;
+                for (var i = 0; i < 5; i++) yield return null;
+                Assert.AreEqual(10000, component.options.FaQem.ExperimentalUvWeight);
+                Assert.AreEqual("High", preset.value);
+                var toggle = root.Q<Toggle>("ExperimentalUvToggle");
+                toggle.value = false;
+                for (var i = 0; i < 5; i++) yield return null;
+                Assert.AreEqual(DisplayStyle.None, root.Q<VisualElement>("UvPreservationControls").style.display.value);
+                toggle.value = true;
+                for (var i = 0; i < 5; i++) yield return null;
+                Assert.IsTrue(component.options.FaQem.ExperimentalJointUv);
+                Assert.AreEqual(10000, component.options.FaQem.ExperimentalUvWeight);
+                Assert.AreEqual("Joint shape and UV", method.value);
+            }
+            finally
+            {
+                window.Close();
+                Undo.ClearUndo(component);
+                Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(obj);
+                LocalizationProvider.CurrentLocale = locale;
             }
         }
 
@@ -1138,9 +1208,10 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     AssertOption<bool>(root, "SkinningProtection.PreserveJointTransitions", "Preserve Vertices Near Joints", "関節付近の頂点を保持", language);
                     AssertOption<bool>(root, "FaQem.UseInverseAreaWeighting", "Use Inverse Area Weighting", "面積の逆数による重み付け", language);
                     AssertOption<bool>(root, "FaQem.PreserveAttributeSeams", "Lock Coincident Split Vertices", "同じ位置にある分離頂点の固定", language);
-                    AssertOption<bool>(root, "FaQem.ExperimentalUvEnabled", "Preserve texture mapping (experimental)", "テクスチャの歪みを抑える（実験的）", language);
-                    AssertOption<bool>(root, "FaQem.ExperimentalJointUv", "Optimize shape and UV together (experimental)", "形状とUVを同時に最適化（実験的）", language);
-                    AssertOption<float>(root, "FaQem.ExperimentalUvWeight", "UV protection strength", "UV保護の強さ", language);
+                    Assert.AreEqual(language == "ja" ? "テクスチャの歪みを抑える" : "Preserve texture mapping", root.Q<Toggle>("ExperimentalUvToggle").label);
+                    Assert.AreEqual(language == "ja" ? "方式" : "Method", root.Q<DropdownField>("UvMethodField").label);
+                    Assert.AreEqual(language == "ja" ? "中" : "Medium", root.Q<DropdownField>("UvStrengthPreset").formatSelectedValueCallback("Medium"));
+                    AssertOption<float>(root, "FaQem.ExperimentalUvWeight", "Custom strength", "カスタムの強さ", language);
                     AssertOption<bool>(root, "PreserveBorderEdges", "Preserve Border Edges", "境界エッジを保持", language);
                     Assert.AreEqual(before, EditorJsonUtility.ToJson(component), "Language changes must not change simplification settings.");
                 }

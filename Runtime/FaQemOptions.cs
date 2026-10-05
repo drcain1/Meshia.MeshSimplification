@@ -24,7 +24,7 @@ namespace Meshia.MeshSimplification
             MaxSurfaceDeviation = 0.0005f,
             ExperimentalUvEnabled = true,
             ExperimentalJointUv = true,
-            ExperimentalUvWeight = 1000f,
+            ExperimentalUvWeight = 5000f,
         };
 
         /// <summary>Positive divisor applied to source triangle areas.</summary>

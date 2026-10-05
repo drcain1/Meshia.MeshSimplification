@@ -28,7 +28,12 @@ namespace Meshia.MeshSimplification.Editor
 
             var root = visualTreeAsset.CloneTree();
 
-            LocalizationProvider.Bind(root, () => LocalizationProvider.LocalizeBindedElements<MeshSimplifierOptions>(root));
+            System.Action refreshUvLabels = () => { };
+            LocalizationProvider.Bind(root, () =>
+            {
+                LocalizationProvider.LocalizeBindedElements<MeshSimplifierOptions>(root);
+                refreshUvLabels();
+            });
 
             foreach (var field in root.Query<FloatField>().ToList())
             {
@@ -74,26 +79,75 @@ namespace Meshia.MeshSimplification.Editor
 
             var faQemPropertyForUv = property.FindPropertyRelative(nameof(MeshSimplifierOptions.FaQem));
             var uvEnabled = faQemPropertyForUv.FindPropertyRelative(nameof(FaQemOptions.ExperimentalUvEnabled));
+            var uvJoint = faQemPropertyForUv.FindPropertyRelative(nameof(FaQemOptions.ExperimentalJointUv));
             var uvWeight = faQemPropertyForUv.FindPropertyRelative(nameof(FaQemOptions.ExperimentalUvWeight));
             var uvToggle = root.Q<Toggle>("ExperimentalUvToggle");
-            var uvWeightField = root.Q<FloatField>("ExperimentalUvWeightField");
-            var jointToggle = root.Q<Toggle>("ExperimentalJointUvToggle");
+            var uvControls = root.Q<VisualElement>("UvPreservationControls");
+            var uvSlider = root.Q<SliderInt>("UvStrengthSlider");
+            var uvPreset = root.Q<DropdownField>("UvStrengthPreset");
+            var uvMethod = root.Q<DropdownField>("UvMethodField");
+            const string jointMethod = "Joint shape and UV";
+            const string legacyMethod = "Ranking only (legacy)";
+            uvMethod.choices = new System.Collections.Generic.List<string> { jointMethod, legacyMethod };
+            var uvWeights = new[] { 1000f, 5000f, 10000f };
+            var uvNames = new[] { "Low", "Medium", "High" };
             void RefreshUvControls()
             {
-                uvWeightField.style.display = uvEnabled.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
-                jointToggle.style.display = uvEnabled.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
+                uvToggle.SetValueWithoutNotify(uvEnabled.boolValue);
+                uvControls.style.display = uvEnabled.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
+                uvMethod.SetValueWithoutNotify(uvJoint.boolValue ? jointMethod : legacyMethod);
+                var preset = System.Array.IndexOf(uvWeights, uvWeight.floatValue);
+                // A custom value has no exact slider position. Display the nearest
+                // preset, but keep its Custom label and never rewrite the saved value.
+                var position = preset >= 0 ? preset : uvWeight.floatValue < 3000f ? 0 : uvWeight.floatValue < 7500f ? 1 : 2;
+                uvSlider.SetValueWithoutNotify(position);
+                uvPreset.choices = preset >= 0
+                    ? new System.Collections.Generic.List<string>(uvNames)
+                    : new System.Collections.Generic.List<string> { "Low", "Medium", "High", "Custom" };
+                uvPreset.SetValueWithoutNotify(preset >= 0 ? uvNames[preset] : "Custom");
             }
+            refreshUvLabels = RefreshUvControls;
             uvToggle.RegisterValueChangedCallback(evt =>
             {
-                // Old serialized meshes have a zero weight. Initialize it only when the user opts in.
-                if (evt.newValue && (!(uvWeight.floatValue > 0) || float.IsInfinity(uvWeight.floatValue)))
+                if (evt.target != uvToggle) return;
+                uvEnabled.boolValue = evt.newValue;
+                if (evt.newValue)
                 {
-                    uvWeight.floatValue = FaQemOptions.Default.ExperimentalUvWeight;
-                    property.serializedObject.ApplyModifiedProperties();
+                    // Explicitly enabling the combined control selects the current
+                    // method. Passive binding/localization never migrates legacy data.
+                    uvJoint.boolValue = true;
+                    if (!(uvWeight.floatValue > 0) || float.IsInfinity(uvWeight.floatValue))
+                        uvWeight.floatValue = FaQemOptions.Default.ExperimentalUvWeight;
                 }
+                property.serializedObject.ApplyModifiedProperties();
+                RefreshUvControls();
+            });
+            uvSlider.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.target != uvSlider) return;
+                uvWeight.floatValue = uvWeights[Mathf.Clamp(evt.newValue, 0, 2)];
+                property.serializedObject.ApplyModifiedProperties();
+                RefreshUvControls();
+            });
+            uvPreset.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.target != uvPreset) return;
+                var preset = System.Array.IndexOf(uvNames, evt.newValue);
+                if (preset < 0) return;
+                uvWeight.floatValue = uvWeights[preset];
+                property.serializedObject.ApplyModifiedProperties();
+                RefreshUvControls();
+            });
+            uvMethod.RegisterValueChangedCallback(evt =>
+            {
+                if (evt.target != uvMethod || !uvMethod.choices.Contains(evt.newValue)) return;
+                uvJoint.boolValue = evt.newValue == jointMethod;
+                property.serializedObject.ApplyModifiedProperties();
                 RefreshUvControls();
             });
             root.TrackPropertyValue(uvEnabled, _ => RefreshUvControls());
+            root.TrackPropertyValue(uvJoint, _ => RefreshUvControls());
+            root.TrackPropertyValue(uvWeight, _ => RefreshUvControls());
             RefreshUvControls();
             root.RegisterCallback<AttachToPanelEvent>(_ => Undo.undoRedoPerformed += RefreshDeviationAfterUndo);
             root.RegisterCallback<DetachFromPanelEvent>(_ => Undo.undoRedoPerformed -= RefreshDeviationAfterUndo);

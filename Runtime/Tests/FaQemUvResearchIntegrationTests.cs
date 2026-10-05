@@ -11,7 +11,7 @@ namespace Meshia.MeshSimplification.Tests
         {
             var original = MeshSimplifierOptions.Default;
             Assert.IsTrue(original.FaQem.ExperimentalUvEnabled);
-            Assert.AreEqual(1000, original.FaQem.ExperimentalUvWeight);
+            Assert.AreEqual(5000, original.FaQem.ExperimentalUvWeight);
             Assert.IsTrue(original.FaQem.ExperimentalJointUv);
             var joint = original; joint.FaQem.ExperimentalJointUv = false;
             Assert.AreNotEqual(original, joint);
@@ -44,7 +44,7 @@ namespace Meshia.MeshSimplification.Tests
             {
                 Assert.IsTrue(options.FaQem.ExperimentalUvEnabled);
                 Assert.IsTrue(options.FaQem.ExperimentalJointUv);
-                Assert.AreEqual(1000, options.FaQem.ExperimentalUvWeight);
+                Assert.AreEqual(5000, options.FaQem.ExperimentalUvWeight);
             }
         }
 

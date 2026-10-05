@@ -1130,3 +1130,48 @@ msgstr "Optimize shape and UV together (experimental)"
 
 msgid "Tries a joint vertex and UV placement. Keeps existing protections and falls back to the current method when the result is invalid. Rebuilds tangents for the changed mapping. Compare textures, normal maps and movement before using the result."
 msgstr "Tries a joint vertex and UV placement. Keeps existing protections and falls back to the current method when the result is invalid. Rebuilds tangents for the changed mapping. Compare textures, normal maps and movement before using the result."
+
+msgid "Preserve texture mapping"
+msgstr "Preserve texture mapping"
+
+msgid "Helps texture patterns keep their shape as triangles are removed. Experimental: check the shape, shading and movement after changing it."
+msgstr "Helps texture patterns keep their shape as triangles are removed. Experimental: check the shape, shading and movement after changing it."
+
+msgid "Strength"
+msgstr "Strength"
+
+msgid "Low"
+msgstr "Low"
+
+msgid "Medium"
+msgstr "Medium"
+
+msgid "High"
+msgstr "High"
+
+msgid "Advanced"
+msgstr "Advanced"
+
+msgid "Method"
+msgstr "Method"
+
+msgid "Joint shape and UV"
+msgstr "Joint shape and UV"
+
+msgid "Ranking only (legacy)"
+msgstr "Ranking only (legacy)"
+
+msgid "Custom strength"
+msgstr "Custom strength"
+
+msgid "Choose Low, Medium or High. Higher strength gives texture patterns more influence during simplification. Moving this slider replaces a custom strength with a preset."
+msgstr "Choose Low, Medium or High. Higher strength gives texture patterns more influence during simplification. Moving this slider replaces a custom strength with a preset."
+
+msgid "Choose a strength preset. Custom keeps the saved numeric value in Advanced."
+msgstr "Choose a strength preset. Custom keeps the saved numeric value in Advanced."
+
+msgid "Joint shape and UV is the current method. Ranking only (legacy) keeps the earlier method for comparison and saved meshes."
+msgstr "Joint shape and UV is the current method. Ranking only (legacy) keeps the earlier method for comparison and saved meshes."
+
+msgid "Advanced numeric value. Low = 1000, Medium = 5000, High = 10000. Other saved values remain Custom. Zero disables the extra UV calculation."
+msgstr "Advanced numeric value. Low = 1000, Medium = 5000, High = 10000. Other saved values remain Custom. Zero disables the extra UV calculation."
