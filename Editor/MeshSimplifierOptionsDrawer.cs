@@ -170,8 +170,8 @@ namespace Meshia.MeshSimplification.Editor
                     : (int)SkinningProtectionPolicy.Off;
                 protection.FindPropertyRelative(nameof(SkinningProtectionOptions.Enabled)).boolValue = changeEvent.newValue;
                 skinningProtectionAuto.SetValueWithoutNotify(false);
-                skinningProtectionEnabled.SetEnabled(true);
                 property.serializedObject.ApplyModifiedProperties();
+                RefreshSkinningProtection();
             });
 
             skinningProtectionAuto.RegisterValueChangedCallback(changeEvent =>
@@ -193,8 +193,8 @@ namespace Meshia.MeshSimplification.Editor
                     : ((skinningProtectionPolicy.enumValueIndex == (int)SkinningProtectionPolicy.Auto || skinningProtectionPolicy.enumValueIndex == (int)SkinningProtectionPolicy.AutoDeforming)
                         ? (int)SkinningProtectionPolicy.Off
                         : (skinningProtectionEnabled.value ? (int)SkinningProtectionPolicy.On : (int)SkinningProtectionPolicy.Off));
-                skinningProtectionEnabled.SetEnabled(!changeEvent.newValue);
                 property.serializedObject.ApplyModifiedProperties();
+                RefreshSkinningProtection();
             });
             // Binding the legacy Enabled field directly dispatches change
             // events during refresh and can overwrite Auto or explicit On.
@@ -210,6 +210,9 @@ namespace Meshia.MeshSimplification.Editor
                     (policy == SkinningProtectionPolicy.Legacy &&
                      protection.FindPropertyRelative(nameof(SkinningProtectionOptions.Enabled)).boolValue));
                 skinningProtectionEnabled.SetEnabled(!automatic);
+                // Auto resolves against renderer bone data during preview/build.
+                // An unchecked manual override is not its effective protection state.
+                skinningProtectionEnabled.style.display = automatic ? DisplayStyle.None : DisplayStyle.Flex;
             }
             root.TrackPropertyValue(skinningProtectionPolicy, _ => RefreshSkinningProtection());
             root.TrackPropertyValue(property.FindPropertyRelative(nameof(MeshSimplifierOptions.SkinningProtection))

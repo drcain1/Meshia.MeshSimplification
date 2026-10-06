@@ -1103,6 +1103,60 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator OriginalColumnUsesSourceMeshAlongsideMeasuredOutput()
+        {
+            var locale = LocalizationProvider.CurrentLocale;
+            var avatar = new GameObject("Original count test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cube.transform.SetParent(avatar.transform);
+            var child = new GameObject("Settings"); child.transform.SetParent(avatar.transform);
+            var component = child.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false;
+            component.RefreshEntries();
+            component.Entries[0].TargetTriangleCount = 8;
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var window = ScriptableObject.CreateInstance<TestWindow>();
+            var cache = Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache;
+            var renderer = cube.GetComponent<Renderer>();
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var type = inspector.GetType();
+            var key = (string)type.GetMethod("GetBuildAnalysisResultKey", flags).Invoke(null, new object[] { component });
+            try
+            {
+                // A preview tool has removed half the source faces. The build
+                // measurement uses a different stage and must not be compared to it.
+                cache[renderer] = (6, 4);
+                MeasuredMeshBudgetTests.Seed(inspector, 9, _ => 9);
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                var before = EditorJsonUtility.ToJson(component);
+                foreach (var language in new[] { "en", "ja" })
+                {
+                    LocalizationProvider.CurrentLocale = language;
+                    root.Q<ListView>("EntriesListView").Rebuild();
+                    for (var i = 0; i < 10; i++) yield return null;
+                    var row = root.Q<ListView>("EntriesListView").Query<TemplateContainer>().ToList()
+                        .First(item => item.userData is int index && index == 0);
+                    Assert.AreEqual(12, row.Q<IntegerField>("OriginalTriangleCountField").value);
+                    Assert.AreEqual(12, row.Q<SliderInt>("TargetTriangleCountSlider").highValue);
+                    Assert.AreEqual(9, row.Q<IntegerField>("TargetTriangleCountField").value);
+                    Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
+                }
+            }
+            finally
+            {
+                cache.Remove(renderer);
+                window.Close();
+                ((System.Collections.IDictionary)type.GetField("BuildAnalysisCache", flags).GetValue(null)).Remove(key);
+                SessionState.EraseString(key);
+                Undo.ClearUndo(component);
+                Object.DestroyImmediate(inspector); Object.DestroyImmediate(avatar);
+                LocalizationProvider.CurrentLocale = locale;
+            }
+        }
+
         private static void AssertAlgorithmOptions(VisualElement root, MeshSimplificationTargetKind kind)
         {
             var fa = kind == MeshSimplificationTargetKind.FaQemTriangleCount;

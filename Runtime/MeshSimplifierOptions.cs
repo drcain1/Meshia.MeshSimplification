@@ -41,6 +41,20 @@ namespace Meshia.MeshSimplification
             }
         }
 
+        /// <summary>Explicit high-reduction preset with relaxed bone-weight limits and conservative geometry guards.</summary>
+        public static MeshSimplifierOptions ExtremeAvatar
+        {
+            get
+            {
+                var options = ConservativeAvatar;
+                options.SkinningProtection.Strength = .25f;
+                options.SkinningProtection.MaxWeightDistance = .25f;
+                options.SkinningProtection.MaxDiscardedWeight = .1f;
+                // Retain surface and seam guards; NDMF narrows joint locks to hands and fingers.
+                return options;
+            }
+        }
+
         /// <summary>New avatar settings: geometry guards on, deformation protection opt-in.</summary>
         public static MeshSimplifierOptions AvatarInitial
         {

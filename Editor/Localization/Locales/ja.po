@@ -612,8 +612,8 @@ msgstr "最も強く影響するボーンが切り替わる部分と、そのす
 msgid "Automatically protect deforming meshes"
 msgstr "変形するメッシュを自動保護"
 
-msgid "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh."
-msgstr "服や独自のボーン構成を含め、複数のボーンで動く各メッシュを保護します。身体メッシュを一つに特定する必要はありません。"
+msgid "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh. Turn this off to choose protection manually."
+msgstr "服や独自のボーン構成を含め、複数のボーンで動く各メッシュを保護します。身体メッシュを一つに特定する必要はありません。 手動で保護を選ぶには、この項目をオフにしてください。"
 
 msgid "This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections."
 msgstr "この保存済みメッシュは、身体のみを対象とする従来の自動保護を使用しています。自動保護を一度オフにしてからオンにするとメッシュごとの判定に切り替わります。保護設定全体を更新するには、保守的な初期設定を適用してください。"
@@ -1152,3 +1152,15 @@ msgstr "強さのプリセットを選ぶか、隣の数値欄に任意の値を
 
 msgid "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
 msgstr "弱 = 1000、中 = 5000、強 = 10000。それ以外の値はカスタムになります。0 にすると追加の UV 計算を無効にします。"
+
+msgid "Source mesh triangles before preview or build processing."
+msgstr "プレビューやビルド処理を行う前の元のメッシュの三角形数です。"
+
+msgid "Extreme"
+msgstr "強力"
+
+msgid "Apply Extreme Preset"
+msgstr "強力プリセットを適用"
+
+msgid "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra joint protection around hands and fingers. Keeps your triangle targets and mesh selection. Supports Undo."
+msgstr "表面・継ぎ目・テクスチャの保護を維持しながら、さらに削減しやすくします。手・指の関節付近は引き続き保護します。三角形数の目標と対象メッシュは変えません。元に戻せます。"

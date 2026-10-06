@@ -41,8 +41,11 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             finally { Object.DestroyImmediate(root); Object.DestroyImmediate(mesh); }
         }
 
-        [Test]
-        public void AggressivePresetPreservesAllocationsAndSupportsUndo()
+        [TestCase(false, "ja", "積極的")]
+        [TestCase(false, "en", "Aggressive")]
+        [TestCase(true, "ja", "強力")]
+        [TestCase(true, "en", "Extreme")]
+        public void ReductionPresetPreservesAllocationsAndSupportsUndo(bool extreme, string language, string label)
         {
             var locale = LocalizationProvider.CurrentLocale;
             var root = new GameObject("Preset avatar", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
@@ -61,28 +64,41 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 {
                     entry.Algorithm = MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;
                     entry.TargetTriangleCount = 7; entry.Fixed = true;
+                    entry.DisableProtections = true;
+                    entry.PreserveJointTransitionsBones = 0;
                     Assert.AreEqual(SkinningProtectionPolicy.Off, entry.Options.SkinningProtection.Policy);
                 }
                 Assert.IsFalse(component.Entries[2].Enabled);
                 inspector = UnityEditor.Editor.CreateEditor(component);
-                LocalizationProvider.CurrentLocale = "ja";
+                LocalizationProvider.CurrentLocale = language;
                 var ui = inspector.CreateInspectorGUI();
-                var button = ui.Q<Button>("AggressiveDefaultsButton");
-                Assert.AreEqual("積極的", button.text);
+                var button = ui.Q<Button>(extreme ? "ExtremeDefaultsButton" : "AggressiveDefaultsButton");
+                Assert.AreEqual(label, button.text);
                 var before = EditorJsonUtility.ToJson(component);
                 Undo.IncrementCurrentGroup();
                 typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(button.clickable, new object[] { null, 0 });
-                Assert.AreEqual(MeshSimplifierOptions.ConservativeAvatar, component.Entries[0].Options);
-                Assert.AreEqual(MeshSimplifierOptions.AvatarInitial, component.Entries[1].Options);
-                Assert.AreEqual(MeshSimplifierOptions.ConservativeAvatar, component.Entries[2].Options);
+                var protectedOptions = extreme ? MeshSimplifierOptions.ExtremeAvatar : MeshSimplifierOptions.ConservativeAvatar;
+                var geometryOptions = protectedOptions;
+                geometryOptions.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
+                geometryOptions.SkinningProtection.Enabled = false;
+                geometryOptions.SkinningProtection.PreserveJointTransitions = false;
+                Assert.AreEqual(protectedOptions, component.Entries[0].Options);
+                Assert.AreEqual(geometryOptions, component.Entries[1].Options);
+                Assert.AreEqual(protectedOptions, component.Entries[2].Options);
                 Assert.IsFalse(component.Entries[2].Enabled, "A preset must not enable an excluded face.");
                 foreach (var entry in component.Entries)
                 {
                     Assert.AreEqual(7, entry.TargetTriangleCount);
                     Assert.IsTrue(entry.Fixed);
                     Assert.AreEqual(MeshiaCascadingSimplificationAlgorithm.BlenderDecimate, entry.Algorithm);
+                    Assert.IsFalse(entry.DisableProtections);
+                    Assert.AreEqual(extreme ? MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultHandBones
+                        : MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones, entry.PreserveJointTransitionsBones);
                     Assert.AreEqual(.0005f, entry.Options.FaQem.MaxSurfaceDeviation);
+                    Assert.IsTrue(entry.Options.PreserveBorderEdges);
+                    Assert.IsTrue(entry.Options.FaQem.PreserveAttributeSeams);
+                    Assert.IsTrue(entry.Options.FaQem.ExperimentalUvEnabled);
                 }
                 Undo.FlushUndoRecordObjects(); Undo.PerformUndo();
                 Assert.AreEqual(before, EditorJsonUtility.ToJson(component));
@@ -93,6 +109,32 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 if (inspector != null) Object.DestroyImmediate(inspector);
                 Object.DestroyImmediate(root); LocalizationProvider.CurrentLocale = locale;
             }
+        }
+
+        [Test]
+        public void ExtremeRelaxesLimitsWithoutDisablingGeometryGuardsOrChangingDefaults()
+        {
+            var originalDefaults = MeshSimplifierOptions.Default;
+            var originalInitial = MeshSimplifierOptions.AvatarInitial;
+            var options = MeshSimplifierOptions.ExtremeAvatar;
+            Assert.AreEqual(.25f, options.SkinningProtection.Strength);
+            Assert.AreEqual(.25f, options.SkinningProtection.MaxWeightDistance);
+            Assert.AreEqual(.1f, options.SkinningProtection.MaxDiscardedWeight);
+            Assert.IsTrue(options.SkinningProtection.Resolve(true).Enabled);
+            Assert.IsTrue(options.SkinningProtection.PreserveJointTransitions);
+            Assert.AreEqual(MeshSimplifierOptions.ConservativeAvatar.FaQem.MaxSurfaceDeviation, options.FaQem.MaxSurfaceDeviation);
+            Assert.IsFalse(options.AllowUnsafeGeometry);
+            Assert.IsTrue(options.PreserveBorderEdges);
+            Assert.IsTrue(options.FaQem.PreserveAttributeSeams);
+            Assert.AreEqual(.2f, options.FaQem.MinNormalDot);
+            Assert.IsTrue(options.FaQem.ExperimentalUvEnabled);
+            Assert.IsTrue(options.FaQem.ExperimentalJointUv);
+            Assert.AreEqual(5000f, options.FaQem.ExperimentalUvWeight);
+            Assert.DoesNotThrow(() => options.SkinningProtection.Validate());
+            Assert.DoesNotThrow(() => options.FaQem.Validate());
+            Assert.AreEqual(originalDefaults, MeshSimplifierOptions.Default);
+            Assert.AreEqual(originalInitial, MeshSimplifierOptions.AvatarInitial);
+            Assert.AreEqual(2f, MeshSimplifierOptions.ConservativeAvatar.SkinningProtection.Strength);
         }
     }
 }

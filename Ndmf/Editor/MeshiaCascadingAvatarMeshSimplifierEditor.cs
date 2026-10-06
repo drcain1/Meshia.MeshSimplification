@@ -258,17 +258,24 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 RefreshBudgetGuidance(root);
             }).Every(500);
 
-            void ApplyProtectionPreset(bool aggressive)
+            void ApplyProtectionPreset(AvatarProtectionLevel level)
             {
                 serializedObject.ApplyModifiedProperties();
-                Undo.RecordObject(Target, aggressive ? Tr("Apply Aggressive Preset") : Tr("Apply Conservative Defaults to All Meshes"));
-                AvatarProtectionPreset.Apply(Target, aggressive);
+                var undoLabel = level switch
+                {
+                    AvatarProtectionLevel.Extreme => Tr("Apply Extreme Preset"),
+                    AvatarProtectionLevel.Aggressive => Tr("Apply Aggressive Preset"),
+                    _ => Tr("Apply Conservative Defaults to All Meshes"),
+                };
+                Undo.RecordObject(Target, undoLabel);
+                AvatarProtectionPreset.Apply(Target, level);
                 EditorUtility.SetDirty(Target);
                 serializedObject.Update();
                 entriesListView.Rebuild();
             }
-            root.Q<Button>("ConservativeDefaultsButton").clicked += () => ApplyProtectionPreset(false);
-            root.Q<Button>("AggressiveDefaultsButton").clicked += () => ApplyProtectionPreset(true);
+            root.Q<Button>("ConservativeDefaultsButton").clicked += () => ApplyProtectionPreset(AvatarProtectionLevel.Conservative);
+            root.Q<Button>("AggressiveDefaultsButton").clicked += () => ApplyProtectionPreset(AvatarProtectionLevel.Aggressive);
+            root.Q<Button>("ExtremeDefaultsButton").clicked += () => ApplyProtectionPreset(AvatarProtectionLevel.Extreme);
 
             var allMeshesAlgorithmField = root.Q<DropdownField>("AllMeshesAlgorithmField");
             var algorithms = (MeshiaCascadingSimplificationAlgorithm[])Enum.GetValues(typeof(MeshiaCascadingSimplificationAlgorithm));
@@ -488,7 +495,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 }
 
 
-                if(TryGetOriginalTriangleCount(entry, true, out var originalTriangleCount))
+                // Output is measured during the build. A preview proxy can already
+                // have triangles removed by other tools, so it is not the original.
+                originalTriangleCountField.tooltip = Tr("Source mesh triangles before preview or build processing.");
+                if(TryGetOriginalTriangleCount(entry, false, out var originalTriangleCount))
                 {
                     targetTriangleCountSlider.highValue = originalTriangleCount;
 

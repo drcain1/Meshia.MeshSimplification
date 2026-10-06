@@ -7,10 +7,12 @@ using UnityEngine;
 
 namespace Meshia.MeshSimplification.Ndmf.Editor
 {
+    internal enum AvatarProtectionLevel { Conservative, Aggressive, Extreme }
+
     /// <summary>One-time preset selection. It does not change build-time policy resolution.</summary>
     internal static class AvatarProtectionPreset
     {
-        internal static void Apply(MeshiaCascadingAvatarMeshSimplifier component, bool aggressive)
+        internal static void Apply(MeshiaCascadingAvatarMeshSimplifier component, AvatarProtectionLevel level)
         {
             var root = component.transform.parent != null ? component.transform.parent.gameObject : component.gameObject;
             var animator = root.GetComponent<Animator>();
@@ -30,8 +32,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
             foreach (var entry in component.Entries)
             {
-                var keepProtection = !aggressive || NeedsProtection(entry.GetTargetRenderer(component), handBones, handNames);
-                var options = MeshSimplifierOptions.ConservativeAvatar;
+                var keepProtection = level == AvatarProtectionLevel.Conservative ||
+                    NeedsProtection(entry.GetTargetRenderer(component), handBones, handNames);
+                var options = level == AvatarProtectionLevel.Extreme
+                    ? MeshSimplifierOptions.ExtremeAvatar : MeshSimplifierOptions.ConservativeAvatar;
                 if (!keepProtection)
                 {
                     options.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
@@ -40,7 +44,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 }
                 entry.DisableProtections = false;
                 entry.Options = options;
-                entry.PreserveJointTransitionsBones = MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones;
+                entry.PreserveJointTransitionsBones = level == AvatarProtectionLevel.Extreme
+                    ? MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultHandBones
+                    : MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones;
             }
         }
 

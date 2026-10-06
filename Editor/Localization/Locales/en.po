@@ -617,8 +617,8 @@ msgstr "Preserves vertices where the strongest bone influence changes, plus thei
 msgid "Automatically protect deforming meshes"
 msgstr "Automatically protect deforming meshes"
 
-msgid "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh."
-msgstr "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh."
+msgid "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh. Turn this off to choose protection manually."
+msgstr "Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh. Turn this off to choose protection manually."
 
 msgid "This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections."
 msgstr "This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections."
@@ -1157,3 +1157,15 @@ msgstr "Choose a strength preset, or enter a custom value beside it."
 
 msgid "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
 msgstr "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
+
+msgid "Source mesh triangles before preview or build processing."
+msgstr "Source mesh triangles before preview or build processing."
+
+msgid "Extreme"
+msgstr "Extreme"
+
+msgid "Apply Extreme Preset"
+msgstr "Apply Extreme Preset"
+
+msgid "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra joint protection around hands and fingers. Keeps your triangle targets and mesh selection. Supports Undo."
+msgstr "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra joint protection around hands and fingers. Keeps your triangle targets and mesh selection. Supports Undo."

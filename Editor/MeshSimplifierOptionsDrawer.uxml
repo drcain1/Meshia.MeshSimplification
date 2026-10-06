@@ -16,7 +16,7 @@
     </ui:VisualElement>
     <ui:HelpBox name="UvFallbackProtectionHelp" message-type="Info" text="Bone-weight protection applies only to the Blender Decimate fallback. UV loop removal uses its own built-in guards." />
     <ui:Foldout text="Skinning Protection" name="SkinningProtectionGroup">
-        <ui:Toggle label="Automatically protect deforming meshes" name="SkinningProtectionAuto" tooltip="Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh." />
+        <ui:Toggle label="Automatically protect deforming meshes" name="SkinningProtectionAuto" tooltip="Protects each mesh using multiple bones, including clothing and custom rigs. Does not require a unique body mesh. Turn this off to choose protection manually." />
         <ui:HelpBox name="LegacyAutomaticProtectionHelp" message-type="Info" text="This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections." style="display:none" />
         <ui:Toggle label="Protect joint deformation" name="SkinningProtectionEnabled" tooltip="Manual override. Preserves skin-weight transitions near moving joints at the cost of fewer available collapses." />
         <uie:PropertyField binding-path="SkinningProtection.Policy" name="SkinningProtectionPolicyField" style="display:none" />

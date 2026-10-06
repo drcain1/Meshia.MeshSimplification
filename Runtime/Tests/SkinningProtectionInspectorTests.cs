@@ -44,6 +44,10 @@ namespace Meshia.MeshSimplification.Tests
                     Assert.That(root.Q<Toggle>("SkinningProtectionAuto").value, Is.EqualTo(policy == SkinningProtectionPolicy.Auto || policy == SkinningProtectionPolicy.AutoDeforming));
                     Assert.That(root.Q<Toggle>("SkinningProtectionEnabled").value,
                         Is.EqualTo(policy == SkinningProtectionPolicy.On || (policy == SkinningProtectionPolicy.Legacy && enabled)));
+                    var automatic = policy == SkinningProtectionPolicy.Auto || policy == SkinningProtectionPolicy.AutoDeforming;
+                    Assert.That(root.Q<Toggle>("SkinningProtectionEnabled").style.display.value,
+                        Is.EqualTo(automatic ? DisplayStyle.None : DisplayStyle.Flex),
+                        "The manual override must not look like an inactive protection status in Auto mode.");
                     root.Unbind();
                 }
             }
@@ -78,6 +82,7 @@ namespace Meshia.MeshSimplification.Tests
                 automatic.value = true;
                 Assert.That(host.Options.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.AutoDeforming));
                 Assert.That(manual.enabledSelf, Is.False);
+                Assert.That(manual.style.display.value, Is.EqualTo(DisplayStyle.None));
                 Undo.FlushUndoRecordObjects();
                 Undo.PerformUndo();
                 // UI Toolkit's serialized tracking is throttled independently
@@ -88,6 +93,7 @@ namespace Meshia.MeshSimplification.Tests
                 Assert.That(automatic.value, Is.False);
                 Assert.That(manual.value, Is.True);
                 Assert.That(manual.enabledSelf, Is.True);
+                Assert.That(manual.style.display.value, Is.EqualTo(DisplayStyle.Flex));
                 manual.value = false;
                 Assert.That(host.Options.SkinningProtection.Policy, Is.EqualTo(SkinningProtectionPolicy.Off));
                 Assert.That(host.Options.SkinningProtection.Enabled, Is.False);
