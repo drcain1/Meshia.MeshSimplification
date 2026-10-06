@@ -119,6 +119,26 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.1.3-beta.5` refines Extreme: it retains the default limb and hand
+joint-vertex selection, including elbows and knees, and allows a surface deviation
+of 0.001 away from protected vertices. Its lighter bone-weight limits remain
+unchanged. Apply Extreme again to use the revised preset on existing entries;
+saved settings are not migrated automatically. English and Japanese descriptions
+explain the revised behavior.
+
+When Prefabulous Generate Twist Bones opts into the Optimizing phase, build order
+is explicitly Meshia, then twist generation, then Avatar Optimizer. Prefabulous
+remains optional and its earlier phases are unaffected. This ordering does not
+fix rig-specific twist deformation or guarantee compatibility with existing
+twist-bone weights.
+
+Validation: all 341 Meshia EditMode tests passed locally in Unity 2022.3.22f1,
+with zero failures or skips, including Extreme joint preservation and optional
+plugin ordering. All 12 distribution tests and release prerequisites passed.
+Representative local NDMF builds completed successfully. No fresh in-game
+confirmation of the packaged beta or guaranteed triangle budget is claimed.
+Hosted Unity jobs may skip without license credentials; local tests are separate.
+
 Version `1.1.3-beta.4` adds an explicit Extreme protection preset for further
 reduction. It retains conservative surface, border, seam, face-flip and texture
 protection, with lighter bone-weight limits and joint-vertex protection focused
