@@ -119,6 +119,36 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.1.3-beta.6` prepares supported AAO Remove Mesh By BlendShape cuts
+before FA-QEM simplification so Preserve Border Edges can retain the new cut
+boundaries. This requires AAO 1.9+, non-inverted selection, and clamped
+interpolation. MA visibility boundaries are protected independently of the
+deformation preset. Stock AAO and MA packages are supported without modification.
+
+Experimental overlap protection limits local shape changes on both meshes near
+close-fitting clothing openings over supported cuts. Preview, build output, and
+measurement trials share the resolved protection. This is reference-pose surface
+protection, not collision prevention: clipping during joint bends or between
+nearby clothing layers remains possible. The separate knee-deformation and tie
+diagnostic experiments are not included in this release.
+
+Aggressive now uses the previous Extreme baseline; Extreme allows additional
+surface deviation on meshes outside the deformation-protected selection.
+Existing settings change only when a preset is applied. Budget adjustment
+accounts for the changed cut order and handles protection plateaus more robustly;
+new protections can retain extra triangles, so fitting the budget is not guaranteed.
+Empty cut meshes and implicit single-weight visibility data are handled safely.
+English and Japanese documentation explains the supported cases and limits.
+
+Validation: 359 Meshia EditMode tests passed in Unity 2022.3.22f1 with stock
+AAO 1.9.20 and MA 1.18.7. Without AAO, 352 passed and seven AAO tests were skipped.
+All 12 distribution tests and release prerequisites passed. Representative NDMF
+analysis preserved all 797 measured body boundary positions and left original
+component settings unchanged; its final measured count remained 338 above a
+70,000 target. Static and bent-pose diagnostics identified the remaining clipping
+limitations. No complete in-game clearance or fresh VCC/ALCOM installation of
+this beta is claimed. Hosted Unity license-dependent jobs are separate evidence.
+
 Version `1.1.3-beta.5` refines Extreme: it retains the default limb and hand
 joint-vertex selection, including elbows and knees, and allows a surface deviation
 of 0.001 away from protected vertices. Its lighter bone-weight limits remain
