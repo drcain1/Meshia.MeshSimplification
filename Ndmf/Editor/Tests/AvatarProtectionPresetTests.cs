@@ -78,11 +78,12 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Undo.IncrementCurrentGroup();
                 typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(button.clickable, new object[] { null, 0 });
-                var protectedOptions = extreme ? MeshSimplifierOptions.ExtremeAvatar : MeshSimplifierOptions.ConservativeAvatar;
+                var protectedOptions = MeshSimplifierOptions.ExtremeAvatar;
                 var geometryOptions = protectedOptions;
                 geometryOptions.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
                 geometryOptions.SkinningProtection.Enabled = false;
                 geometryOptions.SkinningProtection.PreserveJointTransitions = false;
+                if (extreme) geometryOptions.FaQem.MaxSurfaceDeviation = .002f;
                 Assert.AreEqual(protectedOptions, component.Entries[0].Options);
                 Assert.AreEqual(geometryOptions, component.Entries[1].Options);
                 Assert.AreEqual(protectedOptions, component.Entries[2].Options);
@@ -101,7 +102,8 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                             Assert.AreNotEqual(0ul, entry.PreserveJointTransitionsBones & (1ul << (int)bone),
                                 "Reduction presets must retain elbow, knee, wrist and ankle coverage.");
                     }
-                    Assert.AreEqual(extreme ? .001f : .0005f, entry.Options.FaQem.MaxSurfaceDeviation);
+                    Assert.AreEqual(extreme && entry.Options.SkinningProtection.Policy == SkinningProtectionPolicy.Off
+                        ? .002f : .001f, entry.Options.FaQem.MaxSurfaceDeviation);
                     Assert.IsTrue(entry.Options.PreserveBorderEdges);
                     Assert.IsTrue(entry.Options.FaQem.PreserveAttributeSeams);
                     Assert.IsTrue(entry.Options.FaQem.ExperimentalUvEnabled);
@@ -115,6 +117,49 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 if (inspector != null) Object.DestroyImmediate(inspector);
                 Object.DestroyImmediate(root); LocalizationProvider.CurrentLocale = locale;
             }
+        }
+
+        [Test]
+        public void ChangingPresetBackRestoresTighterLimitsWithoutChangingAllocations()
+        {
+            var root = new GameObject("Preset progression", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            foreach (var name in new[] { "Outfit", "Hair_front" })
+            {
+                var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                cube.name = name;
+                cube.transform.SetParent(root.transform);
+            }
+            var holder = new GameObject("Settings");
+            holder.transform.SetParent(root.transform);
+            var component = holder.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false;
+            component.RefreshEntries();
+            try
+            {
+                foreach (var entry in component.Entries)
+                {
+                    entry.TargetTriangleCount = 7;
+                    entry.Fixed = true;
+                }
+                AvatarProtectionPreset.Apply(component, AvatarProtectionLevel.Extreme);
+                Assert.AreEqual(.002f, component.Entries[0].Options.FaQem.MaxSurfaceDeviation);
+                Assert.AreEqual(.001f, component.Entries[1].Options.FaQem.MaxSurfaceDeviation);
+                Assert.IsTrue(component.Entries[1].Options.SkinningProtection.PreserveJointTransitions);
+
+                AvatarProtectionPreset.Apply(component, AvatarProtectionLevel.Aggressive);
+                Assert.AreEqual(.001f, component.Entries[0].Options.FaQem.MaxSurfaceDeviation);
+                Assert.AreEqual(.001f, component.Entries[1].Options.FaQem.MaxSurfaceDeviation);
+                Assert.AreEqual(SkinningProtectionPolicy.Off, component.Entries[0].Options.SkinningProtection.Policy);
+
+                AvatarProtectionPreset.Apply(component, AvatarProtectionLevel.Conservative);
+                foreach (var entry in component.Entries)
+                {
+                    Assert.AreEqual(MeshSimplifierOptions.ConservativeAvatar, entry.Options);
+                    Assert.AreEqual(7, entry.TargetTriangleCount);
+                    Assert.IsTrue(entry.Fixed);
+                }
+            }
+            finally { Object.DestroyImmediate(root); }
         }
 
         [Test]

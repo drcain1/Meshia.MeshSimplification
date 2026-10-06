@@ -34,13 +34,17 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             {
                 var keepProtection = level == AvatarProtectionLevel.Conservative ||
                     NeedsProtection(entry.GetTargetRenderer(component), handBones, handNames);
-                var options = level == AvatarProtectionLevel.Extreme
-                    ? MeshSimplifierOptions.ExtremeAvatar : MeshSimplifierOptions.ConservativeAvatar;
+                // Aggressive takes the former Extreme baseline. Extreme adds more
+                // surface freedom only outside the deformation-protected selection.
+                var options = level == AvatarProtectionLevel.Conservative
+                    ? MeshSimplifierOptions.ConservativeAvatar : MeshSimplifierOptions.ExtremeAvatar;
                 if (!keepProtection)
                 {
                     options.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
                     options.SkinningProtection.Enabled = false;
                     options.SkinningProtection.PreserveJointTransitions = false;
+                    if (level == AvatarProtectionLevel.Extreme)
+                        options.FaQem.MaxSurfaceDeviation = .002f;
                 }
                 entry.DisableProtections = false;
                 entry.Options = options;

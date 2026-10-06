@@ -765,8 +765,8 @@ msgstr "積極的プリセットを適用"
 msgid "Apply conservative protection to all meshes. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
 msgstr "全メッシュに保守的な保護設定を適用します。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
 
-msgid "Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
-msgstr "検出した手・髪・顔の名前を持つメッシュには変形の保護を適用し、それ以外はオフにします。境界・継ぎ目・表面の保護は保守的な設定を維持します。判定は完全ではないため、ポーズと服を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
+msgid "Reduce more while keeping extra protection on detected hands, hair, and face meshes. Check bent poses and clothing after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+msgstr "検出した手・髪・顔のメッシュの追加保護を維持しながら、さらに削減します。適用後は曲げたポーズと服の見た目を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
 
 msgid "Allocated triangles (including excluded meshes): {0:N0} / {1:N0}"
 msgstr "配分三角形数（対象外メッシュを含む）: {0:N0} / {1:N0}"
@@ -1162,5 +1162,5 @@ msgstr "強力"
 msgid "Apply Extreme Preset"
 msgstr "強力プリセットを適用"
 
-msgid "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra protection around bending joints, including elbows and knees. Keeps your triangle targets and mesh selection. Supports Undo."
-msgstr "表面・継ぎ目・テクスチャの保護を維持しながら、さらに削減しやすくします。肘・膝など、曲げる関節付近は引き続き保護します。三角形数の目標と対象メッシュは変えません。元に戻せます。"
+msgid "Allow the most reduction on other meshes while keeping tighter limits on meshes selected for deformation protection. Check shapes and clothing edges after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+msgstr "変形保護の対象メッシュには厳しめの上限を残し、それ以外を最も大きく削減します。適用後は形状と服の縁を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
