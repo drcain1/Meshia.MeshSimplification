@@ -32,6 +32,30 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             foreach (var root in context.GetAvatarRoots())
             {
                 if (context.ActiveInHierarchy(root) is false) continue;
+                var components = context.GetComponentsInChildren<MeshiaCascadingAvatarMeshSimplifier>(root, true)
+                    .Where(c => context.Observe(c.gameObject, g => g.activeInHierarchy)).ToArray();
+                var renderers = context.GetComponentsInChildren<Renderer>(root, true)
+                    .Where(r => r is MeshRenderer or SkinnedMeshRenderer && RendererUtility.GetMesh(r) != null).ToArray();
+                var hasCuts = false;
+                foreach (var renderer in renderers)
+                {
+                    var mesh = RendererUtility.GetRequiredMesh(renderer);
+                    context.Observe(renderer); context.Observe(mesh);
+                    using var prepared = CutMeshPreparation.Prepare(renderer, mesh,
+                        new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = mesh.GetTriangleCount() },
+                        MeshSimplifierOptions.Default, context);
+                    hasCuts |= prepared.Changed;
+                }
+                if (hasCuts && components.Length > 0)
+                {
+#if ENABLE_NDMF_EXPLICIT_RENDER_GROUP_EQUALITY
+                    groups.Add(RenderGroup.For(renderers).WithData((components[0], -1),
+                        EqualityComparer<(MeshiaCascadingAvatarMeshSimplifier, int)>.Default));
+#else
+                    groups.Add(RenderGroup.For(renderers).WithData((components[0], -1)));
+#endif
+                    continue;
+                }
                 foreach (var component in context.GetComponentsInChildren<MeshiaCascadingAvatarMeshSimplifier>(root, true))
                 {
                     var componentEnabled = context.Observe(component.gameObject, g => g.activeInHierarchy);
@@ -51,12 +75,33 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             }
             return groups.ToImmutableList();
         }
+
+        private static (MeshiaCascadingAvatarMeshSimplifier?, int) FindGroupedTarget(ComputeContext context, Renderer renderer)
+        {
+            var root = context.GetAvatarRoot(renderer.gameObject);
+            foreach (var component in context.GetComponentsInChildren<MeshiaCascadingAvatarMeshSimplifier>(root, true))
+            {
+                if (!context.Observe(component.gameObject, g => g.activeInHierarchy)) continue;
+                context.Observe(component);
+                var index = component.Entries.FindIndex(e => e.Enabled && e.IsValid(component) && e.GetTargetRenderer(component) == renderer);
+                if (index >= 0) return (component, index);
+            }
+            return (null, -1);
+        }
+
+        protected override bool IncludesRenderer(ComputeContext context, RenderGroup group, Renderer original)
+            => group.GetData<(MeshiaCascadingAvatarMeshSimplifier, int)>().Item2 >= 0 || FindGroupedTarget(context, original).Item2 >= 0;
         
         protected override (MeshSimplificationTarget, MeshSimplifierOptions, BitArray?) QueryTarget(ComputeContext context, RenderGroup group, Renderer original, Renderer proxy)
         {
             var data = group.GetData<(MeshiaCascadingAvatarMeshSimplifier, int)>();
             var component = data.Item1;
             var index = data.Item2;
+            if (index < 0)
+            {
+                var resolved = FindGroupedTarget(context, original);
+                component = resolved.Item1!; index = resolved.Item2;
+            }
 
             var cascadingTarget = context.Observe(component, c => c.Entries[index] with { }, (a, b) => a.Equals(b));
             var proxyMesh = RendererUtility.GetRequiredMesh(proxy);

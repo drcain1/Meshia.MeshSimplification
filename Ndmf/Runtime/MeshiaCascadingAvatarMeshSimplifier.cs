@@ -223,6 +223,8 @@ namespace Meshia.MeshSimplification.Ndmf
     {
         public AvatarObjectReference RendererObjectReference;
         public int TargetTriangleCount;
+        // Records a successful conversion from allocations made before permanent cut preparation.
+        [HideInInspector] public int CutBudgetVersion;
         // Preserve the legacy value when deserializing data without an algorithm field.
         // Newly created entries select FA-QEM in the renderer constructor below.
         public MeshiaCascadingSimplificationAlgorithm Algorithm = MeshiaCascadingSimplificationAlgorithm.BlenderDecimate;

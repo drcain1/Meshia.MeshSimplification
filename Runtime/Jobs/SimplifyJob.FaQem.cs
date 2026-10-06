@@ -14,6 +14,9 @@ namespace Meshia.MeshSimplification
 
         const byte FaQemDeformableDegenerateVertex = 2;
         const byte FaQemJointTransitionVertex = 4;
+        const byte FaQemCutOverlapVertex = 16;
+        // Match the conservative surface limit locally, without weakening tighter user settings.
+        const double FaQemCutOverlapTolerance = .0005d;
 
         struct FaQemCandidate : IComparable<FaQemCandidate>
         {
@@ -68,13 +71,22 @@ namespace Meshia.MeshSimplification
                 }
             if (RecordFaQemCounts) FaQemTriangleCounts.Add(TriangleCount);
             InitializeFaQemJointTransitions(seamFlags);
+            InitializeFaQemVisibilityBoundaries(seamFlags);
+            if (!Options.AllowUnsafeGeometry && Options.PreserveBorderEdges)
+            {
+                var ranges = Options.CutOverlapVertexRanges;
+                for (var i = 0; i + 1 < ranges.Length; i += 2)
+                    for (var v = math.max(0, ranges[i]); v < math.min(seamFlags.Length, ranges[i + 1]); v++)
+                        seamFlags.ElementAt(v) |= FaQemCutOverlapVertex;
+            }
             InitializeFaQemSourceQuadrics(sourceQuadrics, center, scale, settings);
             using var uvQuadrics = new NativeArray<FaQemUvQuadric>(
                 settings.ExperimentalUvEnabled && settings.ExperimentalUvWeight > 0 && VertexTexCoord0Buffer.Length != 0 ? VertexPositionBuffer.Length : 0,
                 Allocator.Temp, NativeArrayOptions.ClearMemory);
             if (uvQuadrics.Length != 0) InitializeFaQemUvQuadrics(uvQuadrics, center, scale);
             using var envelope = new FaQemSurfaceEnvelope(VertexPositionBuffer, Triangles, DiscardedTriangle,
-                center, scale, settings.MaxSurfaceDeviation);
+                center, scale, settings.MaxSurfaceDeviation > 0 ? settings.MaxSurfaceDeviation :
+                    Options.CutOverlapVertexRanges.Length > 0 ? double.PositiveInfinity : 0);
             InitializeFaQemSeamFlags(seamFlags, settings.PreserveAttributeSeams, scale);
             UseFaQem = true;
             using var revisions = new NativeArray<int>(VertexPositionBuffer.Length, Allocator.Temp, NativeArrayOptions.ClearMemory);
@@ -94,11 +106,12 @@ namespace Meshia.MeshSimplification
                         IsFaQemProtected(candidate.A, candidate.B, seamFlags, settings) ||
                         (candidate.SolvedUv && !IsFaQemJointUvValid(new int2(candidate.A, candidate.B), candidate.Uv)) ||
                         !IsSkinningCollapseValid(candidate.A, candidate.B, candidate.Position, out _, (float)scale) ||
-                        !IsFaQemPlacementValid(candidate, settings, center, scale, envelope)) continue;
+                        !IsFaQemPlacementValid(candidate, settings, center, scale, envelope, seamFlags)) continue;
 
                     RecordFaQemCollapse(candidate);
                     var survivor = candidate.A;
                     var removed = candidate.B;
+                    seamFlags.ElementAt(survivor) |= (byte)(seamFlags[removed] & FaQemCutOverlapVertex);
                     affectedVertices.Clear();
                     CollectFaQemStarVertices(survivor, affectedVertices);
                     CollectFaQemStarVertices(removed, affectedVertices);
@@ -336,7 +349,7 @@ namespace Meshia.MeshSimplification
             // Keep the paper's optimal placement when valid. If the optional
             // envelope rejects it, try endpoints and midpoint before giving up.
             // Queue the alternative at its actual cost, not the rejected cost.
-            for (var attempt = 0; attempt < (settings.MaxSurfaceDeviation > 0f ? 4 : 1); attempt++)
+            for (var attempt = 0; attempt < (settings.MaxSurfaceDeviation > 0f || Options.CutOverlapVertexRanges.Length > 0 ? 4 : 1); attempt++)
             {
                 var position = attempt == 0 ? optimal : attempt == 1 ? a : attempt == 2 ? b : (a + b) * 0.5d;
                 var cost = q.Evaluate(position);
@@ -355,7 +368,7 @@ namespace Meshia.MeshSimplification
                     cost += Options.SkinningProtection.Strength * skinningPenalty * skinningPenalty;
                 if (!math.isfinite(cost) || !math.all(math.isfinite(world))) continue;
                 var candidate = new FaQemCandidate { A = edge.x, B = edge.y, RevisionA = revisions[edge.x], RevisionB = revisions[edge.y], Position = world, Cost = math.max(0d, cost) };
-                if (settings.MaxSurfaceDeviation > 0f && !IsFaQemPlacementValid(candidate, settings, center, scale, envelope)) continue;
+                if ((settings.MaxSurfaceDeviation > 0f || Options.CutOverlapVertexRanges.Length > 0) && !IsFaQemPlacementValid(candidate, settings, center, scale, envelope, seamFlags)) continue;
                 if (candidate.Cost < best.Cost) best = candidate;
                 if (attempt == 0) break;
             }
@@ -384,7 +397,7 @@ namespace Meshia.MeshSimplification
                             RevisionA = revisions[edge.x], RevisionB = revisions[edge.y], Position = world,
                             Uv = (float2)jointUv, SolvedUv = true, Cost = math.max(0d, cost) };
                         if (math.isfinite(cost) && candidate.Cost < best.Cost &&
-                            IsFaQemPlacementValid(candidate, settings, center, scale, envelope)) best = candidate;
+                            IsFaQemPlacementValid(candidate, settings, center, scale, envelope, seamFlags)) best = candidate;
                     }
                 }
             }
@@ -464,7 +477,9 @@ namespace Meshia.MeshSimplification
 
         readonly bool IsFaQemProtected(int a, int b, NativeArray<byte> seamFlags, FaQemOptions settings)
         {
+            if (((seamFlags[a] | seamFlags[b]) & FaQemVisibilityBoundaryVertex) != 0) return true;
             if (Options.AllowUnsafeGeometry) return false;
+            // Contact faces use a tighter local envelope, allowing safe in-surface reduction.
             if (((seamFlags[a] | seamFlags[b]) & (FaQemDeformableDegenerateVertex | FaQemJointTransitionVertex)) != 0) return true;
             if (IsFaQemPreservedBoundary(a) || IsFaQemPreservedBoundary(b)) return true;
             if (VertexContainingSubMeshIndices.Length == VertexPositionBuffer.Length && VertexContainingSubMeshIndices[a] != VertexContainingSubMeshIndices[b]) return true;
@@ -500,7 +515,7 @@ namespace Meshia.MeshSimplification
 
         readonly bool IsFaQemSeamVertex(int vertex, NativeArray<byte> seamFlags)
         {
-            return seamFlags.Length == VertexPositionBuffer.Length && seamFlags[vertex] != 0;
+            return seamFlags.Length == VertexPositionBuffer.Length && (seamFlags[vertex] & 1) != 0;
         }
 
         void InitializeFaQemSeamFlags(NativeArray<byte> flags, bool enabled, double scale)
@@ -529,18 +544,20 @@ namespace Meshia.MeshSimplification
         }
 
         readonly bool IsFaQemPlacementValid(FaQemCandidate candidate, FaQemOptions settings, double3 center, double scale,
-            FaQemSurfaceEnvelope envelope)
+            FaQemSurfaceEnvelope envelope, NativeArray<byte> seamFlags)
         {
             if (!math.all(math.isfinite(candidate.Position))) return false;
             if (Options.AllowUnsafeGeometry) return true;
-            if (!envelope.Contains(((double3)candidate.Position - center) / scale)) return false;
+            var localEnvelope = ((seamFlags[candidate.A] | seamFlags[candidate.B]) & FaQemCutOverlapVertex) != 0
+                ? envelope.WithTolerance(FaQemCutOverlapTolerance) : envelope;
+            if (!localEnvelope.Contains(((double3)candidate.Position - center) / scale)) return false;
             var merge = new VertexMerge { VertexAIndex = candidate.A, VertexBIndex = candidate.B, Position = candidate.Position };
-            return !WillFaQemFlip(merge, candidate.A, candidate.B, settings.MinNormalDot, center, scale, envelope) &&
-                   !WillFaQemFlip(merge, candidate.B, candidate.A, settings.MinNormalDot, center, scale, envelope);
+            return !WillFaQemFlip(merge, candidate.A, candidate.B, settings.MinNormalDot, center, scale, envelope, seamFlags) &&
+                   !WillFaQemFlip(merge, candidate.B, candidate.A, settings.MinNormalDot, center, scale, envelope, seamFlags);
         }
 
         readonly bool WillFaQemFlip(VertexMerge merge, int vertex, int opponent, float minNormalDot, double3 center, double scale,
-            FaQemSurfaceEnvelope envelope)
+            FaQemSurfaceEnvelope envelope, NativeArray<byte> seamFlags)
         {
             foreach (var ti in VertexContainingTriangles.GetValuesForKey(vertex))
             {
@@ -560,10 +577,12 @@ namespace Meshia.MeshSimplification
                 // Checking only the replacement vertex misses new triangles
                 // that cut across a curved source surface. This is a sampled
                 // one-sided envelope, not a continuous collision guarantee.
-                if (!envelope.Contains((merged + p1) * 0.5d) ||
-                    !envelope.Contains((merged + p2) * 0.5d) ||
-                    !envelope.Contains((p1 + p2) * 0.5d) ||
-                    !envelope.Contains((merged + p1 + p2) / 3d)) return true;
+                var faceEnvelope = ((seamFlags[vertex] | seamFlags[opponent] | seamFlags[i1] | seamFlags[i2]) & FaQemCutOverlapVertex) != 0
+                    ? envelope.WithTolerance(FaQemCutOverlapTolerance) : envelope;
+                if (!faceEnvelope.Contains((merged + p1) * 0.5d) ||
+                    !faceEnvelope.Contains((merged + p2) * 0.5d) ||
+                    !faceEnvelope.Contains((p1 + p2) * 0.5d) ||
+                    !faceEnvelope.Contains((merged + p1 + p2) / 3d)) return true;
             }
             return false;
         }

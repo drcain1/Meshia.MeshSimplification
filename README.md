@@ -134,6 +134,18 @@ Changing algorithms, including through **Algorithm for All Meshes**, retains eac
 
 **Boundary Weight** and **Swept Area Weight** discourage boundary movement but do not lock borders. Likewise, **Lock Coincident Split Vertices** protects coincident split vertices, not every open edge. Keep **Preserve Border Edges** enabled when exact open-boundary retention is required, and check this setting on older entries. Border, seam, and skinning protection can leave fewer legal collapses and prevent reaching an aggressive triangle target.
 
+##### Protecting edges created by AAO and Modular Avatar
+
+Keep **Preserve Border Edges** enabled on body meshes cut away under clothing. With FA-QEM, Meshia prepares supported AAO **Remove Mesh By BlendShape** cuts before simplifying, so the new cut edges receive the same protection as existing openings. This prevents simplification from moving the cut into nearby visible skin. The source mesh and cutter settings are unchanged.
+
+This preparation requires AAO **1.9 or later**, a normal (not inverted) selection, and the default clamped interpolation. Other AAO removal types and algorithms continue through their existing build paths. Permanent cuts already made by Modular Avatar are also treated as open borders. For toggleable MA cuts, Meshia protects the visibility transitions independently of the deformation preset, so reducing bone-weight protection does not merge visible and hidden regions. This compatibility is tested with stock MA **1.18.7**; it requires no modified AAO or MA package.
+
+**Close-fitting clothing openings:** when another mesh covers a supported AAO cut, Meshia also checks the overlap near that clothing's physical opening. With **Preserve Border Edges** enabled on the affected meshes, it applies a tighter surface limit to both sides of that small area. The area can still simplify; the rest of each mesh keeps its selected settings. This helps prevent skin poking through a stocking or sleeve after the two meshes simplify differently. Texture seams do not count as clothing openings, and stricter user surface limits remain in force. Preview, builds, and measured output calculations use the same resolved protection.
+
+This overlap handling is experimental. It uses the build's reference pose and sampled surface limits; it is not a guarantee against clipping in every pose or outfit state. It can retain additional triangles. Check bent joints, blendshapes, and outfit toggles before uploading.
+
+After updating an avatar that already uses these AAO cuts, run **Analyze Build**. Its first successful automatic adjustment accounts for the triangles that survived the old cut order when setting the reduction limit for affected meshes. Other meshes keep their normal adjustment limits. Protected edges and overlap areas can retain more triangles, so reaching the requested total is not guaranteed. Check the cut in bent poses and with each outfit toggle before uploading.
+
 ##### Preserving finger and joint shape
 
 FA-QEM offers **Preserve Vertices Near Joints** for joints that lose their shape when bent. It keeps the original vertices where the strongest bone influence changes, together with one neighboring ring. The rest of the mesh can still simplify; this does not preserve the entire hand or finger.
@@ -360,6 +372,18 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 **Algorithm for All Meshes** を含むアルゴリズム変更では、各項目の境界設定を保持します。**Reset Options** は初期設定に戻すため、境界保持がオンになります。既存の保存済み項目は、オフに設定されている場合も含めて自動変更されません。C# から直接呼び出す場合も共通の初期値はオンです。境界を固定せずに削減したい場合は、明示的に無効にしてください。
 
 **境界の重み（Boundary Weight）** と **境界移動面積の重み（Swept Area Weight）** は境界の移動を抑える評価項目であり、境界を固定する設定ではありません。**同じ位置にある分離頂点の固定（Lock Coincident Split Vertices）** も同じ位置にある分離頂点を保護するもので、開いた境界すべてを保護するものではありません。境界を厳密に維持したい場合は **Preserve Border Edges** を有効にし、古い項目の設定も確認してください。境界、シーム、ボーンによる変形の保護によって有効な統合候補が減り、厳しい三角形数の目標に達しない場合があります。
+
+##### AAO・Modular Avatar による切り口の保護
+
+衣装の下を切り取る素体メッシュでは、**Preserve Border Edges** を有効にしてください。FA-QEM では、対応する AAO **Remove Mesh By BlendShape** の削除を軽量化より先に作業用メッシュへ反映します。これにより、新しい切り口にも既存の開いた境界と同じ保護が働き、軽量化によって削除範囲が近くの見える肌まで広がるのを防ぎます。元のメッシュやカッターの設定は変更しません。
+
+この事前処理は、AAO **1.9 以降**、反転していない選択、既定の補間方式で利用できます。その他の AAO 削除方式やアルゴリズムは従来のビルド処理を使います。Modular Avatar が先に削除した部分の切り口も、開いた境界として保護します。MA で表示を切り替える削除では、変形保護のプリセットとは別に表示・非表示の境界を保護するため、ボーンウェイト保護を緩めても両領域が統合されません。通常配布の MA **1.18.7** で互換性を検証しており、AAO・MA の改造版は不要です。
+
+**肌に近い衣装の開口部：** 対応する AAO の切り口を別のメッシュが覆っている場合、衣装の開口部付近で重なっている範囲も確認します。対象メッシュの **Preserve Border Edges** がオンなら、その狭い範囲の両側に、より厳しい表面のずれの制限を適用します。この範囲も軽量化でき、その他の部分は選択した設定を維持します。素体と衣装が異なる形に軽量化されたとき、ストッキングや袖から肌が突き抜けるのを抑えるための処理です。テクスチャのシームは開口部として扱わず、ユーザーが設定した制限のほうが厳しい場合は、その制限を維持します。プレビュー、ビルド、出力数の計測には同じ保護条件を使います。
+
+この重なりの保護は実験的な機能です。ビルド時の基準ポーズと表面のサンプリングによる制限を使うため、すべてのポーズや衣装の状態で突き抜けを防ぐことを保証するものではありません。残る三角形数が増える場合があります。アップロード前に、関節を曲げた状態、ブレンドシェイプ、衣装の切り替えを確認してください。
+
+これらの AAO 削除を設定済みのアバターを更新したら、**ビルドを解析** を実行してください。初めて自動調整が成功する際、対象メッシュの削減上限は従来の処理順で削除後に残っていた三角形数も考慮します。他のメッシュの調整上限は維持します。境界や重なりの保護によって残る三角形数が増える場合があり、目標数への到達を保証するものではありません。アップロード前に、関節を曲げた状態と各衣装の切り替えで切り口を確認してください。
 
 ##### 目標数の確認と、さらに削減する方法
 

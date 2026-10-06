@@ -3,7 +3,10 @@
     "rootNamespace": "Meshia.MeshSimplification.Ndmf.Editor.Aao",
     "references": [
         "Meshia.MeshSimplification.Ndmf.Editor",
-        "com.anatawa12.avatar-optimizer.api.editor"
+        "com.anatawa12.avatar-optimizer.api.editor",
+        "Meshia.MeshSimplification.Runtime",
+        "com.anatawa12.avatar-optimizer.runtime",
+        "nadena.dev.ndmf"
     ],
     "includePlatforms": [
         "Editor"
@@ -27,6 +30,11 @@
             "name": "nadena.dev.modular-avatar",
             "expression": "",
             "define": "ENABLE_MODULAR_AVATAR"
+        },
+        {
+            "name": "com.anatawa12.avatar-optimizer",
+            "expression": "1.9.0",
+            "define": "ENABLE_AAO_CUT_PREPARATION"
         }
     ],
     "noEngineReferences": false

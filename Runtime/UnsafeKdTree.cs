@@ -24,6 +24,7 @@ namespace Meshia.MeshSimplification
         public void Initialize(ReadOnlySpan<float3> points)
         {
             Nodes.Clear();
+            if (points.Length == 0) return;
 
             if (Nodes.Capacity < points.Length)
             {
@@ -102,6 +103,7 @@ namespace Meshia.MeshSimplification
 
         public void QueryPointsInSphere(ReadOnlySpan<float3> points, float3 center, float radius, ref UnsafeList<int> results)
         {
+            if (Nodes.Length == 0) return;
             QueryPointsInSphere(points, 0, center, radius, ref results);
         }
         void QueryPointsInSphere(ReadOnlySpan<float3> points, int nodeIndex, float3 center, float radius, ref UnsafeList<int> results)

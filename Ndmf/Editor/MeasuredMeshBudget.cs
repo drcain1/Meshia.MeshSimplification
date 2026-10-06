@@ -122,6 +122,16 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
     internal static class MeasuredMeshBudget
     {
+        internal static void RebaseCutBudgets(int[] targets, int[] outputs, IReadOnlyDictionary<int, int> survivingOutputs)
+        {
+            foreach (var pair in survivingOutputs)
+            {
+                if (pair.Key < 0 || pair.Key >= targets.Length || pair.Key >= outputs.Length || pair.Value < 0) continue;
+                targets[pair.Key] = Math.Min(targets[pair.Key], pair.Value);
+                outputs[pair.Key] = Math.Min(outputs[pair.Key], pair.Value);
+            }
+        }
+
         // Learn only from an isolated edit between complete builds. Multiple
         // changed meshes cannot identify an individual downstream response.
         internal static bool TryLearnFinalScale(int[] beforeTargets, int[] afterTargets,
@@ -278,15 +288,20 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var upperGain = 0;
                 var best = c.Current;
                 var bestGain = 0;
+                var bisectPlateau = false;
                 if (lowerGain <= rawShare) { best = lower; bestGain = lowerGain; }
-                for (var attempt = 0; bestGain < rawShare && upper - lower > 1 && attempt < 3; attempt++)
+                for (var attempt = 0; bestGain < rawShare && upper - lower > 1 && attempt < 8; attempt++)
                 {
                     if (cancel?.Invoke() == true) throw new OperationCanceledException();
-                    var fraction = lowerGain > upperGain
+                    var fraction = !bisectPlateau && lowerGain > upperGain
                         ? Math.Max(0, Math.Min(1, (rawShare - upperGain) / (double)(lowerGain - upperGain))) : .5;
                     var offset = Math.Max(1, Math.Min(upper - lower - 1, (int)Math.Round((upper - lower) * fraction)));
                     var trial = upper - offset;
                     var gain = c.Produced - c.Mesh.Measure(trial);
+                    // Interpolation can repeatedly land on a protection plateau.
+                    // Bisect next time to leave it. Keep the search bounded, like
+                    // manual output edits; FA-QEM probes use its cached count trace.
+                    bisectPlateau = gain == lowerGain || gain == upperGain;
                     if (gain > bestGain && gain <= rawShare) { best = trial; bestGain = gain; }
                     if (gain > rawShare) { lower = trial; lowerGain = gain; }
                     else { upper = trial; upperGain = gain; }

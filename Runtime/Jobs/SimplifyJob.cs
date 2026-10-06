@@ -765,6 +765,7 @@ namespace Meshia.MeshSimplification
         readonly bool IsSkinningCollapseValid(int vertexA, int vertexB, float3 mergePosition, out float penalty, float normalizationScale = 1f)
         {
             penalty = 0f;
+            if (!IsVisibilityCollapseValid(vertexA, vertexB, mergePosition)) return false;
             var protection = Options.SkinningProtection;
             if (!protection.Enabled || VertexBlendWeightBuffer.Length == 0 || VertexBlendIndicesBuffer.Length == 0) return true;
             if (VertexPositionBuffer.Length == 0) return false;

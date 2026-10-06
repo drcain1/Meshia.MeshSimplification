@@ -78,6 +78,15 @@ namespace Meshia.MeshSimplification
             }
         }
 
+        // A borrowed view of the same immutable BVH; only the original owner
+        // disposes its buffers. Local limits never weaken the configured limit.
+        internal readonly FaQemSurfaceEnvelope WithTolerance(double tolerance)
+        {
+            var result = this;
+            result.toleranceSquared = math.min(toleranceSquared, tolerance * tolerance);
+            return result;
+        }
+
         internal readonly bool Contains(double3 point)
         {
             if (!nodes.IsCreated) return true;

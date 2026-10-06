@@ -75,6 +75,9 @@ namespace Meshia.MeshSimplification
         [Tooltip("If you want to suppress hole generation during simplification, enable this option.")]
         public bool PreserveBorderEdges;
 
+        /// <summary>Build-resolved source vertex ranges [start, end) in close-fitting cut overlaps. Not serialized.</summary>
+        [NonSerialized] public SourceVertexRanges CutOverlapVertexRanges;
+
         /// <summary>Bypasses shape and attribute guards while retaining structural validity checks.</summary>
         [HideInInspector] public bool AllowUnsafeGeometry;
 
@@ -84,6 +87,7 @@ namespace Meshia.MeshSimplification
             var options = this;
             options.AllowUnsafeGeometry = true;
             options.PreserveBorderEdges = false;
+            options.CutOverlapVertexRanges.Clear();
             options.PreserveSurfaceCurvature = false;
             options.MinNormalDot = -1f;
             options.SkinningProtection.Policy = SkinningProtectionPolicy.Off;
@@ -141,6 +145,7 @@ namespace Meshia.MeshSimplification
         public readonly bool Equals(MeshSimplifierOptions other)
         {
             return AllowUnsafeGeometry == other.AllowUnsafeGeometry &&
+                   CutOverlapVertexRanges.Equals(other.CutOverlapVertexRanges) &&
                    PreserveBorderEdges == other.PreserveBorderEdges &&
                    PreserveSurfaceCurvature == other.PreserveSurfaceCurvature &&
                    UseBarycentricCoordinateInterpolation == other.UseBarycentricCoordinateInterpolation &&
@@ -156,7 +161,7 @@ namespace Meshia.MeshSimplification
 
         public readonly override int GetHashCode()
         {
-            return HashCode.Combine(AllowUnsafeGeometry, PreserveBorderEdges, PreserveSurfaceCurvature, MinNormalDot, SkinningProtection, FaQem);
+            return HashCode.Combine(AllowUnsafeGeometry, PreserveBorderEdges, PreserveSurfaceCurvature, MinNormalDot, SkinningProtection, FaQem, CutOverlapVertexRanges);
         }
 
         public static bool operator ==(MeshSimplifierOptions left, MeshSimplifierOptions right)

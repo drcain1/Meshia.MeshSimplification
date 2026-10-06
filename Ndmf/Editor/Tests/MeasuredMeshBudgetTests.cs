@@ -16,6 +16,23 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
 {
     public class MeasuredMeshBudgetTests
     {
+        [Test]
+        public void CutMigrationUsesSurvivingOutputWithoutLoweringOtherMeshesBaseline()
+        {
+            var targets = new[] { 8550, 1000 };
+            var outputs = new[] { 8550, 1000 };
+            MeasuredMeshBudget.RebaseCutBudgets(targets, outputs,
+                new System.Collections.Generic.Dictionary<int, int> { [0] = 4944 });
+            CollectionAssert.AreEqual(new[] { 4944, 1000 }, targets);
+            CollectionAssert.AreEqual(new[] { 4944, 1000 }, outputs);
+            using var body = new MeasuredMeshResponse(0, 9258, 8550, 8550, x => Math.Max(5274, x));
+            using var other = new MeasuredMeshResponse(1, 2000, 1000, 1000, x => x);
+            var plan = MeasuredMeshBudget.Plan(new[] { body, other }, new[] { 8550, 1000 }, -3400,
+                startingTargets: targets, startingOutputs: outputs);
+            Assert.LessOrEqual(body.Measure(plan[0]), 5500);
+            Assert.GreaterOrEqual(plan[1], 750, "Uncut meshes retain the normal 25% per-run limit.");
+        }
+
         [TestCase(115, true)]
         [TestCase(0, false)]
         [TestCase(-1, false)]

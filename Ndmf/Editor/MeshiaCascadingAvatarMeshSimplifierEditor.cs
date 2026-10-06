@@ -78,6 +78,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private MeasuredMeshSet? retainedStartingMeshes;
         private int[]? fitStartingTargets;
         private int[]? fitStartingOutputs;
+        private readonly Dictionary<int, int> fitCutBudgetReferences = new();
         private static int meshInputRevision;
         private bool estimateScheduled;
         private bool estimateRunning;
@@ -1220,6 +1221,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             // Compare allocation edits separately from algorithm/protection/exclusion
             // edits. The latter cannot be estimated from a simple triangle delta.
             var settings = EditorJsonUtility.ToJson(Target);
+            settings = System.Text.RegularExpressions.Regex.Replace(settings, "\"CutBudgetVersion\":-?\\d+", "\"CutBudgetVersion\":0");
             settings = System.Text.RegularExpressions.Regex.Replace(settings,
                 "\"(?:TargetTriangleCount|BuildTriangleReserve)\":-?\\d+", "\"allocation\":0");
             settings = System.Text.RegularExpressions.Regex.Replace(settings,
@@ -1363,7 +1365,11 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 return false;
             }
 
-            triangleCount = DownstreamTriangleEstimator.EstimateFinalTriangleCount(renderer, triangleCount);
+            var source = RendererUtility.GetMesh(renderer);
+            int? preparedCount = entry.Enabled && source != null
+                ? CutMeshPreparation.PreparedTriangleCount(renderer, source, entry.CreateTarget(source.GetTriangleCount()), entry.Options)
+                : null;
+            triangleCount = DownstreamTriangleEstimator.EstimateFinalTriangleCount(renderer, triangleCount, preparedCount);
             return true;
         }
         private bool TryGetSimplifiedTriangleCount(MeshiaCascadingAvatarMeshSimplifierRendererEntry entry, bool preferPreview, out int triangleCount)
@@ -1954,7 +1960,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var allocatedBeforeBuild = 0;
             var startingAllocations = Target.Entries.Select(entry => entry.TargetTriangleCount).ToArray();
             var startingReserve = Target.BuildTriangleReserve;
-            fitStartingTargets = startingAllocations;
+            fitStartingTargets = (int[])startingAllocations.Clone();
+            fitCutBudgetReferences.Clear();
             fitStartingOutputs = null;
             BuildAnalysisResult? startingAnalysis = null;
             var startingAnalysisVerified = false;
@@ -1988,7 +1995,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             {
                 // Keep a genuine baseline for rollback. A projected count must
                 // never be stored or restored as a verified build result.
-                var prepared = PrepareBuildEstimate();
+                // Old allocations were made before permanent cuts were visible to
+                // Meshia. Obtain their untouched build baseline before any fitting.
+                var needsCutMigration = Target.Entries.Any(entry => entry.Enabled && !entry.Fixed &&
+                    entry.CutBudgetVersion == 0 && entry.GetTargetRenderer(Target) is { } renderer &&
+                    RendererUtility.GetMesh(renderer) is { } mesh &&
+                    CutMeshPreparation.PreparedTriangleCount(renderer, mesh,
+                        entry.CreateTarget(mesh.GetTriangleCount()), entry.Options) < mesh.GetTriangleCount());
+                var prepared = needsCutMigration ? null : PrepareBuildEstimate();
                 if (prepared.HasValue)
                 {
                     if (TryGetBuildAnalysisResult(Target, out var previous))
@@ -2018,7 +2032,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         {
                             startingAnalysis = analysis;
                             startingAnalysisVerified = true;
-                            fitStartingOutputs = analysis.Allocations?.Outputs;
+                            fitStartingOutputs = analysis.Allocations?.Outputs?.ToArray();
+                            if (fitStartingOutputs != null && fitStartingTargets != null)
+                                MeasuredMeshBudget.RebaseCutBudgets(fitStartingTargets, fitStartingOutputs, fitCutBudgetReferences);
                             if (retainedStartingMeshes != measuredMeshes) retainedStartingMeshes?.Dispose();
                             retainedStartingMeshes = measuredMeshes;
                         }
@@ -2029,6 +2045,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     RestoreStartingAllocations, prepared?.TriangleCount);
                 if (stop != BuildFitStop.WithinBudget && stop != BuildFitStop.Measured)
                     failedEstimate = string.Empty;
+                if (stop == BuildFitStop.WithinBudget && fitCutBudgetReferences.Count != 0)
+                {
+                    Undo.RecordObject(Target, Tr("Correct allocations from build"));
+                    foreach (var index in fitCutBudgetReferences.Keys) Target.Entries[index].CutBudgetVersion = 1;
+                    EditorUtility.SetDirty(Target);
+                    serializedObject.Update();
+                }
                 var reason = stop switch
                 {
                     BuildFitStop.WithinBudget => Tr("Target range reached."),
@@ -2065,6 +2088,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 if (retainedStartingMeshes != measuredMeshes) retainedStartingMeshes?.Dispose();
                 retainedStartingMeshes = null;
                 fitStartingTargets = fitStartingOutputs = null;
+                fitCutBudgetReferences.Clear();
                 try
                 {
                     // Drain generated Undo records while the analysis guard is active.
@@ -2094,6 +2118,21 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 if (root != clone || cloneComponent == null) return;
                 var index = cloneComponent.Entries.FindIndex(entry => entry.Enabled && entry.GetTargetRenderer(cloneComponent) == renderer);
                 if (index < 0) return;
+                var entry = Target.Entries[index];
+                var uncutSource = RendererUtility.GetMesh(renderer);
+                if (fitStartingTargets != null && entry.CutBudgetVersion == 0 && !entry.Fixed &&
+                    !fitCutBudgetReferences.ContainsKey(index) && uncutSource != null &&
+                    source.GetTriangleCount() < uncutSource.GetTriangleCount())
+                {
+                    var legacyOutput = new Mesh();
+                    try
+                    {
+                        MeshSimplifier.Simplify(uncutSource, targetValue, options, preserve, legacyOutput);
+                        using var legacyCut = CutMeshPreparation.Prepare(renderer, legacyOutput, targetValue, options);
+                        fitCutBudgetReferences[index] = legacyCut.Mesh.GetTriangleCount();
+                    }
+                    finally { DestroyImmediate(legacyOutput); }
+                }
                 var sourceCopy = Instantiate(source);
                 sourceCopy.hideFlags = HideFlags.HideAndDontSave;
                 var sourceCount = sourceCopy.GetTriangleCount();

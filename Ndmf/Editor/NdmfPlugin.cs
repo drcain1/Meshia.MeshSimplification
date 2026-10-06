@@ -23,15 +23,21 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         {
             internal readonly Renderer Renderer;
             internal readonly Mesh Source;
+            internal readonly Mesh OriginalSource;
+            internal readonly CutMeshPreparation Prepared;
             internal readonly MeshSimplificationTarget Target;
-            internal readonly MeshSimplifierOptions Options;
+            internal MeshSimplifierOptions Options;
             internal readonly BitArray? PreserveBones;
-            internal readonly Mesh Simplified = new();
+            internal readonly Mesh Simplified;
             internal bool Retained;
             internal FaQemCountProfile? CountProfile;
             internal Work(Renderer renderer, Mesh source, MeshSimplificationTarget target, MeshSimplifierOptions options, BitArray? preserveBones)
             {
-                Renderer = renderer; Source = source; Target = target; Options = options; PreserveBones = preserveBones;
+                options = VisibilityCutProtection.Resolve(renderer, options);
+                Renderer = renderer; OriginalSource = source; Target = target; Options = options; PreserveBones = preserveBones;
+                Prepared = CutMeshPreparation.Prepare(renderer, source, target, options);
+                Source = Prepared.Mesh;
+                Simplified = new Mesh();
             }
         }
 
@@ -104,6 +110,35 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         }
                     }
 #endif
+                    if (works.Count > 0)
+                    {
+                        var renderers = new List<Renderer>(); var sources = new List<Mesh>(); var inputs = new List<Mesh>();
+                        var extra = new List<CutMeshPreparation>();
+                        try
+                        {
+                            foreach (var renderer in context.AvatarRootObject.GetComponentsInChildren<Renderer>(true))
+                            {
+                                if (renderer is not (SkinnedMeshRenderer or MeshRenderer) || RendererUtility.GetMesh(renderer) is not { } source) continue;
+                                var work = works.Find(w => w.Renderer == renderer);
+                                var prepared = work?.Prepared;
+                                if (prepared == null)
+                                {
+                                    prepared = CutMeshPreparation.Prepare(renderer, source,
+                                        new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = source.GetTriangleCount() }, MeshSimplifierOptions.Default);
+                                    extra.Add(prepared);
+                                }
+                                renderers.Add(renderer); sources.Add(source); inputs.Add(prepared.Mesh);
+                            }
+                            var masks = CutOverlapProtection.Calculate(renderers, inputs, sources);
+                            foreach (var work in works)
+                            {
+                                var index = renderers.IndexOf(work.Renderer);
+                                if (index >= 0 && work.Target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount)
+                                    work.Options = CutOverlapProtection.Apply(work.Options, masks[index]);
+                            }
+                        }
+                        finally { foreach (var prepared in extra) prepared.Dispose(); }
+                    }
                     foreach (var work in works)
                     {
                         WarnIfSkinningProtectionCannotInspect(work);
@@ -124,6 +159,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 {
                     foreach (var work in works)
                     {
+                        work.Prepared.Dispose();
                         if (!work.Retained && work.Simplified != null)
                             UnityEngine.Object.DestroyImmediate(work.Simplified);
                     }
@@ -292,10 +328,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection and topology constraints take priority over the target. Adjust another mesh or review this mesh's protections; Meshia will not disable guards automatically.",
                     work.Renderer.name, work.Simplified.GetTriangleCount(), work.Target.Value), work.Renderer);
             context.AssetSaver.SaveAsset(work.Simplified);
-            if (work.Simplified != work.Source)
+            if (work.Simplified != work.OriginalSource)
             {
                 using (new ObjectRegistryScope(context.ObjectRegistry))
-                    ObjectRegistry.RegisterReplacedObject(work.Source, work.Simplified);
+                    ObjectRegistry.RegisterReplacedObject(work.OriginalSource, work.Simplified);
             }
             RendererUtility.SetMesh(work.Renderer, work.Simplified);
             work.Retained = true;

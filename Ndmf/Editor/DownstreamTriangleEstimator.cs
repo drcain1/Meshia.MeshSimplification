@@ -39,10 +39,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         internal static void Invalidate()
         {
             AaoCache.Clear();
+            CutMeshPreparation.Invalidate();
         }
 
-        internal static int EstimateFinalTriangleCount(Renderer renderer, int currentTriangleCount)
+        internal static int EstimateFinalTriangleCount(Renderer renderer, int currentTriangleCount, int? preparedSourceCount = null)
         {
+            if (preparedSourceCount == 0) return 0;
             if (currentTriangleCount <= 0 || renderer is not SkinnedMeshRenderer skinnedRenderer ||
                 s_aaoCounter == null || RendererUtility.GetMesh(renderer) is not { } sourceMesh)
             {
@@ -74,7 +76,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             return ScaleTriangleCount(
                 currentTriangleCount,
-                cacheEntry.SourceTriangleCount,
+                preparedSourceCount ?? cacheEntry.SourceTriangleCount,
                 cacheEntry.SurvivingTriangleCount);
         }
 

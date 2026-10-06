@@ -73,6 +73,14 @@ namespace Meshia.MeshSimplification
                 VertexBlendWeightBuffer.Resize(Mesh.vertexCount * Mesh.GetVertexAttributeDimension(VertexAttribute.BlendWeight), NativeArrayOptions.UninitializedMemory);
                 Mesh.GetVertexAttributeDataAsFloats(VertexAttribute.BlendWeight, VertexBlendWeightBuffer.AsArray());
             }
+            else if (Mesh.HasVertexAttribute(VertexAttribute.BlendIndices) &&
+                     Mesh.GetVertexAttributeDimension(VertexAttribute.BlendIndices) == 1)
+            {
+                // Unity omits the weight stream for one influence per vertex.
+                // Its implicit weight is one, including MA visibility bones.
+                VertexBlendWeightBuffer.Resize(Mesh.vertexCount, NativeArrayOptions.UninitializedMemory);
+                for (var i = 0; i < Mesh.vertexCount; i++) VertexBlendWeightBuffer[i] = 1f;
+            }
             else
             {
                 VertexBlendWeightBuffer.Clear();
