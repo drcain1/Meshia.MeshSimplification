@@ -1162,5 +1162,5 @@ msgstr "強力"
 msgid "Apply Extreme Preset"
 msgstr "強力プリセットを適用"
 
-msgid "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra joint protection around hands and fingers. Keeps your triangle targets and mesh selection. Supports Undo."
-msgstr "表面・継ぎ目・テクスチャの保護を維持しながら、さらに削減しやすくします。手・指の関節付近は引き続き保護します。三角形数の目標と対象メッシュは変えません。元に戻せます。"
+msgid "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra protection around bending joints, including elbows and knees. Keeps your triangle targets and mesh selection. Supports Undo."
+msgstr "表面・継ぎ目・テクスチャの保護を維持しながら、さらに削減しやすくします。肘・膝など、曲げる関節付近は引き続き保護します。三角形数の目標と対象メッシュは変えません。元に戻せます。"

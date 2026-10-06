@@ -47,6 +47,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             });
 #endif
             InPhase(BuildPhase.Optimizing)
+                .BeforePlugin("dev.hai-vr.prefabulous.universal.GenerateTwistBones")
                 .BeforePlugin("com.anatawa12.avatar-optimizer")
                 .Run("Simplify meshes", Simplify)
                 .PreviewingWith(new IRenderFilter[]
@@ -56,6 +57,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     new MeshiaCascadingAvatarMeshSimplifierPreview(),
 #endif
                 });
+
+            // Prefabulous can opt into Optimizing. Let it reweight the simplified
+            // meshes before AAO caches/merges them or removes referenced blendshapes.
+            // String dependencies keep Prefabulous optional; earlier phases are unaffected.
+            InPhase(BuildPhase.Optimizing)
+                .AfterPlugin("dev.hai-vr.prefabulous.universal.GenerateTwistBones")
+                .BeforePlugin("com.anatawa12.avatar-optimizer")
+                .Run("Complete optional twist-bone generation", _ => { });
         }
 
         private static void Simplify(BuildContext context)

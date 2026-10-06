@@ -1167,5 +1167,5 @@ msgstr "Extreme"
 msgid "Apply Extreme Preset"
 msgstr "Apply Extreme Preset"
 
-msgid "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra joint protection around hands and fingers. Keeps your triangle targets and mesh selection. Supports Undo."
-msgstr "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra joint protection around hands and fingers. Keeps your triangle targets and mesh selection. Supports Undo."
+msgid "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra protection around bending joints, including elbows and knees. Keeps your triangle targets and mesh selection. Supports Undo."
+msgstr "Allow more reduction while keeping surface, seam, and texture protection. Keeps extra protection around bending joints, including elbows and knees. Keeps your triangle targets and mesh selection. Supports Undo."

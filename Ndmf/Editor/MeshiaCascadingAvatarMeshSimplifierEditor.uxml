@@ -7,7 +7,7 @@
             <ui:Label text="Protection preset" style="align-self: center;" />
             <ui:Button text="Conservative" name="ConservativeDefaultsButton" tooltip="Apply conservative protection to all meshes. Keeps algorithms, targets, exclusions, and locks. Supports Undo." style="flex-grow: 1; flex-basis: 0;" />
             <ui:Button text="Aggressive" name="AggressiveDefaultsButton" tooltip="Keep deformation protection on detected hands, hair, and named face meshes; turn it off elsewhere. Border, seam, and surface guards stay conservative. Detection is approximate; check poses and clothing. Keeps algorithms, targets, exclusions, and locks. Supports Undo." style="flex-grow: 1; flex-basis: 0;" />
-            <ui:Button text="Extreme" name="ExtremeDefaultsButton" tooltip="Allow more reduction while keeping surface, seam, and texture protection. Keeps extra joint protection around hands and fingers. Keeps your triangle targets and mesh selection. Supports Undo." style="flex-grow: 1; flex-basis: 0;" />
+            <ui:Button text="Extreme" name="ExtremeDefaultsButton" tooltip="Allow more reduction while keeping surface, seam, and texture protection. Keeps extra protection around bending joints, including elbows and knees. Keeps your triangle targets and mesh selection. Supports Undo." style="flex-grow: 1; flex-basis: 0;" />
         </ui:VisualElement>
         <ui:GroupBox style="flex-direction: row;">
             <ui:IntegerField label="Requested Triangle Budget" tooltip="An allocation goal, not a hard cap. Protection can stop reduction above the requested budget." value="70000" name="TargetTriangleCountField" binding-path="TargetTriangleCount" />

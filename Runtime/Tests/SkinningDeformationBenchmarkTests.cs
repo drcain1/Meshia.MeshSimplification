@@ -90,17 +90,22 @@ namespace Meshia.MeshSimplification.Tests
             }
         }
 
-        [Test]
-        public void JointTransitionProtectionKeepsBendRingsButSimplifiesRigidSegments()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void JointTransitionProtectionKeepsBendRingsButSimplifiesRigidSegments(bool extremePreset)
         {
             var source = CreateJointTube();
             var output = new Mesh();
             var unselected = new Mesh();
             try
             {
-                var options = MeshSimplifierOptions.Default;
-                options.PreserveBorderEdges = false;
-                options.FaQem.PreserveAttributeSeams = false;
+                var options = extremePreset ? MeshSimplifierOptions.ExtremeAvatar : MeshSimplifierOptions.Default;
+                if (!extremePreset)
+                {
+                    options.PreserveBorderEdges = false;
+                    options.FaQem.PreserveAttributeSeams = false;
+                }
+                options.SkinningProtection = options.SkinningProtection.Resolve(true);
                 options.SkinningProtection.PreserveJointTransitions = true;
                 options.SkinningProtection.JointProtectionBoneIndices.Add(0);
                 var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 20 };

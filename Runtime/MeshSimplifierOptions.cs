@@ -41,7 +41,7 @@ namespace Meshia.MeshSimplification
             }
         }
 
-        /// <summary>Explicit high-reduction preset with relaxed bone-weight limits and conservative geometry guards.</summary>
+        /// <summary>Explicit high-reduction preset with relaxed bone-weight and surface limits, retaining joint guards.</summary>
         public static MeshSimplifierOptions ExtremeAvatar
         {
             get
@@ -50,7 +50,8 @@ namespace Meshia.MeshSimplification
                 options.SkinningProtection.Strength = .25f;
                 options.SkinningProtection.MaxWeightDistance = .25f;
                 options.SkinningProtection.MaxDiscardedWeight = .1f;
-                // Retain surface and seam guards; NDMF narrows joint locks to hands and fingers.
+                options.FaQem.MaxSurfaceDeviation = .001f;
+                // Allow more movement away from joints; keep their support vertices and seam guards.
                 return options;
             }
         }

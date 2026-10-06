@@ -44,9 +44,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 }
                 entry.DisableProtections = false;
                 entry.Options = options;
-                entry.PreserveJointTransitionsBones = level == AvatarProtectionLevel.Extreme
-                    ? MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultHandBones
-                    : MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones;
+                entry.PreserveJointTransitionsBones = MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones;
             }
         }
 

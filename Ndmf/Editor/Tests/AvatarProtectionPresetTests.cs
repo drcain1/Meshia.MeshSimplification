@@ -93,9 +93,15 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     Assert.IsTrue(entry.Fixed);
                     Assert.AreEqual(MeshiaCascadingSimplificationAlgorithm.BlenderDecimate, entry.Algorithm);
                     Assert.IsFalse(entry.DisableProtections);
-                    Assert.AreEqual(extreme ? MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultHandBones
-                        : MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones, entry.PreserveJointTransitionsBones);
-                    Assert.AreEqual(.0005f, entry.Options.FaQem.MaxSurfaceDeviation);
+                    Assert.AreEqual(MeshiaCascadingAvatarMeshSimplifierRendererEntry.DefaultJointBones, entry.PreserveJointTransitionsBones);
+                    if (entry.Options.SkinningProtection.PreserveJointTransitions)
+                    {
+                        foreach (var bone in new[] { HumanBodyBones.LeftLowerArm, HumanBodyBones.RightLowerArm,
+                            HumanBodyBones.LeftLowerLeg, HumanBodyBones.RightLowerLeg, HumanBodyBones.LeftHand, HumanBodyBones.RightFoot })
+                            Assert.AreNotEqual(0ul, entry.PreserveJointTransitionsBones & (1ul << (int)bone),
+                                "Reduction presets must retain elbow, knee, wrist and ankle coverage.");
+                    }
+                    Assert.AreEqual(extreme ? .001f : .0005f, entry.Options.FaQem.MaxSurfaceDeviation);
                     Assert.IsTrue(entry.Options.PreserveBorderEdges);
                     Assert.IsTrue(entry.Options.FaQem.PreserveAttributeSeams);
                     Assert.IsTrue(entry.Options.FaQem.ExperimentalUvEnabled);
@@ -122,7 +128,8 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             Assert.AreEqual(.1f, options.SkinningProtection.MaxDiscardedWeight);
             Assert.IsTrue(options.SkinningProtection.Resolve(true).Enabled);
             Assert.IsTrue(options.SkinningProtection.PreserveJointTransitions);
-            Assert.AreEqual(MeshSimplifierOptions.ConservativeAvatar.FaQem.MaxSurfaceDeviation, options.FaQem.MaxSurfaceDeviation);
+            Assert.AreEqual(.001f, options.FaQem.MaxSurfaceDeviation);
+            Assert.AreEqual(.0005f, MeshSimplifierOptions.ConservativeAvatar.FaQem.MaxSurfaceDeviation);
             Assert.IsFalse(options.AllowUnsafeGeometry);
             Assert.IsTrue(options.PreserveBorderEdges);
             Assert.IsTrue(options.FaQem.PreserveAttributeSeams);
