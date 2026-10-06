@@ -119,6 +119,23 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.1.3-beta.4` adds an explicit Extreme protection preset for further
+reduction. It retains conservative surface, border, seam, face-flip and texture
+protection, with lighter bone-weight limits and joint-vertex protection focused
+on hands and fingers. Existing settings change only when the preset is applied;
+algorithms, targets, exclusions and fixed allocations are retained, with Undo.
+Automatic deformation protection now hides the inactive manual override so it
+does not appear to report that protection is off. The Original column uses source
+mesh counts rather than counts from a different preview processing stage.
+English and Japanese UI text and documentation cover the changes.
+
+Validation: all 338 Meshia EditMode tests passed in Unity 2022.3.22f1, with zero
+failures or skips. All 12 distribution tests and release prerequisites passed.
+The live editor compiled without errors and all six avatar configurations were
+unchanged after refresh. The simplification algorithm is unchanged; the new
+preset changes explicitly selected settings. No new in-game visual validation
+is claimed for Extreme. Texture preservation remains experimental.
+
 Version `1.1.3-beta.3` simplifies experimental texture preservation inside each
 mesh's cogwheel: one toggle, Low/Medium/High strength presets, and an editable
 number on the same row. Custom values remain supported; the method selector and
