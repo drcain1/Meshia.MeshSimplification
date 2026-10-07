@@ -119,7 +119,17 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
-Version `1.1.3-beta.8` improves interactive FA-QEM previews. Slider-only edits
+Version `1.2.0-beta.1` starts the 1.2.0 release series, incorporating the published
+`1.1.3-beta.1` through `1.1.3-beta.7` changes and the interactive preview work
+previously prepared as an unpublished `1.1.3-beta.8` draft. Since stable `1.1.2`,
+the main additions are experimental per-mesh texture-mapping preservation with
+Low/Medium/High strength controls (new/reset settings default to On/Medium 5000),
+supported AAO cuts and MA visibility-boundary protection, experimental clothing
+contact/deformation protection around supported cuts, and the Extreme protection
+preset with a revised reduction range. Existing saved settings are retained.
+The earlier beta entries below describe each feature and its limitations.
+
+This beta improves interactive FA-QEM previews. Slider-only edits
 reuse exact reduction sequences and unchanged mesh outputs. Initial preparation
 avoids unused legacy work, repeated surface queries, and unchanged edge candidates.
 Full-detail meshes defer their reduction sequence until an edit needs it.
