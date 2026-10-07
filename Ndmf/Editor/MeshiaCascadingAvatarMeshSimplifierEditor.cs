@@ -86,6 +86,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private string finalResponseSettings = string.Empty;
         private int finalResponseInputRevision = -1;
         private int outputEditSerial;
+        private bool outputEditScheduled;
         private int pendingOutputIndex = -1;
         private int pendingOutputCount;
         private int outputFeedbackIndex = -1;
@@ -210,6 +211,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             root.RegisterCallback<DetachFromPanelEvent>(_ =>
             {
                 estimateScheduled = false;
+                outputEditScheduled = false;
                 outputEditSerial++;
                 pendingOutputIndex = -1;
             });
@@ -766,11 +768,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         {
             var indicator = root.Q<VisualElement>("BackgroundCalculationIndicator");
             if (indicator == null) return;
+            var previewBusy = this != null && target != null && MeshiaCascadingAvatarMeshSimplifierPreview.IsEnabled() &&
+                Target.Entries.Any(e => e.Enabled && e.GetTargetRenderer(Target) is { } renderer && PreviewActivity.IsPending(renderer));
             var busy = this != null && target != null && !s_analysisInProgress &&
-                (pendingOutputIndex >= 0 || estimateScheduled || estimateRunning);
+                (pendingOutputIndex >= 0 || estimateScheduled || estimateRunning || previewBusy);
             indicator.style.visibility = busy ? Visibility.Visible : Visibility.Hidden;
             if (!busy) return;
-            root.Q<Label>("BackgroundCalculationLabel").text = Tr("Calculating...");
+            root.Q<Label>("BackgroundCalculationLabel").text = previewBusy && pendingOutputIndex < 0 && !estimateRunning
+                ? Tr("Updating preview...") : Tr("Calculating...");
             var frame = (int)(EditorApplication.timeSinceStartup * 10) % 12;
             root.Q<Image>("BackgroundCalculationSpinner").image = EditorGUIUtility.IconContent($"WaitSpin{frame:00}").image;
         }
@@ -1521,23 +1526,32 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var current = CaptureAllocations();
             if (s_analysisInProgress || !HasMeasuredInputs(current.Settings) ||
                 !measuredMeshes!.Meshes.TryGetValue(index, out var mesh) || !Target.Entries[index].Enabled) return;
-            var serial = ++outputEditSerial;
+            ++outputEditSerial;
             pendingOutputIndex = index;
             pendingOutputCount = Math.Max(0, Math.Min(mesh.SourceCount, desired));
             RefreshBackgroundCalculationIndicator(root);
             outputFeedbackIndex = -1;
             root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
-            void StartWhenIdle()
+            ScheduleOutputEdit(root);
+        }
+
+        private void ScheduleOutputEdit(VisualElement root)
+        {
+            if (outputEditScheduled) return;
+            outputEditScheduled = true;
+            // Throttle to the latest value; do not restart a debounce timer on
+            // every pointer event, which prevents updates during continuous drags.
+            root.schedule.Execute(() =>
             {
-                if (this == null || target == null || serial != outputEditSerial || root.panel == null) return;
+                outputEditScheduled = false;
+                if (this == null || target == null || root.panel == null || pendingOutputIndex < 0) return;
                 if (estimateRunning)
                 {
-                    root.schedule.Execute(StartWhenIdle).StartingIn(100);
+                    ScheduleOutputEdit(root);
                     return;
                 }
-                _ = ApplyOutputEditAsync(root, index, pendingOutputCount, serial);
-            }
-            root.schedule.Execute(StartWhenIdle).StartingIn(250);
+                _ = ApplyOutputEditAsync(root, pendingOutputIndex, pendingOutputCount, outputEditSerial);
+            }).StartingIn(33);
         }
 
         private async System.Threading.Tasks.Task ApplyOutputEditAsync(VisualElement root, int index, int desired, int serial)
@@ -1584,7 +1598,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 estimateRunning = false;
                 if (serial == outputEditSerial) pendingOutputIndex = -1;
                 if (this != null && target != null && root.panel != null && !s_analysisInProgress)
+                {
                     RefreshBudgetGuidance(root);
+                    if (pendingOutputIndex >= 0) ScheduleOutputEdit(root);
+                }
             }
         }
 

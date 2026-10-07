@@ -17,6 +17,34 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
     public class MeasuredMeshBudgetTests
     {
         [Test]
+        public async Task ConcurrentRequestsShareOneCountProfileAndRetainSourceUntilComplete()
+        {
+            var source = CutMeshPreparationTests.Grid();
+            var completion = new TaskCompletionSource<FaQemCountProfile>();
+            var calls = 0;
+            var profile = MeshSimplifier.MeasureFaQemCounts(source, 0, MeshSimplifierOptions.Default);
+            var response = new MeasuredMeshResponse(0, source.triangles.Length / 3, 300, 300,
+                _ => throw new Exception("Must not use blocking measurement"), source,
+                measureProfileAsync: () => { calls++; return completion.Task; });
+            try
+            {
+                var first = response.MeasureAsync(100);
+                var second = response.MeasureAsync(150);
+                Assert.AreEqual(1, calls);
+                response.Dispose();
+                Assert.IsTrue(source != null);
+                completion.SetResult(profile);
+                var outputs = await Task.WhenAll(first, second);
+                profile.TryGetOutput(100, out var expectedFirst);
+                profile.TryGetOutput(150, out var expectedSecond);
+                CollectionAssert.AreEqual(new[] { expectedFirst, expectedSecond }, outputs);
+                Assert.IsTrue(source == null);
+                Assert.IsFalse(response.Outputs.ContainsKey(100));
+            }
+            finally { response.Dispose(); }
+        }
+
+        [Test]
         public void CutMigrationUsesSurvivingOutputWithoutLoweringOtherMeshesBaseline()
         {
             var targets = new[] { 8550, 1000 };

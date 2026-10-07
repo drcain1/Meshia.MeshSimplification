@@ -1085,6 +1085,9 @@ msgstr "Meshes being simplified"
 msgid "Calculating..."
 msgstr "Calculating..."
 
+msgid "Updating preview..."
+msgstr "Updating preview..."
+
 msgid "Change mesh protection"
 msgstr "Change mesh protection"
 

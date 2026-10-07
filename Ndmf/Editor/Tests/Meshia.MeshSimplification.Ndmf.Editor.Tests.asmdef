@@ -21,7 +21,8 @@
     "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
-        "nunit.framework.dll"
+        "nunit.framework.dll",
+        "System.Collections.Immutable.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [

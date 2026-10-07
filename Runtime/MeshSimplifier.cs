@@ -61,6 +61,8 @@ namespace Meshia.MeshSimplification
         bool RecordFaQemHistory;
         NativeList<int> FaQemTriangleCounts;
         bool RecordFaQemCounts;
+        NativeList<FaQemReplayStep> FaQemReplaySteps;
+        bool RecordFaQemReplay, ReplayFaQem;
         NativeArray<ulong> BlenderTraceLineage;
         NativeList<BlenderCollapseTraceRecord> BlenderTraceRecords;
         NativeArray<int> BlenderTraceState;
@@ -446,7 +448,11 @@ namespace Meshia.MeshSimplification
         /// <param name="destination">The destination to write simplified mesh.</param>
         /// <param name="cancellationToken">The token to monitor for cancellation requests. The default value is <see cref="CancellationToken.None"/>.</param>
         /// <returns>A task that represents the asynchronous mesh simplification operation.</returns>
-        public static async Task SimplifyAsync(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination, CancellationToken cancellationToken = default)
+        public static Task SimplifyAsync(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination, CancellationToken cancellationToken = default)
+            => SimplifyAsync(mesh, target, options, preserveBorderEdgesBoneIndices, destination, null, cancellationToken);
+
+        private static async Task SimplifyAsync(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options,
+            BitArray? preserveBorderEdgesBoneIndices, Mesh destination, FaQemReplayStep[]? replay, CancellationToken cancellationToken)
         {
             ValidateFaQemTarget(target, options);
             cancellationToken.ThrowIfCancellationRequested();
@@ -456,6 +462,12 @@ namespace Meshia.MeshSimplification
             var blendShapes = BlendShapeData.GetMeshBlendShapes(mesh, allocator);
 
             var meshSimplifier = new MeshSimplifier(allocator);
+            if (replay != null)
+            {
+                meshSimplifier.ReplayFaQem = true;
+                foreach (var step in replay) meshSimplifier.FaQemReplaySteps.Add(step);
+            }
+
 
             NativeBitArray nativePreserveBorderEdgesBoneIndices = new(preserveBorderEdgesBoneIndices?.Length ?? 0, allocator, NativeArrayOptions.UninitializedMemory);
             if(preserveBorderEdgesBoneIndices is not null)
@@ -610,6 +622,8 @@ namespace Meshia.MeshSimplification
             RecordFaQemHistory = false;
             FaQemTriangleCounts = new(allocator);
             RecordFaQemCounts = false;
+            FaQemReplaySteps = new(allocator);
+            RecordFaQemReplay = ReplayFaQem = false;
             BlenderTraceLineage = new(0, Unity.Collections.Allocator.Persistent);
             BlenderTraceRecords = new NativeList<BlenderCollapseTraceRecord>(allocator);
             BlenderTraceState = new(0, Unity.Collections.Allocator.Persistent);
@@ -932,6 +946,9 @@ namespace Meshia.MeshSimplification
                 RecordFaQemHistory = RecordFaQemHistory,
                 FaQemTriangleCounts = FaQemTriangleCounts,
                 RecordFaQemCounts = RecordFaQemCounts,
+                FaQemReplaySteps = FaQemReplaySteps,
+                RecordFaQemReplay = RecordFaQemReplay,
+                ReplayFaQem = ReplayFaQem,
                 BlenderTraceLineage = BlenderTraceLineage,
                 BlenderTraceRecords = BlenderTraceRecords,
                 BlenderTraceState = BlenderTraceState,
@@ -1029,6 +1046,7 @@ namespace Meshia.MeshSimplification
                 FaQemCollapseHistory.Dispose(inputDeps),
                 FaQemAffectedFaces.Dispose(inputDeps),
                 FaQemTriangleCounts.Dispose(inputDeps),
+                FaQemReplaySteps.Dispose(inputDeps),
                 BlenderTraceLineage.IsCreated ? BlenderTraceLineage.Dispose(inputDeps) : inputDeps,
                 BlenderTraceRecords.IsCreated ? BlenderTraceRecords.Dispose(inputDeps) : inputDeps,
                 BlenderTraceState.IsCreated ? BlenderTraceState.Dispose(inputDeps) : inputDeps,
@@ -1073,6 +1091,7 @@ namespace Meshia.MeshSimplification
             FaQemCollapseHistory.Dispose();
             FaQemAffectedFaces.Dispose();
             FaQemTriangleCounts.Dispose();
+            FaQemReplaySteps.Dispose();
             if (BlenderTraceLineage.IsCreated) BlenderTraceLineage.Dispose();
             if (BlenderTraceRecords.IsCreated) BlenderTraceRecords.Dispose();
             if (BlenderTraceState.IsCreated) BlenderTraceState.Dispose();

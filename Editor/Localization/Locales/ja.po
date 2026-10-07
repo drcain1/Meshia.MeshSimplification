@@ -1080,6 +1080,9 @@ msgstr "軽量化するメッシュ"
 msgid "Calculating..."
 msgstr "計算中..."
 
+msgid "Updating preview..."
+msgstr "プレビューを更新中..."
+
 msgid "Change mesh protection"
 msgstr "メッシュの保護を変更"
 

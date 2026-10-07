@@ -19,6 +19,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private FaQemCountProfile? countProfile;
         private readonly Func<FaQemCountProfile>? measureProfile;
         private readonly Func<Task<FaQemCountProfile>>? measureProfileAsync;
+        private Task<FaQemCountProfile>? pendingProfile;
         private int pendingMeasurements;
         private bool disposed;
 
@@ -77,7 +78,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 int output;
                 if (measureProfileAsync != null)
                 {
-                    var profile = await measureProfileAsync();
+                    // Projection and output editing can request the same curve.
+                    // Share that expensive job rather than computing it twice.
+                    var task = pendingProfile ??= measureProfileAsync();
+                    FaQemCountProfile profile;
+                    try { profile = await task; }
+                    finally { if (pendingProfile == task && task.IsCompleted) pendingProfile = null; }
                     if (!profile.TryGetOutput(requested, out output)) throw new InvalidOperationException("Incomplete count profile.");
                     if (!disposed) countProfile = profile;
                 }

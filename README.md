@@ -254,7 +254,9 @@ When migrating from the experimental baking branch, restore any persistent bakes
 
 #### Build-aware triangle budgeting
 
-A spinner and **Calculating...** beside **Triangle budget** show when edits are waiting or mesh counts are being updated. The indicator disappears when those calculations finish and remains visible when the section is collapsed.
+A spinner beside **Triangle budget** shows **Calculating...** while edits or mesh counts are being processed, then **Updating preview...** until the new mesh is ready to display. It remains visible when the section is collapsed.
+
+FA-QEM previews reuse a validated reduction sequence when only the triangle slider changes, so repeated edits can update without solving the mesh again. Unchanged meshes also reuse their preview. The first calculation, or a change to geometry, cuts, pose, or protection settings, still needs preparation. This does not replace **Analyze Build**, which verifies the final result after other build tools run.
 
 FA-QEM records the triangle counts along its normal collapse sequence during analysis. Later edits reuse those counts when the captured mesh and resolved protection settings are still valid. If a lower request is outside the recorded range, one asynchronous count-only run measures the rest of the sequence without constructing a temporary output mesh. If FA-QEM has already stopped above its request, smaller requests can reuse that result immediately. Other algorithms retain their existing measured-trial path. Changing the inputs or protections invalidates these measurements.
 
@@ -401,7 +403,9 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 
 出力数を編集する前に **ビルドを解析** を実行してください。スライダーや数値欄で希望する出力数を指定すると、最大8つの内部目標候補を非同期で測定し、達成できた出力数を表示します。数値欄は Enter で確定します。測定中は青の **…**、希望どおり変更できなかった場合は実測値に戻し、黄橙色の **!** で理由を一時表示します。指定量を超える削減や増加は適用しません。自動調整が有効なら、変更後の内部配分を他の固定されていないメッシュに再配分します。新しい編集が来た場合は古い測定を適用せず、「元に戻す」で編集と再配分を復元できます。保護を自動で緩めることはありません。
 
-**三角形数の予算** の横にあるスピナーと **計算中...** は、編集の反映待ちやメッシュ数の更新中に表示されます。計算が終わると消え、セクションを折りたたんでいても確認できます。
+**三角形数の予算** の横にあるスピナーは、編集や三角形数の処理中に **計算中...**、新しいメッシュの表示準備ができるまで **プレビューを更新中...** と表示します。セクションを折りたたんでいても確認できます。
+
+FA-QEM のプレビューでは、三角形数のスライダーだけを変更した場合、検証済みの削減手順を再利用します。繰り返しの調整でメッシュを毎回計算し直す必要がなく、変更していないメッシュのプレビューも再利用します。初回や、形状・カット・ポーズ・保護設定を変更した場合は準備が必要です。他のビルドツールの処理後の最終結果は、引き続き **ビルド解析** で確認してください。
 
 FA-QEM は解析時に通常の統合処理に沿って三角形数を記録します。入力メッシュと保護設定が変わっていなければ、編集後の数値をこの記録からすぐに確認できます。記録済みの範囲より小さい数を指定した場合は、出力メッシュを生成しない非同期の計測を1回行い、残りの範囲も記録します。すでに要求値まで減らせず処理が終了したメッシュでは、さらに小さい要求にも同じ結果をすぐ返します。ほかのアルゴリズムでは従来どおり候補ごとの計測を行います。入力や保護設定が変わると、記録は無効になります。
 

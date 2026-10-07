@@ -11,6 +11,8 @@ namespace Meshia.MeshSimplification
         public bool RecordFaQemHistory;
         public NativeList<int> FaQemTriangleCounts;
         public bool RecordFaQemCounts;
+        public NativeList<FaQemReplayStep> FaQemReplaySteps;
+        public bool RecordFaQemReplay, ReplayFaQem;
 
         const byte FaQemDeformableDegenerateVertex = 2;
         const byte FaQemJointTransitionVertex = 4;
@@ -43,33 +45,36 @@ namespace Meshia.MeshSimplification
             if (TriangleCount <= targetTriangleCount || VertexCount == 0) return;
 
             var settings = Options.FaQem.Effective;
-            using var sourceQuadrics = new NativeArray<FaQemQuadric>(VertexPositionBuffer.Length, Allocator.Temp);
             if (!TryGetFaQemNormalization(out var center, out var scale)) return;
             using var seamFlags = new NativeArray<byte>(VertexPositionBuffer.Length, Allocator.Temp, NativeArrayOptions.ClearMemory);
-            var hasDeformation = BlendShapes.Length > 0 || VertexBlendWeightBuffer.Length > 0;
-            for (var ti = 0; ti < Triangles.Length; ti++)
-                if (!IsDiscardedTriangle(ti) && !FaQemTopology.IsGeometricallyValid(Triangles[ti], VertexPositionBuffer))
+            RemoveFaQemDegenerateFaces(seamFlags);
+            if (ReplayFaQem)
+            {
+                UseFaQem = true;
+                var changed = false;
+                foreach (var step in FaQemReplaySteps)
                 {
-                    var degenerate = Triangles[ti];
-                    // A flat rest-pose face can open under a blend shape or skinning.
-                    // Keep its vertices fixed even when optional seam/border guards are off.
-                    if (hasDeformation && degenerate.x != degenerate.y &&
-                        degenerate.y != degenerate.z && degenerate.z != degenerate.x)
+                    if (TriangleCount <= targetTriangleCount) break;
+                    ApplyMerge(new VertexMerge
                     {
-                        seamFlags.ElementAt(degenerate.x) |= FaQemDeformableDegenerateVertex;
-                        seamFlags.ElementAt(degenerate.y) |= FaQemDeformableDegenerateVertex;
-                        seamFlags.ElementAt(degenerate.z) |= FaQemDeformableDegenerateVertex;
-                        continue;
+                        VertexAIndex = step.A, VertexBIndex = step.B,
+                        VertexAVersion = VertexVersions[step.A], VertexBVersion = VertexVersions[step.B],
+                        Position = step.Position
+                    });
+                    if (step.SolvedUv)
+                    {
+                        var uv = VertexTexCoord0Buffer[step.A];
+                        uv.xy = step.Uv;
+                        VertexTexCoord0Buffer[step.A] = uv;
+                        changed = true;
                     }
-                    VertexContainingTriangles.Remove(degenerate.x, ti);
-                    VertexContainingTriangles.Remove(degenerate.y, ti);
-                    VertexContainingTriangles.Remove(degenerate.z, ti);
-                    if (!VertexContainingTriangles.ContainsKey(degenerate.x)) DiscardVertex(degenerate.x);
-                    if (!VertexContainingTriangles.ContainsKey(degenerate.y)) DiscardVertex(degenerate.y);
-                    if (!VertexContainingTriangles.ContainsKey(degenerate.z)) DiscardVertex(degenerate.z);
-                    DiscardTriangle(ti);
                 }
+                if (changed) RebuildFaQemUvTangents();
+                UseFaQem = false;
+                return;
+            }
             if (RecordFaQemCounts) FaQemTriangleCounts.Add(TriangleCount);
+            using var sourceQuadrics = new NativeArray<FaQemQuadric>(VertexPositionBuffer.Length, Allocator.Temp);
             InitializeFaQemJointTransitions(seamFlags);
             InitializeFaQemVisibilityBoundaries(seamFlags);
             if (!Options.AllowUnsafeGeometry && Options.PreserveBorderEdges)
@@ -109,6 +114,11 @@ namespace Meshia.MeshSimplification
                         !IsFaQemPlacementValid(candidate, settings, center, scale, envelope, seamFlags)) continue;
 
                     RecordFaQemCollapse(candidate);
+                    if (RecordFaQemReplay) FaQemReplaySteps.Add(new FaQemReplayStep
+                    {
+                        A = candidate.A, B = candidate.B, Position = candidate.Position,
+                        Uv = candidate.Uv, SolvedUv = candidate.SolvedUv
+                    });
                     var survivor = candidate.A;
                     var removed = candidate.B;
                     seamFlags.ElementAt(survivor) |= (byte)(seamFlags[removed] & FaQemCutOverlapVertex);
@@ -154,6 +164,33 @@ namespace Meshia.MeshSimplification
             }
             if (changedUv) RebuildFaQemUvTangents();
             UseFaQem = false;
+        }
+
+        void RemoveFaQemDegenerateFaces(NativeArray<byte> seamFlags)
+        {
+            var hasDeformation = BlendShapes.Length > 0 || VertexBlendWeightBuffer.Length > 0;
+            for (var ti = 0; ti < Triangles.Length; ti++)
+                if (!IsDiscardedTriangle(ti) && !FaQemTopology.IsGeometricallyValid(Triangles[ti], VertexPositionBuffer))
+                {
+                    var degenerate = Triangles[ti];
+                    // A flat rest-pose face can open under a blend shape or skinning.
+                    // Keep its vertices fixed even when optional seam/border guards are off.
+                    if (hasDeformation && degenerate.x != degenerate.y &&
+                        degenerate.y != degenerate.z && degenerate.z != degenerate.x)
+                    {
+                        seamFlags.ElementAt(degenerate.x) |= FaQemDeformableDegenerateVertex;
+                        seamFlags.ElementAt(degenerate.y) |= FaQemDeformableDegenerateVertex;
+                        seamFlags.ElementAt(degenerate.z) |= FaQemDeformableDegenerateVertex;
+                        continue;
+                    }
+                    VertexContainingTriangles.Remove(degenerate.x, ti);
+                    VertexContainingTriangles.Remove(degenerate.y, ti);
+                    VertexContainingTriangles.Remove(degenerate.z, ti);
+                    if (!VertexContainingTriangles.ContainsKey(degenerate.x)) DiscardVertex(degenerate.x);
+                    if (!VertexContainingTriangles.ContainsKey(degenerate.y)) DiscardVertex(degenerate.y);
+                    if (!VertexContainingTriangles.ContainsKey(degenerate.z)) DiscardVertex(degenerate.z);
+                    DiscardTriangle(ti);
+                }
         }
 
         readonly bool TryGetFaQemNormalization(out double3 center, out double scale)
