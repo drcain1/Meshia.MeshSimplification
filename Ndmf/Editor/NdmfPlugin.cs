@@ -129,12 +129,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                                 }
                                 renderers.Add(renderer); sources.Add(source); inputs.Add(prepared.Mesh);
                             }
-                            var masks = CutOverlapProtection.Calculate(renderers, inputs, sources);
+                            var masks = CutOverlapProtection.CalculateResolved(renderers, inputs, sources);
                             foreach (var work in works)
                             {
                                 var index = renderers.IndexOf(work.Renderer);
                                 if (index >= 0 && work.Target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount)
-                                    work.Options = CutOverlapProtection.Apply(work.Options, masks[index]);
+                                    work.Options = CutOverlapProtection.ApplyResolved(work.Options, masks[index]);
                             }
                         }
                         finally { foreach (var prepared in extra) prepared.Dispose(); }

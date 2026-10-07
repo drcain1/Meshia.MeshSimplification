@@ -59,14 +59,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                     if (proxy is SkinnedMeshRenderer skin)
                         foreach (var bone in skin.bones) if (bone != null) context.Observe(bone);
                 }
-                var masks = CutOverlapProtection.Calculate(pairs.Select(p => p.Item2).ToArray(),
+                var masks = CutOverlapProtection.CalculateResolved(pairs.Select(p => p.Item2).ToArray(),
                     inputs.Select(p => p.Mesh).ToArray(), originals);
                 for (var i = 0; i < pairs.Length; i++)
                 {
                     var (target, options, bones, selected) = targets[i];
                     if (!selected) continue;
                     if (target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount)
-                        options = CutOverlapProtection.Apply(options, masks[i]);
+                        options = CutOverlapProtection.ApplyResolved(options, masks[i]);
                     var output = new Mesh(); outputs.Add(pairs[i].Item1, output);
                     await MeshSimplifier.SimplifyAsync(inputs[i].Mesh, target, options, bones, output);
                     TriangleCountCache[pairs[i].Item1] = (originals[i].GetTriangleCount(), output.GetTriangleCount());

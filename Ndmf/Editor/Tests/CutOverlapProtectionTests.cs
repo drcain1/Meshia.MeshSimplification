@@ -8,6 +8,129 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
 {
     public class CutOverlapProtectionTests
     {
+        [Test]
+        public async System.Threading.Tasks.Task ShouldPreserveContactJointInBothBuildAndAsyncPreview()
+        {
+            var source = Meshia.MeshSimplification.Ndmf.Tests.CutMeshPreparationTests.Grid();
+            var regular = new Mesh();
+            var built = new Mesh();
+            var preview = new Mesh();
+            try
+            {
+                source.ClearBlendShapes();
+                source.bindposes = new[] { Matrix4x4.identity, Matrix4x4.identity };
+                source.boneWeights = source.vertices.Select(v => new BoneWeight
+                {
+                    boneIndex0 = 0,
+                    boneIndex1 = 1,
+                    weight0 = 1 - Mathf.Clamp01((v.y - .03f) / .07f),
+                    weight1 = Mathf.Clamp01((v.y - .03f) / .07f)
+                }).ToArray();
+                var options = MeshSimplifierOptions.Default;
+                options.SkinningProtection.Enabled = false;
+                options.SkinningProtection.PreserveJointTransitions = false;
+                var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 1 };
+                MeshSimplifier.Simplify(source, target, options, regular);
+                options = CutOverlapProtection.ApplyResolved(options, new CutOverlapProtection.Protection(
+                    source.vertices.Select(v => v.y > .02f && v.y < .11f).ToArray(), new[] { 0, 1 }));
+                MeshSimplifier.Simplify(source, target, options, built);
+                await MeshSimplifier.SimplifyAsync(source, target, options, null, preview);
+                Assert.Greater(built.triangles.Length, regular.triangles.Length, "The bending transition must retain support geometry.");
+                CollectionAssert.AreEqual(built.vertices, preview.vertices);
+                CollectionAssert.AreEqual(built.triangles, preview.triangles);
+                CollectionAssert.AreEqual(built.boneWeights, preview.boneWeights);
+            }
+            finally
+            {
+                Object.DestroyImmediate(source);
+                Object.DestroyImmediate(regular);
+                Object.DestroyImmediate(built);
+                Object.DestroyImmediate(preview);
+            }
+        }
+
+        [Test]
+        public void ShouldFollowContactInfluencesWithoutSelectingUnrelatedJoints()
+        {
+            var mesh = Meshia.MeshSimplification.Ndmf.Tests.CutMeshPreparationTests.Grid();
+            try
+            {
+                var body = new CutOverlapProtection.Surface(mesh.vertices, RemoveStrip(mesh), mesh.triangles);
+                var positions = mesh.vertices.Select(v => new Vector3(v.x, .04f + v.y * .7f, .0002f)).ToArray();
+                var clothing = new CutOverlapProtection.Surface(positions, mesh.triangles, mesh.triangles);
+                clothing.Influences = mesh.vertices.Select(v => v.y < .09f ? new[] { 3, 7 } : new[] { 11, 12 }).ToArray();
+                var unrelated = new CutOverlapProtection.Surface(positions.Select(p => p + Vector3.right).ToArray(), mesh.triangles, mesh.triangles);
+                unrelated.Influences = clothing.Influences;
+                CutOverlapProtection.Protect(new[] { body, clothing, unrelated });
+                CollectionAssert.AreEquivalent(new[] { 3, 7 }, clothing.JointBones);
+                Assert.IsTrue(clothing.Protected[8 * 14 + 7], "The selected bending band extends beyond direct cut contact.");
+                Assert.IsEmpty(unrelated.JointBones);
+                Assert.IsFalse(unrelated.Protected.Any(x => x));
+                Assert.IsEmpty(body.JointBones, "Rigid/unskinned cut geometry needs no new joint selection.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(mesh);
+            }
+        }
+
+        [Test]
+        public void ShouldMergeAutomaticJointsWithoutChangingUserOptionsOrDisabledProtection()
+        {
+            var protection = new CutOverlapProtection.Protection(new[] { false, true, true }, new[] { 3, 7 });
+            var original = MeshSimplifierOptions.Default;
+            original.SkinningProtection.PreserveJointTransitions = true;
+            original.SkinningProtection.JointProtectionBoneIndices.Add(15);
+            var resolved = CutOverlapProtection.ApplyResolved(original, protection);
+            Assert.AreEqual(1, original.SkinningProtection.JointProtectionBoneIndices.Length);
+            Assert.AreEqual(0, original.CutOverlapVertexRanges.Length);
+            Assert.AreEqual(3, resolved.SkinningProtection.JointProtectionBoneIndices.Length);
+            Assert.AreEqual(15, resolved.SkinningProtection.JointProtectionBoneIndices[0]);
+            Assert.IsTrue(resolved.SkinningProtection.PreserveJointTransitions);
+            var all = original;
+            all.SkinningProtection.JointProtectionBoneIndices.Clear();
+            Assert.AreEqual(0, CutOverlapProtection.ApplyResolved(all, protection).SkinningProtection.JointProtectionBoneIndices.Length);
+            var off = MeshSimplifierOptions.Default;
+            off.PreserveBorderEdges = false;
+            Assert.AreEqual(off, CutOverlapProtection.ApplyResolved(off, protection));
+            off = MeshSimplifierOptions.Default.WithoutProtections();
+            Assert.AreEqual(off, CutOverlapProtection.ApplyResolved(off, protection));
+        }
+
+        [Test]
+        public void ShouldReadAllBoneInfluencesAndIgnoreNegligibleWeights()
+        {
+            var owner = new GameObject("Influence fixture");
+            var mesh = new Mesh();
+            try
+            {
+                var renderer = owner.AddComponent<SkinnedMeshRenderer>();
+                var bones = new Transform[6];
+                for (var i = 0; i < bones.Length; i++)
+                {
+                    bones[i] = new GameObject("Bone " + i).transform;
+                    bones[i].SetParent(owner.transform, false);
+                }
+                mesh.vertices = new[] { Vector3.zero };
+                mesh.bindposes = Enumerable.Repeat(Matrix4x4.identity, 6).ToArray();
+                using var counts = new Unity.Collections.NativeArray<byte>(new byte[] { 6 }, Unity.Collections.Allocator.Temp);
+                var values = new[] { .4f, .2f, .15f, .1495f, .1f, .0005f };
+                using var weights = new Unity.Collections.NativeArray<BoneWeight1>(values.Select((w, i) =>
+                    new BoneWeight1 { boneIndex = i, weight = w }).ToArray(), Unity.Collections.Allocator.Temp);
+                mesh.SetBoneWeights(counts, weights);
+                renderer.bones = bones;
+                renderer.sharedMesh = mesh;
+                var influences = CutOverlapProtection.ReadInfluences(renderer, mesh);
+                CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 4 }, influences[0]);
+                Assert.AreSame(mesh, renderer.sharedMesh);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owner);
+                Object.DestroyImmediate(mesh);
+            }
+        }
+
         private static int[] RemoveStrip(Mesh mesh)
         {
             var v = mesh.vertices; var t = mesh.triangles;

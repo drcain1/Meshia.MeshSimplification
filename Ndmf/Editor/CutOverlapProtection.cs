@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Meshia.MeshSimplification.Ndmf.Editor
@@ -11,8 +12,23 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
     internal static class CutOverlapProtection
     {
         internal static bool[][] Calculate(IReadOnlyList<Renderer> renderers, IReadOnlyList<Mesh> inputs, IReadOnlyList<Mesh> originals)
+            => CalculateResolved(renderers, inputs, originals).Select(p => p.Mask).ToArray();
+
+        internal sealed class Protection
         {
-            var result = inputs.Select(m => new bool[m.vertexCount]).ToArray();
+            internal readonly bool[] Mask;
+            internal readonly int[] JointBones;
+
+            internal Protection(bool[] mask, int[] jointBones)
+            {
+                Mask = mask;
+                JointBones = jointBones;
+            }
+        }
+
+        internal static Protection[] CalculateResolved(IReadOnlyList<Renderer> renderers, IReadOnlyList<Mesh> inputs, IReadOnlyList<Mesh> originals)
+        {
+            var result = inputs.Select(m => new Protection(new bool[m.vertexCount], Array.Empty<int>())).ToArray();
             if (!inputs.Where((m, i) => m != originals[i]).Any()) return result;
             var surfaces = new List<Surface>(); var indices = new List<int>();
             for (var i = 0; i < inputs.Count; i++)
@@ -21,11 +37,38 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 // A currently hidden NaNimation surface has no finite contact
                 // geometry. Its independent visibility guard still applies.
                 if (positions.Any(p => !Finite(p.x) || !Finite(p.y) || !Finite(p.z))) continue;
-                surfaces.Add(new Surface(positions, Triangles(inputs[i]), Triangles(originals[i])));
+                var surface = new Surface(positions, Triangles(inputs[i]), Triangles(originals[i]));
+                surface.Influences = ReadInfluences(renderers[i], inputs[i]);
+                surfaces.Add(surface);
                 indices.Add(i);
             }
             Protect(surfaces);
-            for (var i = 0; i < indices.Count; i++) result[indices[i]] = surfaces[i].Protected;
+            for (var i = 0; i < indices.Count; i++)
+                result[indices[i]] = new Protection(surfaces[i].Protected, surfaces[i].JointBones.OrderBy(b => b).ToArray());
+            return result;
+        }
+
+        internal static int[][] ReadInfluences(Renderer renderer, Mesh mesh)
+        {
+            if (renderer is not SkinnedMeshRenderer skin) return Array.Empty<int[]>();
+            var bones = skin.bones;
+            var result = new int[mesh.vertexCount][];
+            using var counts = mesh.GetBonesPerVertex();
+            using var weights = mesh.GetAllBoneWeights();
+            if (counts.Length != result.Length) return Array.Empty<int[]>();
+            var offset = 0;
+            for (var vertex = 0; vertex < result.Length; vertex++)
+            {
+                var influences = new List<int>();
+                for (var i = 0; i < counts[vertex]; i++)
+                {
+                    var weight = weights[offset++];
+                    if (weight.weight > .001f && weight.boneIndex >= 0 && weight.boneIndex < bones.Length &&
+                        bones[weight.boneIndex] != null)
+                        influences.Add(weight.boneIndex);
+                }
+                result[vertex] = influences.Distinct().OrderBy(b => b).ToArray();
+            }
             return result;
         }
 
@@ -79,6 +122,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             internal readonly Bounds Bounds;
             internal readonly (int, int)[] Rim;
             internal readonly float RimWidth;
+            internal int[][] Influences = Array.Empty<int[]>();
+            internal readonly HashSet<int> JointBones = new();
             private Tree? tree;
             internal Tree Index => tree ??= new Tree(Positions, Triangles);
 
@@ -144,6 +189,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     if (!cut.CutVertices.Any(v => other.Index.Find(cut.Positions[v], cut.Distance) >= 0)) continue;
                     MarkContact(cut, other, cut.Distance, other);
                     MarkContact(other, cut, cut.Distance, other);
+                    ProtectDeformingContact(cut, other);
                 }
             }
             foreach (var surface in surfaces)
@@ -156,6 +202,67 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         surface.Protected[a] = surface.Protected[b] = surface.Protected[c] = true;
                 }
             }
+        }
+
+        private static void ProtectDeformingContact(Surface cut, Surface clothing)
+        {
+            if (clothing.Influences.Length != clothing.Positions.Length) return;
+            // Discover the bending influences at actual contact with the cut.
+            // Follow only those influence pairs, not every joint on the avatar.
+            var pairs = new HashSet<(int, int)>();
+            foreach (var vertex in cut.CutVertices)
+            {
+                var triangle = clothing.Index.Find(cut.Positions[vertex], cut.Distance);
+                if (triangle < 0) continue;
+                for (var corner = 0; corner < 3; corner++)
+                {
+                    var influences = clothing.Influences[clothing.Triangles[triangle * 3 + corner]];
+                    for (var a = 0; a < influences.Length; a++)
+                        for (var b = a + 1; b < influences.Length; b++)
+                            pairs.Add((influences[a], influences[b]));
+                }
+            }
+            if (pairs.Count == 0) return;
+            for (var vertex = 0; vertex < clothing.Positions.Length; vertex++)
+            {
+                if (!clothing.Used[vertex]) continue;
+                var influences = clothing.Influences[vertex];
+                for (var a = 0; a < influences.Length; a++)
+                    for (var b = a + 1; b < influences.Length; b++)
+                    {
+                        if (!pairs.Contains((influences[a], influences[b]))) continue;
+                        clothing.Protected[vertex] = true;
+                        clothing.JointBones.Add(influences[a]);
+                        clothing.JointBones.Add(influences[b]);
+                    }
+            }
+        }
+
+        internal static MeshSimplifierOptions ApplyResolved(MeshSimplifierOptions options, Protection protection)
+        {
+            options = Apply(options, protection.Mask);
+            if (!options.PreserveBorderEdges || options.AllowUnsafeGeometry || protection.JointBones.Length == 0)
+                return options;
+            var skinning = options.SkinningProtection;
+            // An enabled empty selection already means all joints. Otherwise
+            // merge the automatic selection with the user's existing selection.
+            if (!(skinning.PreserveJointTransitions && skinning.JointProtectionBoneIndices.Length == 0))
+            {
+                if (!skinning.PreserveJointTransitions) skinning.JointProtectionBoneIndices.Clear();
+                foreach (var bone in protection.JointBones)
+                {
+                    if (skinning.JointProtectionBoneIndices.Contains(bone)) continue;
+                    if (skinning.JointProtectionBoneIndices.Length == skinning.JointProtectionBoneIndices.Capacity)
+                    {
+                        skinning.JointProtectionBoneIndices.Clear();
+                        break;
+                    }
+                    skinning.JointProtectionBoneIndices.Add(bone);
+                }
+            }
+            skinning.PreserveJointTransitions = true;
+            options.SkinningProtection = skinning;
+            return options;
         }
 
         private static void MarkContact(Surface a, Surface b, float distance, Surface opening)

@@ -142,7 +142,9 @@ This preparation requires AAO **1.9 or later**, a normal (not inverted) selectio
 
 **Close-fitting clothing openings:** when another mesh covers a supported AAO cut, Meshia also checks the overlap near that clothing's physical opening. With **Preserve Border Edges** enabled on the affected meshes, it applies a tighter surface limit to both sides of that small area. The area can still simplify; the rest of each mesh keeps its selected settings. This helps prevent skin poking through a stocking or sleeve after the two meshes simplify differently. Texture seams do not count as clothing openings, and stricter user surface limits remain in force. Preview, builds, and measured output calculations use the same resolved protection.
 
-This overlap handling is experimental. It uses the build's reference pose and sampled surface limits; it is not a guarantee against clipping in every pose or outfit state. It can retain additional triangles. Check bent joints, blendshapes, and outfit toggles before uploading.
+When that contact area contains blended bone weights, Meshia also follows the corresponding bending region on the covering clothing. It applies the local surface limit there and preserves the associated joint transitions, while retaining your existing joint selection. This helps a stocking or sleeve keep its shape when a nearby joint bends. Detection uses geometry and bone weights, without requiring specific mesh or bone names or another checkbox. It follows the same Preserve Border Edges setting and is disabled by No protection.
+
+This overlap handling is experimental. It uses the build's reference pose, bone influences, and sampled surface limits; it is not a guarantee against clipping in every pose or outfit state. Close layers without a supported cut, such as a tie against a shirt, are not covered by this detection. It can retain additional triangles. Check bent joints, blendshapes, and outfit toggles before uploading.
 
 After updating an avatar that already uses these AAO cuts, run **Analyze Build**. Its first successful automatic adjustment accounts for the triangles that survived the old cut order when setting the reduction limit for affected meshes. Other meshes keep their normal adjustment limits. Protected edges and overlap areas can retain more triangles, so reaching the requested total is not guaranteed. Check the cut in bent poses and with each outfit toggle before uploading.
 
@@ -381,7 +383,9 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 
 **肌に近い衣装の開口部：** 対応する AAO の切り口を別のメッシュが覆っている場合、衣装の開口部付近で重なっている範囲も確認します。対象メッシュの **Preserve Border Edges** がオンなら、その狭い範囲の両側に、より厳しい表面のずれの制限を適用します。この範囲も軽量化でき、その他の部分は選択した設定を維持します。素体と衣装が異なる形に軽量化されたとき、ストッキングや袖から肌が突き抜けるのを抑えるための処理です。テクスチャのシームは開口部として扱わず、ユーザーが設定した制限のほうが厳しい場合は、その制限を維持します。プレビュー、ビルド、出力数の計測には同じ保護条件を使います。
 
-この重なりの保護は実験的な機能です。ビルド時の基準ポーズと表面のサンプリングによる制限を使うため、すべてのポーズや衣装の状態で突き抜けを防ぐことを保証するものではありません。残る三角形数が増える場合があります。アップロード前に、関節を曲げた状態、ブレンドシェイプ、衣装の切り替えを確認してください。
+接触部分に複数のボーンのウェイトが混在している場合は、衣装側の対応する変形範囲も調べます。その範囲にも局所的な表面のずれの制限を適用し、既存の関節選択を維持したうえで、関連する関節の境界を保護します。近くの関節を曲げた際に、ストッキングや袖の形状を保ちやすくするための処理です。形状とボーンウェイトから判定するため、特定のメッシュ名・ボーン名や追加のチェックボックスは不要です。同じ Preserve Border Edges 設定に従い、No protection では無効になります。
+
+この重なりの保護は実験的な機能です。ビルド時の基準ポーズ、ボーンの影響、表面のサンプリングによる制限を使うため、すべてのポーズや衣装の状態で突き抜けを防ぐことを保証するものではありません。ネクタイとシャツのように、対応する切り口がない近接した衣装同士は、この検出の対象外です。残る三角形数が増える場合があります。アップロード前に、関節を曲げた状態、ブレンドシェイプ、衣装の切り替えを確認してください。
 
 これらの AAO 削除を設定済みのアバターを更新したら、**ビルドを解析** を実行してください。初めて自動調整が成功する際、対象メッシュの削減上限は従来の処理順で削除後に残っていた三角形数も考慮します。他のメッシュの調整上限は維持します。境界や重なりの保護によって残る三角形数が増える場合があり、目標数への到達を保証するものではありません。アップロード前に、関節を曲げた状態と各衣装の切り替えで切り口を確認してください。
 
