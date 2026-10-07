@@ -177,6 +177,18 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private bool HasMeasuredInputs(string settings) => measuredMeshes != null &&
             measuredMeshes.InputRevision == meshInputRevision && measuredMeshes.Settings == settings;
 
+        private bool CanRequestPreviewOutput(int index) => index >= 0 && index < Target.Entries.Count &&
+            Target.gameObject.activeInHierarchy && Target.Entries[index].Enabled &&
+            Target.Entries[index].Algorithm == MeshiaCascadingSimplificationAlgorithm.FaQem &&
+            MeshiaCascadingAvatarMeshSimplifierPreview.IsEnabled() &&
+            Target.Entries[index].GetTargetRenderer(Target) is { } renderer && RendererUtility.GetMesh(renderer) != null;
+
+        private bool TryGetEditableMesh(int index, string settings, out MeasuredMeshResponse mesh)
+        {
+            if (HasMeasuredInputs(settings) && measuredMeshes!.Meshes.TryGetValue(index, out mesh)) return true;
+            return MeshiaCascadingAvatarMeshSimplifierPreview.TryGetSliderMeasurement(Target, index, out mesh);
+        }
+
         private static void InvalidateTriangleAnalysis()
         {
             if (s_analysisInProgress)
@@ -1540,6 +1552,24 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 if (measured && !canEdit)
                     tooltip += "\n" + Tr("Analyze Build to refresh measurements before editing output.");
             }
+            if (!canEdit && CanRequestPreviewOutput(index))
+            {
+                canEdit = true;
+                if (TryGetEditableMesh(index, current.Settings, out var live) && live.TryGetOutput(count, out var liveOutput))
+                {
+                    output = liveOutput;
+                    measured = true;
+                    pending = pendingOutputIndex == index;
+                    tooltip = Format("Output: {0:N0}\nBefore other build tools run.", output);
+                }
+                else if (!measured)
+                {
+                    pending = true;
+                    if (output < 0 && entry.GetTargetRenderer(Target) is { } renderer &&
+                        MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.TryGetValue(renderer, out var preview))
+                        output = preview.simplified;
+                }
+            }
             var feedback = measured && !pending && outputFeedbackIndex == index && outputFeedbackValue == output &&
                 EditorApplication.timeSinceStartup < outputFeedbackUntil;
             var showHint = entry.Enabled && (pending || !measured || feedback);
@@ -1585,11 +1615,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private void QueueOutputEdit(VisualElement root, int index, int desired)
         {
             var current = CaptureAllocations();
-            if (s_analysisInProgress || !HasMeasuredInputs(current.Settings) ||
-                !measuredMeshes!.Meshes.TryGetValue(index, out var mesh) || !Target.Entries[index].Enabled) return;
+            if (s_analysisInProgress || index < 0 || index >= Target.Entries.Count || !Target.Entries[index].Enabled) return;
+            var hasMeasurement = TryGetEditableMesh(index, current.Settings, out var mesh);
+            if (!hasMeasurement && !CanRequestPreviewOutput(index)) return;
+            var sourceCount = hasMeasurement ? mesh.SourceCount
+                : RendererUtility.GetRequiredMesh(Target.Entries[index].GetTargetRenderer(Target)!).GetTriangleCount();
             ++outputEditSerial;
             pendingOutputIndex = index;
-            pendingOutputCount = Math.Max(0, Math.Min(mesh.SourceCount, desired));
+            pendingOutputCount = Math.Max(0, Math.Min(sourceCount, desired));
             RefreshBackgroundCalculationIndicator(root);
             outputFeedbackIndex = -1;
             RefreshAllocationRows(root, current);
@@ -1618,15 +1651,22 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private async System.Threading.Tasks.Task ApplyOutputEditAsync(VisualElement root, int index, int desired, int serial)
         {
             var starting = CaptureAllocations();
-            var inputs = measuredMeshes;
+            if (!TryGetEditableMesh(index, starting.Settings, out var mesh))
+            {
+                // Keep the user's latest request while protection changes rebuild
+                // the preview. Never invert the old protection's count curve.
+                if (serial == outputEditSerial && CanRequestPreviewOutput(index)) ScheduleOutputEdit(root);
+                else if (serial == outputEditSerial) pendingOutputIndex = -1;
+                return;
+            }
             var budget = Target.TargetTriangleCount;
             var reserve = Target.BuildTriangleReserve;
             var autoAdjust = Target.AutoAdjustEnabled;
             bool Current() => this != null && target != null && serial == outputEditSerial && !s_analysisInProgress &&
-                inputs != null && inputs == measuredMeshes && HasMeasuredInputs(starting.Settings) &&
+                TryGetEditableMesh(index, starting.Settings, out var currentMesh) && currentMesh == mesh &&
                 Target.TargetTriangleCount == budget && Target.BuildTriangleReserve == reserve && Target.AutoAdjustEnabled == autoAdjust &&
                 CaptureAllocations().Settings == starting.Settings && CaptureAllocations().Counts.SequenceEqual(starting.Counts);
-            if (!Current() || !inputs!.Meshes.TryGetValue(index, out var mesh))
+            if (!Current())
             {
                 if (serial == outputEditSerial) pendingOutputIndex = -1;
                 return;

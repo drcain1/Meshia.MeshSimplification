@@ -635,6 +635,132 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         }
 
         [Test]
+        public async Task ProtectionCyclesKeepSlidersEditableAndApplyTheLatestRequestUsingFreshPreviewCounts()
+        {
+            await WithInspectorAsync(async (component, inspector) =>
+            {
+                component.AutoAdjustEnabled = false;
+                var preview = Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.PreviewControlNode.IsEnabled;
+                preview.Value = true;
+                var source = CutMeshPreparationTests.Grid();
+                var renderer = component.transform.parent.GetComponentsInChildren<Renderer>(true)[0];
+                renderer.GetComponent<MeshFilter>().sharedMesh = source;
+                component.Entries[0].TargetTriangleCount = 120;
+                var type = inspector.GetType();
+                var row = new TemplateContainer { userData = 0 };
+                row.Add(new SliderInt(0, source.triangles.Length / 3) { name = "TargetTriangleCountSlider" });
+                row.Add(new IntegerField { name = "TargetTriangleCountField" });
+                row.Add(new Label { name = "MeasuredOutputHint" });
+                var root = new VisualElement(); root.Add(row);
+                var filter = new Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview();
+                var nodes = new System.Collections.Generic.List<nadena.dev.ndmf.preview.IRenderFilterNode>();
+                var pairs = new[] { (renderer, renderer) };
+                void Refresh() => type.GetMethod("RefreshAllocationFields", Inst).Invoke(inspector, new object[] { row });
+                try
+                {
+                    var node = await ((nadena.dev.ndmf.preview.IRenderFilter)filter).Instantiate(
+                        Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.CreateRenderGroup(renderer, component, 0),
+                        pairs, new nadena.dev.ndmf.preview.ComputeContext("First slider preview"));
+                    nodes.Add(node); node.OnFrameGroup();
+                    Assert.IsTrue(Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TryGetSliderMeasurement(component, 0, out _));
+                    for (var cycle = 0; cycle < 3; cycle++)
+                    {
+                        type.GetMethod("CycleMeshProtection", Inst).Invoke(inspector, new object[] { 0 });
+                        Undo.FlushUndoRecordObjects();
+                        Assert.IsFalse(Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TryGetSliderMeasurement(component, 0, out _),
+                            "The old protection curve must become unusable immediately.");
+                        Refresh();
+                        Assert.IsTrue(row.Q<SliderInt>().enabledSelf);
+                        Assert.IsTrue(row.Q<IntegerField>().enabledSelf);
+                        type.GetMethod("QueueOutputEdit", Inst).Invoke(inspector, new object[] { root, 0, 90 });
+                        type.GetMethod("QueueOutputEdit", Inst).Invoke(inspector, new object[] { root, 0, 100 });
+                        var serial = (int)type.GetField("outputEditSerial", Inst).GetValue(inspector);
+                        await (Task)type.GetMethod("ApplyOutputEditAsync", Inst).Invoke(inspector, new object[] { root, 0, 100, serial });
+                        Assert.AreEqual(0, type.GetField("pendingOutputIndex", Inst).GetValue(inspector));
+                        Assert.AreEqual(100, row.Q<SliderInt>().value, "Show the latest request while waiting.");
+                        var nextContext = new nadena.dev.ndmf.preview.ComputeContext("Changed protection preview");
+                        var next = await node.Refresh(pairs, nextContext, 0);
+                        nodes.Add(next); next.OnFrameGroup();
+                        node.Dispose(); node = next;
+                        Assert.IsTrue(Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TryGetSliderMeasurement(component, 0, out var response),
+                            "Disposing an older node must not remove its successor's measurement.");
+                        await (Task)type.GetMethod("ApplyOutputEditAsync", Inst).Invoke(inspector, new object[] { root, 0, 100, serial });
+                        Assert.AreEqual(-1, type.GetField("pendingOutputIndex", Inst).GetValue(inspector));
+                        Assert.IsTrue(response.TryGetOutput(component.Entries[0].TargetTriangleCount, out var expected));
+                        Refresh();
+                        Assert.AreEqual(expected, row.Q<SliderInt>().value);
+                        Assert.IsTrue(row.Q<SliderInt>().enabledSelf);
+                    }
+                    node.Dispose();
+                    Assert.IsFalse(Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TryGetSliderMeasurement(component, 0, out _));
+                }
+                finally
+                {
+                    foreach (var node in nodes) node.Dispose();
+                    Object.DestroyImmediate(source);
+                    Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.Remove(renderer);
+                }
+            });
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task FullDetailPreviewDefersItsCurveAndRetainsInputsDuringMeasurement(bool disposeWhileMeasuring)
+        {
+            await WithInspectorAsync(async (component, inspector) =>
+            {
+                Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.PreviewControlNode.IsEnabled.Value = true;
+                var source = CutMeshPreparationTests.Grid();
+                var renderer = component.transform.parent.GetComponentsInChildren<Renderer>(true)[0];
+                renderer.GetComponent<MeshFilter>().sharedMesh = source;
+                var originalCount = source.triangles.Length / 3;
+                component.Entries[0].TargetTriangleCount = originalCount;
+                var filter = new Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview();
+                nadena.dev.ndmf.preview.IRenderFilterNode node = null;
+                Task<int[]> pending = null;
+                try
+                {
+                    node = await ((nadena.dev.ndmf.preview.IRenderFilter)filter).Instantiate(
+                        Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.CreateRenderGroup(renderer, component, 0),
+                        new[] { (renderer, renderer) }, new nadena.dev.ndmf.preview.ComputeContext("Full detail"));
+                    node.OnFrameGroup();
+                    var inputs = node.GetType().GetField("Inputs", Inst).GetValue(node);
+                    var replays = (System.Collections.IDictionary)inputs.GetType().GetField("replays", Inst).GetValue(inputs);
+                    Assert.AreEqual(0, replays.Count, "Displaying full detail must not calculate a reduction sequence.");
+                    Assert.IsTrue(Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TryGetSliderMeasurement(component, 0, out var response));
+                    Assert.IsTrue(response.TryGetOutput(originalCount, out var output));
+                    Assert.AreEqual(originalCount, output);
+                    var row = new TemplateContainer { userData = 0 };
+                    row.Add(new SliderInt(0, originalCount) { name = "TargetTriangleCountSlider" });
+                    inspector.GetType().GetMethod("RefreshAllocationFields", Inst).Invoke(inspector, new object[] { row });
+                    Assert.IsTrue(row.Q<SliderInt>().enabledSelf);
+                    Assert.AreEqual(originalCount, row.Q<SliderInt>().value);
+                    pending = Task.WhenAll(response.MeasureAsync(100), response.MeasureAsync(120));
+                    Assert.AreEqual(1, replays.Count, "Concurrent requests must share one deferred sequence.");
+                    if (disposeWhileMeasuring) node.Dispose();
+                    var outputs = await pending;
+                    var replay = replays.Values.Cast<object>().Single();
+                    var replayTask = (Task)replay.GetType().GetField("Item2").GetValue(replay);
+                    await replayTask;
+                    var plan = replayTask.GetType().GetProperty("Result").GetValue(replayTask);
+                    var profile = (FaQemCountProfile)plan.GetType().GetField("Counts", Inst).GetValue(plan);
+                    Assert.IsTrue(profile.TryGetOutput(100, out var first));
+                    Assert.IsTrue(profile.TryGetOutput(120, out var second));
+                    CollectionAssert.AreEqual(new[] { first, second }, outputs);
+                    if (disposeWhileMeasuring)
+                        Assert.IsFalse(Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TryGetSliderMeasurement(component, 0, out _));
+                }
+                finally
+                {
+                    node?.Dispose();
+                    if (pending != null) await pending;
+                    Object.DestroyImmediate(source);
+                    Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.Remove(renderer);
+                }
+            });
+        }
+
+        [Test]
         public void UndoOfProtectionOrGeometryStillInvalidatesMeasuredInputs()
         {
             WithInspector((component, inspector) =>
@@ -947,6 +1073,9 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
 
         private static async Task WithInspectorAsync(Func<MeshiaCascadingAvatarMeshSimplifier, UnityEditor.Editor, Task> run)
         {
+            var preview = Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.PreviewControlNode.IsEnabled;
+            var previewEnabled = preview.Value;
+            preview.Value = false;
             var locale = LocalizationProvider.CurrentLocale;
             LocalizationProvider.CurrentLocale = "en";
             var avatar = new GameObject("Measured budget fixture", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
@@ -966,6 +1095,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 SessionState.EraseString(key); Undo.ClearUndo(component);
                 Object.DestroyImmediate(inspector); Object.DestroyImmediate(avatar);
                 LocalizationProvider.CurrentLocale = locale;
+                preview.Value = previewEnabled;
             }
         }
     }

@@ -76,6 +76,8 @@ namespace Meshia.MeshSimplification.Tests
                     }, options, bones, expected);
                     CollectionAssert.AreEqual(expected.vertices, actual.vertices, "Positions at " + count);
                     CollectionAssert.AreEqual(expected.triangles, actual.triangles, "Topology at " + count);
+                    Assert.IsTrue(plan.Counts.TryGetOutput(count, out var measured));
+                    Assert.AreEqual(expected.triangles.Length / 3, measured, "Published slider count at " + count);
                     CollectionAssert.AreEqual(expected.normals, actual.normals, "Normals at " + count);
                     CollectionAssert.AreEqual(expected.tangents, actual.tangents, "Tangents at " + count);
                     CollectionAssert.AreEqual(expected.boneWeights, actual.boneWeights, "Skinning at " + count);

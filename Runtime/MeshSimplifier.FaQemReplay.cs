@@ -25,13 +25,15 @@ namespace Meshia.MeshSimplification
             private readonly MeshSimplifierOptions options;
             private readonly BitArray? bones;
             private readonly FaQemReplayStep[] steps;
+            internal readonly FaQemCountProfile Counts;
 
-            internal FaQemReplay(Mesh source, MeshSimplifierOptions options, BitArray? bones, FaQemReplayStep[] steps)
+            internal FaQemReplay(Mesh source, MeshSimplifierOptions options, BitArray? bones, FaQemReplayStep[] steps, FaQemCountProfile counts)
             {
                 this.source = source;
                 this.options = options;
                 this.bones = bones;
                 this.steps = steps;
+                Counts = counts;
             }
 
             // The owner must invalidate this plan when the source, options or pose
@@ -49,7 +51,7 @@ namespace Meshia.MeshSimplification
             var preserved = bones == null ? null : (BitArray)bones.Clone();
             using var measurement = new FaQemCountMeasurement(source, 0, options, preserved, true);
             while (!measurement.Pending.IsCompleted) await Task.Yield();
-            return new FaQemReplay(source, options, preserved, measurement.CompleteReplay());
+            return new FaQemReplay(source, options, preserved, measurement.CompleteReplay(), measurement.Complete());
         }
     }
 }

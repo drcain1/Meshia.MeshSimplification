@@ -40,6 +40,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             {
                 var originals = pairs.Select(p => RendererUtility.GetRequiredMesh(p.Item2)).ToArray();
                 var settings = new Settings[pairs.Length];
+                var publishers = new SliderMeasurementPublisher?[pairs.Length];
                 var supportsCuts = new bool[pairs.Length];
                 for (var i = 0; i < pairs.Length; i++)
                 {
@@ -51,6 +52,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                     options = NdmfPlugin.ResolvePreviewOptions(context, context.GetAvatarRoot(original.gameObject), original, options);
                     options = VisibilityCutProtection.Resolve(proxy, options, context);
                     settings[i] = new Settings(selected, target, options, bones);
+                    if (selected) publishers[i] = CaptureMeasurementPublisher(context, group, original);
                     supportsCuts[i] = CutMeshPreparation.Supports(target, options);
                 }
 
@@ -101,7 +103,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                 }
                 await Task.WhenAll(Worker(), Worker());
                 cancellation.Token.ThrowIfCancellationRequested();
-                return new Node(this, group, renderers, prepared, settings, outputs, request, work.Count);
+                return new Node(this, group, renderers, prepared, settings, outputs, request, work.Count, publishers);
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
@@ -124,6 +126,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
         }
 
         protected virtual bool IncludesRenderer(ComputeContext context, RenderGroup group, Renderer original) => true;
+        protected delegate IDisposable? SliderMeasurementPublisher(FaQemCountProfile? profile,
+            Func<Task<FaQemCountProfile>> measureAsync, int sourceCount, int requested, int produced);
+        protected virtual SliderMeasurementPublisher? CaptureMeasurementPublisher(
+            ComputeContext context, RenderGroup group, Renderer original) => null;
         protected abstract (MeshSimplificationTarget, MeshSimplifierOptions, BitArray?) QueryTarget(
             ComputeContext context, RenderGroup group, Renderer original, Renderer proxy);
 
@@ -222,6 +228,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                 return task;
             }
             internal Prepared Retain() { references++; return this; }
+            internal FaQemCountProfile? CompletedProfile(int index, Settings settings) =>
+                replays.TryGetValue(index, out var entry) && entry.settings.SameOptions(settings) &&
+                entry.task.Status == TaskStatus.RanToCompletion ? entry.task.Result.Counts : null;
             public void Dispose()
             {
                 if (--references != 0) return;
@@ -251,11 +260,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             internal readonly int RecomputedMeshes;
             private bool disposed;
             private bool displayed;
+            private readonly SliderMeasurementPublisher?[] publishers;
+            private readonly List<IDisposable> measurements = new();
             internal Node(MeshiaMeshSimplifierPreviewBase<TDerived> owner, RenderGroup group, Renderer[] renderers,
-                Prepared inputs, Settings[] settings, Dictionary<Renderer, Output> outputs, long request, int recomputed)
+                Prepared inputs, Settings[] settings, Dictionary<Renderer, Output> outputs, long request, int recomputed,
+                SliderMeasurementPublisher?[] publishers)
             {
                 this.owner = owner; this.group = group; this.renderers = renderers;
                 Inputs = inputs; Settings = settings; Outputs = outputs; this.request = request; RecomputedMeshes = recomputed;
+                this.publishers = publishers;
             }
             public RenderAspects WhatChanged => RenderAspects.Mesh;
             public Task<IRenderFilterNode> Refresh(IEnumerable<(Renderer, Renderer)> pairs, ComputeContext context, RenderAspects changes)
@@ -270,13 +283,30 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                 displayed = true;
                 for (var i = 0; i < renderers.Length; i++)
                     if (Outputs.TryGetValue(renderers[i], out var output))
+                    {
                         TriangleCountCache[renderers[i]] = (Inputs.Originals[i].GetTriangleCount(), output.Mesh.GetTriangleCount());
+                        var index = i;
+                        if (publishers[i]?.Invoke(Inputs.CompletedProfile(i, Settings[i]), () => MeasureProfileAsync(index),
+                            Inputs.Inputs[i].Mesh.GetTriangleCount(), (int)Settings[i].Target.Value, output.Mesh.GetTriangleCount()) is { } measurement)
+                            measurements.Add(measurement);
+                    }
                 PreviewActivity.Finish(renderers, request);
+            }
+            private async Task<FaQemCountProfile> MeasureProfileAsync(int index)
+            {
+                if (disposed) throw new ObjectDisposedException(nameof(Node));
+                // A full-detail mesh does not need a reduction sequence until its
+                // slider is lowered. Retain the prepared source while that job runs,
+                // even if its preview node is replaced or the inspector is closed.
+                var inputs = Inputs.Retain();
+                try { return (await inputs.GetReplay(index, Settings[index])).Counts; }
+                finally { inputs.Dispose(); }
             }
             public void Dispose()
             {
                 if (disposed) return;
                 disposed = true;
+                foreach (var measurement in measurements) measurement.Dispose();
                 foreach (var output in Outputs.Values) output.Dispose();
                 Inputs.Dispose();
                 PreviewActivity.Finish(renderers, request);

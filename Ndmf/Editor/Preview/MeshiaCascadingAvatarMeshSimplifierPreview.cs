@@ -13,6 +13,56 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
 {
     internal class MeshiaCascadingAvatarMeshSimplifierPreview : MeshiaMeshSimplifierPreviewBase<MeshiaCascadingAvatarMeshSimplifierPreview>
     {
+        private static readonly Dictionary<(MeshiaCascadingAvatarMeshSimplifier, int), SliderMeasurement> SliderMeasurements = new();
+
+        // Managed count curves only: no preview mesh or native allocation escapes its node.
+        private sealed class SliderMeasurement : IDisposable
+        {
+            internal readonly MeasuredMeshResponse Response;
+            internal readonly Func<bool> IsCurrent;
+            private readonly (MeshiaCascadingAvatarMeshSimplifier, int) key;
+            internal SliderMeasurement((MeshiaCascadingAvatarMeshSimplifier, int) key, MeasuredMeshResponse response, Func<bool> isCurrent)
+            { this.key = key; Response = response; IsCurrent = isCurrent; }
+            public void Dispose()
+            {
+                if (SliderMeasurements.TryGetValue(key, out var current) && current == this) SliderMeasurements.Remove(key);
+                Response.Dispose();
+            }
+        }
+
+        internal static bool TryGetSliderMeasurement(MeshiaCascadingAvatarMeshSimplifier component, int index,
+            out MeasuredMeshResponse response)
+        {
+            response = null!;
+            if (!IsEnabled() || !SliderMeasurements.TryGetValue((component, index), out var measurement) || !measurement.IsCurrent()) return false;
+            response = measurement.Response;
+            return true;
+        }
+
+        protected override SliderMeasurementPublisher? CaptureMeasurementPublisher(
+            ComputeContext context, RenderGroup group, Renderer original)
+        {
+            var (component, index) = group.GetData<(MeshiaCascadingAvatarMeshSimplifier, int)>();
+            if (index < 0) (component, index) = FindGroupedTarget(context, original);
+            if (component == null || index < 0 || component.Entries[index].Algorithm != MeshiaCascadingSimplificationAlgorithm.FaQem) return null;
+            var snapshot = component.Entries[index] with { TargetTriangleCount = 0, CutBudgetVersion = 0, Fixed = false };
+            bool Current() => component != null && original != null && !context.IsInvalidated &&
+                component.gameObject.activeInHierarchy && index < component.Entries.Count &&
+                component.Entries[index].GetTargetRenderer(component) == original &&
+                snapshot.Equals(component.Entries[index] with { TargetTriangleCount = 0, CutBudgetVersion = 0, Fixed = false });
+            return (profile, measureAsync, source, requested, produced) =>
+            {
+                if (!Current()) return null;
+                int Evaluate(int count) => profile != null && profile.TryGetOutput(count, out var output) ? output
+                    : throw new InvalidOperationException("Preview counts must be measured asynchronously.");
+                var response = new MeasuredMeshResponse(index, source, requested, produced, Evaluate,
+                    countProfile: profile, measureProfileAsync: measureAsync);
+                var measurement = new SliderMeasurement((component, index), response, Current);
+                SliderMeasurements[(component, index)] = measurement;
+                return measurement;
+            };
+        }
+
         internal static RenderGroup CreateRenderGroup(Renderer renderer,
             MeshiaCascadingAvatarMeshSimplifier component, int index)
         {
