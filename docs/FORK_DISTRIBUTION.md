@@ -119,6 +119,27 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.1.3-beta.8` improves interactive FA-QEM previews. Slider-only edits
+reuse exact reduction sequences and unchanged mesh outputs. Initial preparation
+avoids unused legacy work, repeated surface queries, and unchanged edge candidates.
+Full-detail meshes defer their reduction sequence until an edit needs it.
+
+With NDMF Preview enabled, FA-QEM sliders remain editable after protection changes.
+The latest requested output waits for fresh preview measurements instead of using
+the previous protection settings. Analyze Build still verifies the complete final
+avatar. Undo and Redo restore measured slider values and cancel obsolete edits.
+The calculating indicator remains active until the preview is displayed. Inspector
+refreshes share settings snapshots and skip hidden calculation details.
+
+Validation: Unity 2022.3.22f1 passed **385 EditMode tests**, including replay/fresh
+output parity, protection cycling, rapid pending edits, Undo/Redo, deferred count
+preparation, concurrent measurements, and disposal during measurement. Local
+comparison runs matched all 19 sampled output mesh fingerprints before and after
+the final deferred-preparation change. The user confirmed interactive behavior.
+These timings and checks do not establish performance on every avatar or constitute
+a new in-game geometry validation. No protection preset defaults or private avatar
+settings are changed by this release. English and Japanese guidance is updated.
+
 Version `1.1.3-beta.7` extends the experimental overlap protection around supported
 cuts into the covering clothing's bending region. It identifies meaningful bone
 influence pairs at contact, follows the corresponding blended region, and retains
