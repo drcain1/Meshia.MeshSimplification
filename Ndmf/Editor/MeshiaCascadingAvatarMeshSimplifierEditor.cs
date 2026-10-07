@@ -749,7 +749,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             {
                 root.Query<TemplateContainer>().ForEach(RefreshJointBoneSelection);
                 root.Query<TemplateContainer>().ForEach(UpdateAlgorithmOptionAvailability);
-                root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
             }
 
             IVisualElementScheduledItem? scheduledUvPreviewRefresh = null;
@@ -851,6 +850,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
         private void RefreshBudgetGuidance(VisualElement root)
         {
+            // Share this snapshot only within this refresh. A later refresh must
+            // see Undo, protection changes, and newly measured allocations.
+            var currentAllocations = CaptureAllocations();
             var budget = Target.TargetTriangleCount;
             var runSummary = root.Q<Label>("AnalysisRunSummary");
             runSummary.text = lastAnalysisRunRevision == CurrentAnalysisRevision ? lastAnalysisRunMessage : string.Empty;
@@ -879,10 +881,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 if (!failed && !outOfDate && analysis.Allocations == null)
                 {
                     analysis = new BuildAnalysisResult(analysis.TriangleCount,
-                        analysis.EstimatedBeforeDownstreamTriangleCount, analysis.Revision, analysis.Error, CaptureAllocations());
+                        analysis.EstimatedBeforeDownstreamTriangleCount, analysis.Revision, analysis.Error, currentAllocations);
                     StoreBuildAnalysisResult(Target, analysis);
                 }
-                if (!failed) RefreshAllocationProjection(root, analysis);
+                if (!failed) RefreshAllocationProjection(root, analysis, currentAllocations);
                 if (failed)
                 {
                     result.text = Tr("Build result: unavailable");
@@ -938,7 +940,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     ? new StyleColor(EditorGUIUtility.isProSkin ? new Color(1f, .75f, .3f) : new Color(.55f, .32f, .02f))
                     : new StyleColor(StyleKeyword.Null);
 
-            root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
+            RefreshAllocationRows(root, currentAllocations);
             if (root.Q<Foldout>("CalculationDetails").value)
             {
                 var details = new List<string> { Format("Allocated: {0:N0} / {1:N0}", GetTotalSimplifiedTriangleCount(false), budget),
@@ -962,7 +964,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             if (!root.Q<Foldout>("BudgetBreakdown").value) return;
             var rows = new List<(int index, Renderer renderer, int group, int count, string text)>();
-            var currentAllocations = CaptureAllocations();
             for (var index = 0; index < Target.Entries.Count; index++)
             {
                 var entry = Target.Entries[index];
@@ -1272,11 +1273,10 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             };
         }
 
-        private void RefreshAllocationProjection(VisualElement root, BuildAnalysisResult analysis)
+        private void RefreshAllocationProjection(VisualElement root, BuildAnalysisResult analysis, AllocationSnapshot current)
         {
             var label = root.Q<Label>("AllocationSummary");
             if (analysis.Allocations is not { } baseline) return;
-            var current = CaptureAllocations();
             if (current.Settings != baseline.Settings || current.Counts.Length != baseline.Counts.Length) return;
             var changed = Enumerable.Range(0, current.Counts.Length)
                 .Where(i => current.Counts[i] != baseline.Counts[i]).ToArray();
@@ -1475,6 +1475,17 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private void RefreshAllocationFields(TemplateContainer itemRoot)
         {
             if (itemRoot.userData is not int index || index < 0 || index >= Target.Entries.Count) return;
+            RefreshAllocationFieldsFromSnapshot(itemRoot, CaptureAllocations());
+        }
+
+        private void RefreshAllocationRows(VisualElement root, AllocationSnapshot current)
+        {
+            root.Query<TemplateContainer>().ForEach(row => RefreshAllocationFieldsFromSnapshot(row, current));
+        }
+
+        private void RefreshAllocationFieldsFromSnapshot(TemplateContainer itemRoot, AllocationSnapshot current)
+        {
+            if (itemRoot.userData is not int index || index < 0 || index >= Target.Entries.Count) return;
             var entry = Target.Entries[index];
             var count = entry.TargetTriangleCount;
             var slider = itemRoot.Q<SliderInt>("TargetTriangleCountSlider");
@@ -1498,7 +1509,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             {
                 // Never replace stale output with a raw simplifier request.
                 output = baseline.Outputs[index];
-                var current = CaptureAllocations();
                 var compatible = baseline.Settings == current.Settings;
                 var hasInputs = compatible && HasMeasuredInputs(current.Settings);
                 if (hasInputs && measuredMeshes!.Meshes.TryGetValue(index, out var mesh))
@@ -1565,7 +1575,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             pendingOutputCount = Math.Max(0, Math.Min(mesh.SourceCount, desired));
             RefreshBackgroundCalculationIndicator(root);
             outputFeedbackIndex = -1;
-            root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
+            RefreshAllocationRows(root, current);
             ScheduleOutputEdit(root);
         }
 

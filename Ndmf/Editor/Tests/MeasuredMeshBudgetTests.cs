@@ -522,18 +522,24 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 row.Add(new SliderInt(0, 12) { name = "TargetTriangleCountSlider" });
                 row.Add(new IntegerField { name = "TargetTriangleCountField" });
                 row.Add(new Label { name = "MeasuredOutputHint" });
-                var refresh = type.GetMethod("RefreshAllocationFields", Inst);
+                var root = new VisualElement();
+                root.Add(row);
+                void Refresh()
+                {
+                    var snapshot = type.GetMethod("CaptureAllocations", Inst).Invoke(inspector, null);
+                    type.GetMethod("RefreshAllocationRows", Inst).Invoke(inspector, new[] { root, snapshot });
+                }
                 type.GetMethod("SetManualAllocation", Inst).Invoke(inspector, new object[] { 0, 3 });
                 var edited = component.Entries.Select(e => e.TargetTriangleCount).ToArray();
                 inputs.Meshes[0].Measure(3);
-                refresh.Invoke(inspector, new object[] { row });
+                Refresh();
                 Assert.AreEqual(5, row.Q<SliderInt>().value);
                 UndoRedoInfo undone = default;
                 Undo.UndoRedoEventCallback capture = (in UndoRedoInfo info) => undone = info;
                 Undo.undoRedoEvent += capture;
                 try { Undo.PerformUndo(); }
                 finally { Undo.undoRedoEvent -= capture; }
-                refresh.Invoke(inspector, new object[] { row });
+                Refresh();
                 Assert.AreEqual(6, component.Entries[0].TargetTriangleCount);
                 Assert.IsTrue(component.Entries.All(e => e.TargetTriangleCount == 6), "Restore automatic redistribution too.");
                 Assert.AreEqual(8, row.Q<SliderInt>().value);
@@ -541,12 +547,56 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     undone.undoGroup + ":" + undone.undoName + "; groups=" + string.Join(",", (System.Collections.Generic.Dictionary<int, string>)
                         type.GetField("allocationUndoGroups", Stat).GetValue(null)) + "; revisions=" + inputs.InputRevision + "/" + type.GetField("meshInputRevision", Stat).GetValue(null));
                 Undo.PerformRedo();
-                refresh.Invoke(inspector, new object[] { row });
+                Refresh();
                 Assert.AreEqual(3, component.Entries[0].TargetTriangleCount);
                 CollectionAssert.AreEqual(edited, component.Entries.Select(e => e.TargetTriangleCount).ToArray());
                 Assert.AreEqual(5, row.Q<SliderInt>().value, "Redo must show the restored output, not the last full build.");
                 Assert.AreEqual(5, row.Q<IntegerField>().value);
                 Assert.IsTrue(row.Q<SliderInt>().enabledSelf);
+            });
+        }
+
+        [Test]
+        public void SharedRowRefreshSeesNewMeasurementsAndProtectionChanges()
+        {
+            WithInspector((component, inspector) =>
+            {
+                component.AutoAdjustEnabled = false;
+                Seed(inspector, 32, x => x + 2);
+                var type = inspector.GetType();
+                var inputs = (MeasuredMeshSet)type.GetField("measuredMeshes", Inst).GetValue(inspector);
+                var root = new VisualElement();
+                var rows = Enumerable.Range(0, component.Entries.Count).Select(index =>
+                {
+                    var row = new TemplateContainer { userData = index };
+                    row.Add(new SliderInt(0, 12) { name = "TargetTriangleCountSlider" });
+                    row.Add(new IntegerField { name = "TargetTriangleCountField" });
+                    root.Add(row);
+                    return row;
+                }).ToArray();
+                void Refresh()
+                {
+                    var snapshot = type.GetMethod("CaptureAllocations", Inst).Invoke(inspector, null);
+                    type.GetMethod("RefreshAllocationRows", Inst).Invoke(inspector, new[] { root, snapshot });
+                }
+                Refresh();
+                Assert.IsTrue(rows.All(row => row.Q<SliderInt>().value == 8 && row.Q<SliderInt>().enabledSelf));
+                for (var index = 0; index < rows.Length; index++)
+                {
+                    type.GetMethod("SetManualAllocation", Inst).Invoke(inspector, new object[] { index, index + 1 });
+                    inputs.Meshes[index].Measure(index + 1);
+                }
+                Refresh();
+                for (var index = 0; index < rows.Length; index++)
+                {
+                    Assert.AreEqual(index + 3, rows[index].Q<SliderInt>().value);
+                    Assert.AreEqual(index + 3, rows[index].Q<IntegerField>().value);
+                    Assert.IsTrue(rows[index].Q<SliderInt>().enabledSelf);
+                }
+                component.Entries[0].Options.PreserveBorderEdges = !component.Entries[0].Options.PreserveBorderEdges;
+                Refresh();
+                Assert.IsTrue(rows.All(row => !row.Q<SliderInt>().enabledSelf),
+                    "A shared snapshot must not survive into the next refresh after protection changes.");
             });
         }
 
