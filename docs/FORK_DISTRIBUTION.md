@@ -119,6 +119,30 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.1.3-beta.7` extends the experimental overlap protection around supported
+cuts into the covering clothing's bending region. It identifies meaningful bone
+influence pairs at contact, follows the corresponding blended region, and retains
+the associated joint transitions along with the user's existing joint selection.
+Meshes with more than four bone influences per vertex are supported. Detection
+uses geometry and weights rather than avatar-specific mesh or bone names.
+
+The resolved protection is shared by synchronous builds, asynchronous previews,
+and measured-output trials. It follows Preserve Border Edges and No protection;
+serialized user options are not rewritten by the automatic protection. English
+and Japanese documentation describes the behavior and remaining limits. This
+release does not include private avatar tuning or change protection preset defaults.
+
+Validation: all 363 Meshia EditMode tests passed in Unity 2022.3.22f1 with stock
+AAO 1.9.20 and MA 1.18.7, including four new tests for contact influence selection,
+joint-selection merging, variable bone-influence counts, and matching synchronous
+and asynchronous simplification. All 12 distribution tests and release prerequisites
+passed. Representative complete NDMF builds and static, 90-degree, and 120-degree
+bent-knee diagnostics were checked locally. These checks do not establish freedom
+from clipping in every pose or outfit. Close clothing layers without a supported
+cut remain outside the detection, and stronger protection can prevent fitting a
+requested budget. No fresh VCC/ALCOM installation or complete in-game clearance
+of this release is claimed. Hosted Unity license-dependent jobs are separate evidence.
+
 Version `1.1.3-beta.6` prepares supported AAO Remove Mesh By BlendShape cuts
 before FA-QEM simplification so Preserve Border Edges can retain the new cut
 boundaries. This requires AAO 1.9+, non-inverted selection, and clamped
