@@ -921,7 +921,9 @@ namespace Meshia.MeshSimplification
 
 
 
-                VertexErrorQuadrics.ElementAt(vertexA) += VertexErrorQuadrics[vertexB];
+                // FA-QEM-only initialization omits the unused legacy quadrics.
+                if (VertexErrorQuadrics.Length != 0)
+                    VertexErrorQuadrics.ElementAt(vertexA) += VertexErrorQuadrics[vertexB];
                 if (UseBlenderDecimate)
                 {
                     BlenderErrorQuadrics.ElementAt(vertexA) += BlenderErrorQuadrics[vertexB];
@@ -1112,6 +1114,11 @@ namespace Meshia.MeshSimplification
                     {
                         if (IsDiscardedVertex(nonReferencedVertex))
                         {
+                            continue;
+                        }
+                        if (VertexMergeOpponentVertices.IsEmpty)
+                        {
+                            DiscardVertex(nonReferencedVertex);
                             continue;
                         }
                         using var opponentVertices = new UnsafeList<int>(16, mergeAllocator);

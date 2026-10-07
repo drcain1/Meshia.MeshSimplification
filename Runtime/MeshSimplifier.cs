@@ -478,7 +478,8 @@ namespace Meshia.MeshSimplification
                 }
             }
 
-            var load = meshSimplifier.ScheduleLoadMeshData(originalMeshData, options, nativePreserveBorderEdgesBoneIndices);
+            var load = meshSimplifier.ScheduleLoadMeshData(originalMeshData, options, nativePreserveBorderEdgesBoneIndices,
+                target.Kind != MeshSimplificationTargetKind.FaQemTriangleCount);
 
             var simplifiedMeshDataArray = Mesh.AllocateWritableMeshData(1);
             NativeList<BlendShapeData> simplifiedBlendShapes = new(allocator);
@@ -658,6 +659,12 @@ namespace Meshia.MeshSimplification
          /// <param name="dependency">The handle of a job which the new job will depend upon.</param>
          /// <returns>The handle of a new job that will load mesh data from the <paramref name="meshData"/> into this <see cref="MeshSimplifier"/>.</returns>
         public JobHandle ScheduleLoadMeshData(Mesh.MeshData meshData, MeshSimplifierOptions options, NativeBitArray preserveBorderEdgesBoneIndices, JobHandle dependency = default)
+            => ScheduleLoadMeshData(meshData, options, preserveBorderEdgesBoneIndices, true, dependency);
+
+        // High-level FA-QEM calls know which algorithm follows. The public loader
+        // still prepares every structure so callers may switch algorithms later.
+        private JobHandle ScheduleLoadMeshData(Mesh.MeshData meshData, MeshSimplifierOptions options,
+            NativeBitArray preserveBorderEdgesBoneIndices, bool prepareLegacyCandidates, JobHandle dependency = default)
         {
             Options = options;
             var constructVertexPositionBuffer = ScheduleCopyVertexPositionBuffer(meshData, dependency);
@@ -685,7 +692,7 @@ namespace Meshia.MeshSimplification
             var constructEdges = ScheduleConstructEdges(out var edges, Triangles, constructTriangles, Allocator);
 
             var constructVertexIsDiscardedBits = ScheduleInitializeVertexIsDiscardedBits(meshData, dependency, constructVertexContainingTrianglesAndTriangleDiscardedBits);
-            var collectSmartLinks = options.EnableSmartLink
+            var collectSmartLinks = prepareLegacyCandidates && options.EnableSmartLink
                 ? ScheduleCollectSmartLinks(
                     meshData,
                     VertexPositionBuffer,
@@ -723,21 +730,28 @@ namespace Meshia.MeshSimplification
                 : new JobHandle();
 
 
-            var constructMergePairs = ScheduleConstructMergePairs(out var mergePairs, edges, SmartLinks, JobHandle.CombineDependencies(constructEdges, collectSmartLinks), Allocator);
-
             var constructVertexIsBorderEdgeBits = ScheduleInitializeVertexIsBorderEdgeBits(meshData, edges, dependency, constructEdges);
-            NativeList<ErrorQuadric> triangleErrorQuadrics = new(Allocator);
-            var constructTriangleNormalsAndErrorQuadrics = ScheduleInitializeTriangleNormalsAndTriangleErrorQuadrics(meshData, triangleErrorQuadrics, dependency, constructVertexPositionBuffer, constructTriangles);
+            JobHandle constructVertexErrorQuadrics = default;
+            JobHandle constructTriangleNormalsAndErrorQuadrics = default;
+            JobHandle constructVertexMerges = default;
+            if (prepareLegacyCandidates)
+            {
+                var constructMergePairs = ScheduleConstructMergePairs(out var mergePairs, edges, SmartLinks, JobHandle.CombineDependencies(constructEdges, collectSmartLinks), Allocator);
 
-            var constructVertexErrorQuadrics = ScheduleInitializeVertexErrorQuadrics(meshData, edges, triangleErrorQuadrics, dependency, constructVertexPositionBuffer, constructTriangles, constructVertexContainingTrianglesAndTriangleDiscardedBits, constructEdges, constructTriangleNormalsAndErrorQuadrics);
+                NativeList<ErrorQuadric> triangleErrorQuadrics = new(Allocator);
+                constructTriangleNormalsAndErrorQuadrics = ScheduleInitializeTriangleNormalsAndTriangleErrorQuadrics(meshData, triangleErrorQuadrics, dependency, constructVertexPositionBuffer, constructTriangles);
 
-            edges.Dispose(JobHandle.CombineDependencies(constructMergePairs, constructVertexIsBorderEdgeBits, constructVertexErrorQuadrics));
+                constructVertexErrorQuadrics = ScheduleInitializeVertexErrorQuadrics(meshData, edges, triangleErrorQuadrics, dependency, constructVertexPositionBuffer, constructTriangles, constructVertexContainingTrianglesAndTriangleDiscardedBits, constructEdges, constructTriangleNormalsAndErrorQuadrics);
 
-            triangleErrorQuadrics.Dispose(constructVertexErrorQuadrics);
+                edges.Dispose(JobHandle.CombineDependencies(constructMergePairs, constructVertexIsBorderEdgeBits, constructVertexErrorQuadrics));
 
-            var constructVertexMerges = ScheduleInitializeVertexMerges(mergePairs, preserveBorderEdgesBoneIndices, constructVertexPositionBuffer, constructVertexNormalBuffer, constructVertexBlendIndicesBuffer, constructVertexErrorQuadrics, constructTriangleNormalsAndErrorQuadrics, constructVertexContainingTrianglesAndTriangleDiscardedBits, constructVertexIsBorderEdgeBits, constructMergePairs);
+                triangleErrorQuadrics.Dispose(constructVertexErrorQuadrics);
 
-            mergePairs.Dispose(constructVertexMerges);
+                constructVertexMerges = ScheduleInitializeVertexMerges(mergePairs, preserveBorderEdgesBoneIndices, constructVertexPositionBuffer, constructVertexNormalBuffer, constructVertexBlendIndicesBuffer, constructVertexErrorQuadrics, constructTriangleNormalsAndErrorQuadrics, constructVertexContainingTrianglesAndTriangleDiscardedBits, constructVertexIsBorderEdgeBits, constructMergePairs);
+
+                mergePairs.Dispose(constructVertexMerges);
+            }
+            else edges.Dispose(constructVertexIsBorderEdgeBits);
 
             return stackalloc[]
             {

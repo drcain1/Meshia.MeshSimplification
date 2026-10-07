@@ -1,10 +1,50 @@
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Meshia.MeshSimplification.Tests
 {
     public class FaQemNumericTests
     {
+        [Test]
+        public void ShouldMatchExhaustiveSurfaceQueriesAcrossCacheEvictionAndDifferentTolerances()
+        {
+            using var positions = new NativeArray<float3>(96, Allocator.Temp);
+            using var triangles = new NativeArray<int3>(32, Allocator.Temp);
+            using var discarded = new NativeBitArray(32, Allocator.Temp);
+            var random = new Unity.Mathematics.Random(1729);
+            var writablePositions = positions;
+            var writableTriangles = triangles;
+            for (var i = 0; i < positions.Length; i++) writablePositions[i] = random.NextFloat3();
+            for (var i = 0; i < triangles.Length; i++)
+            {
+                writableTriangles[i] = new int3(i * 3, i * 3 + 1, i * 3 + 2);
+                if (i % 11 == 0) discarded.Set(i, true);
+            }
+            using var envelope = new FaQemSurfaceEnvelope(positions, triangles, discarded, double3.zero, 1d, .03d);
+            var tight = envelope.WithTolerance(.0005d);
+            for (var i = 0; i < 5000; i++)
+            {
+                var point = random.NextDouble3(new double3(-.1), new double3(1.1));
+                if (i % 3 == 0)
+                {
+                    var triangle = triangles[i % triangles.Length];
+                    point = ((double3)positions[triangle.x] + positions[triangle.y] + positions[triangle.z]) / 3d;
+                }
+                var distance = double.PositiveInfinity;
+                for (var t = 0; t < triangles.Length; t++)
+                {
+                    if (discarded.IsSet(t)) continue;
+                    var triangle = triangles[t];
+                    distance = System.Math.Min(distance, FaQemSurfaceEnvelope.PointTriangleDistanceSquared(point,
+                        positions[triangle.x], positions[triangle.y], positions[triangle.z]));
+                }
+                Assert.AreEqual(distance <= .03d * .03d, envelope.Contains(point));
+                Assert.AreEqual(distance <= .0005d * .0005d, tight.Contains(point), "A looser cache entry must not satisfy a cut guard.");
+                Assert.AreEqual(distance <= .03d * .03d, envelope.Contains(point));
+            }
+        }
+
         [Test]
         public void ShouldRejectEdgesBelowRelativeLengthTolerance()
         {

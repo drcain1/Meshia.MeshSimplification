@@ -56,7 +56,7 @@ namespace Meshia.MeshSimplification
                         for (var i = 0; i < bones.Length; i++) preserve.Set(i, bones[i]);
                     simplifier = new MeshSimplifier(Unity.Collections.Allocator.Persistent) { RecordFaQemCounts = true, RecordFaQemReplay = recordReplay };
                     hasSimplifier = true;
-                    Pending = simplifier.ScheduleLoadMeshData(original[0], options, preserve);
+                    Pending = simplifier.ScheduleLoadMeshData(original[0], options, preserve, false);
                     Pending = simplifier.ScheduleSimplify(original[0], blendShapes, target, preserve, Pending);
                     JobHandle.ScheduleBatchedJobs();
                 }

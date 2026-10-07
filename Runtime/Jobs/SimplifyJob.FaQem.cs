@@ -352,9 +352,18 @@ namespace Meshia.MeshSimplification
             {
                 if (IsDiscardedTriangle(ti)) continue;
                 var t = Triangles[ti];
-                edges.Add(FaQemTopology.CanonicalEdge(t.x, t.y));
-                edges.Add(FaQemTopology.CanonicalEdge(t.y, t.z));
-                edges.Add(FaQemTopology.CanonicalEdge(t.z, t.x));
+                // Only endpoints whose revisions changed need new candidates.
+                // The opposite edge is unchanged unless one of its endpoints is
+                // also in the affected set, in which case that endpoint adds it.
+                // Re-enqueuing it here repeats the solve and leaves duplicate
+                // candidates with the same revisions in the queue.
+                for (var i = 0; i < 3; i++)
+                {
+                    if (t[i] != vertex) continue;
+                    edges.Add(FaQemTopology.CanonicalEdge(vertex, t[(i + 1) % 3]));
+                    edges.Add(FaQemTopology.CanonicalEdge(vertex, t[(i + 2) % 3]));
+                    break;
+                }
             }
         }
 

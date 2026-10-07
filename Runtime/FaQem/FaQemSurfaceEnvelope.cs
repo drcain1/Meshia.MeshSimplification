@@ -36,6 +36,16 @@ namespace Meshia.MeshSimplification
         NativeList<int3> triangles;
         NativeList<Node> nodes;
         double toleranceSquared;
+        const int SampleCacheCapacity = 4096;
+        NativeHashMap<Sample, bool> samples;
+
+        struct Sample : IEquatable<Sample>
+        {
+            internal double3 Point;
+            internal double ToleranceSquared;
+            public bool Equals(Sample other) => Point.Equals(other.Point) && ToleranceSquared.Equals(other.ToleranceSquared);
+            public override int GetHashCode() => (int)math.hash(new double4(Point, ToleranceSquared));
+        }
 
         internal FaQemSurfaceEnvelope(NativeArray<float3> sourcePositions, NativeArray<int3> sourceTriangles,
             NativeBitArray discarded, double3 center, double scale, double tolerance)
@@ -43,6 +53,7 @@ namespace Meshia.MeshSimplification
             this = default;
             if (tolerance <= 0d) return;
             toleranceSquared = tolerance * tolerance;
+            samples = new NativeHashMap<Sample, bool>(SampleCacheCapacity, Allocator.Temp);
             positions = new NativeArray<double3>(sourcePositions.Length, Allocator.Temp);
             for (var i = 0; i < positions.Length; i++) positions[i] = ((double3)sourcePositions[i] - center) / scale;
             triangles = new NativeList<int3>(sourceTriangles.Length, Allocator.Temp);
@@ -91,6 +102,19 @@ namespace Meshia.MeshSimplification
         {
             if (!nodes.IsCreated) return true;
             if (nodes.Length == 0 || !math.all(math.isfinite(point))) return false;
+            // The source surface is immutable. Shared edge midpoints and candidate
+            // placements recur across local checks; cache exact queries, including
+            // the tolerance so tighter cut guards never reuse a looser answer.
+            var sample = new Sample { Point = point, ToleranceSquared = toleranceSquared };
+            if (samples.TryGetValue(sample, out var cached)) return cached;
+            var result = ContainsUncached(point);
+            if (samples.Count >= SampleCacheCapacity) samples.Clear();
+            samples.TryAdd(sample, result);
+            return result;
+        }
+
+        readonly bool ContainsUncached(double3 point)
+        {
             // Balanced median splits require at most 32 pending nodes for an
             // int-indexed mesh. No recursion or per-query allocation in Burst.
             var stack = new FixedList512Bytes<int>();
@@ -104,8 +128,20 @@ namespace Meshia.MeshSimplification
                 if (math.lengthsq(outside) > toleranceSquared) continue;
                 if (node.Count == 0)
                 {
-                    stack.Add(node.Left);
-                    stack.Add(node.Right);
+                    var left = BoundsDistanceSquared(nodes[node.Left], point);
+                    var right = BoundsDistanceSquared(nodes[node.Right], point);
+                    // Visit the nearer child first: Contains can stop at the first
+                    // surface hit. Pruning still uses the exact original limit.
+                    if (left <= right)
+                    {
+                        if (right <= toleranceSquared) stack.Add(node.Right);
+                        if (left <= toleranceSquared) stack.Add(node.Left);
+                    }
+                    else
+                    {
+                        if (left <= toleranceSquared) stack.Add(node.Left);
+                        if (right <= toleranceSquared) stack.Add(node.Right);
+                    }
                     continue;
                 }
                 for (var i = node.Start; i < node.Start + node.Count; i++)
@@ -116,6 +152,9 @@ namespace Meshia.MeshSimplification
             }
             return false;
         }
+
+        static double BoundsDistanceSquared(Node node, double3 point)
+            => math.lengthsq(math.max(math.max(node.Min - point, point - node.Max), 0d));
 
         internal static double PointTriangleDistanceSquared(double3 p, double3 a, double3 b, double3 c)
         {
@@ -150,6 +189,7 @@ namespace Meshia.MeshSimplification
             if (positions.IsCreated) positions.Dispose();
             if (triangles.IsCreated) triangles.Dispose();
             if (nodes.IsCreated) nodes.Dispose();
+            if (samples.IsCreated) samples.Dispose();
         }
     }
 }

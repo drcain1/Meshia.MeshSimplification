@@ -46,10 +46,11 @@ namespace Meshia.MeshSimplification.Tests
         }
 
 
-        [TestCase(false, false)]
-        [TestCase(true, false)]
-        [TestCase(false, true)]
-        public async Task ShouldMatchFreshSimplificationInBothSliderDirections(bool mirrored, bool degenerate)
+        [TestCase(false, false, false)]
+        [TestCase(true, false, false)]
+        [TestCase(false, true, false)]
+        [TestCase(false, false, true)]
+        public async Task ShouldMatchFreshSimplificationInBothSliderDirections(bool mirrored, bool degenerate, bool preserveBones)
         {
             var source = Fixture(false, mirrored);
             if (degenerate)
@@ -63,14 +64,16 @@ namespace Meshia.MeshSimplification.Tests
             try
             {
                 var options = Options();
-                var plan = await MeshSimplifier.PrepareFaQemReplayAsync(source, options);
+                options.PreserveBorderEdges = !preserveBones;
+                var bones = preserveBones ? new System.Collections.BitArray(1, true) : null;
+                var plan = await MeshSimplifier.PrepareFaQemReplayAsync(source, options, bones);
                 foreach (var count in new[] { 200, 160, 90, 0, 130, 199, 200, 30 })
                 {
                     await plan.WriteAsync(count, actual);
                     MeshSimplifier.Simplify(source, new MeshSimplificationTarget
                     {
                         Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = count
-                    }, options, expected);
+                    }, options, bones, expected);
                     CollectionAssert.AreEqual(expected.vertices, actual.vertices, "Positions at " + count);
                     CollectionAssert.AreEqual(expected.triangles, actual.triangles, "Topology at " + count);
                     CollectionAssert.AreEqual(expected.normals, actual.normals, "Normals at " + count);
