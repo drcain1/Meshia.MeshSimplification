@@ -508,6 +508,99 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             if (desired == 100) Assert.AreEqual(60, target, "Displaying 100 must not rewrite the request to 100.");
         }
 
+        [TestCase(false)]
+        [TestCase(true)]
+        public void UndoRedoRestoresMeasuredSliderValuesAndKeepsThemEditable(bool autoAdjust)
+        {
+            WithInspector((component, inspector) =>
+            {
+                component.AutoAdjustEnabled = autoAdjust;
+                Seed(inspector, 32, x => x + 2);
+                var type = inspector.GetType();
+                var inputs = (MeasuredMeshSet)type.GetField("measuredMeshes", Inst).GetValue(inspector);
+                var row = new TemplateContainer { userData = 0 };
+                row.Add(new SliderInt(0, 12) { name = "TargetTriangleCountSlider" });
+                row.Add(new IntegerField { name = "TargetTriangleCountField" });
+                row.Add(new Label { name = "MeasuredOutputHint" });
+                var refresh = type.GetMethod("RefreshAllocationFields", Inst);
+                type.GetMethod("SetManualAllocation", Inst).Invoke(inspector, new object[] { 0, 3 });
+                var edited = component.Entries.Select(e => e.TargetTriangleCount).ToArray();
+                inputs.Meshes[0].Measure(3);
+                refresh.Invoke(inspector, new object[] { row });
+                Assert.AreEqual(5, row.Q<SliderInt>().value);
+                UndoRedoInfo undone = default;
+                Undo.UndoRedoEventCallback capture = (in UndoRedoInfo info) => undone = info;
+                Undo.undoRedoEvent += capture;
+                try { Undo.PerformUndo(); }
+                finally { Undo.undoRedoEvent -= capture; }
+                refresh.Invoke(inspector, new object[] { row });
+                Assert.AreEqual(6, component.Entries[0].TargetTriangleCount);
+                Assert.IsTrue(component.Entries.All(e => e.TargetTriangleCount == 6), "Restore automatic redistribution too.");
+                Assert.AreEqual(8, row.Q<SliderInt>().value);
+                Assert.IsTrue(row.Q<SliderInt>().enabledSelf, "Undo of only an allocation must retain measured inputs. " +
+                    undone.undoGroup + ":" + undone.undoName + "; groups=" + string.Join(",", (System.Collections.Generic.Dictionary<int, string>)
+                        type.GetField("allocationUndoGroups", Stat).GetValue(null)) + "; revisions=" + inputs.InputRevision + "/" + type.GetField("meshInputRevision", Stat).GetValue(null));
+                Undo.PerformRedo();
+                refresh.Invoke(inspector, new object[] { row });
+                Assert.AreEqual(3, component.Entries[0].TargetTriangleCount);
+                CollectionAssert.AreEqual(edited, component.Entries.Select(e => e.TargetTriangleCount).ToArray());
+                Assert.AreEqual(5, row.Q<SliderInt>().value, "Redo must show the restored output, not the last full build.");
+                Assert.AreEqual(5, row.Q<IntegerField>().value);
+                Assert.IsTrue(row.Q<SliderInt>().enabledSelf);
+            });
+        }
+
+        [Test]
+        public async Task UndoRedoCancelsAnInFlightSliderEditEvenWhenRedoRestoresItsStartingCount()
+        {
+            await WithInspectorAsync(async (component, inspector) =>
+            {
+                component.AutoAdjustEnabled = false;
+                Seed(inspector, 32, x => x + 2);
+                var type = inspector.GetType();
+                var inputs = (MeasuredMeshSet)type.GetField("measuredMeshes", Inst).GetValue(inspector);
+                var completion = new TaskCompletionSource<int>();
+                inputs.Meshes[0] = new MeasuredMeshResponse(0, 12, 6, 8, x => x + 2,
+                    evaluateAsync: _ => completion.Task);
+                type.GetMethod("SetManualAllocation", Inst).Invoke(inspector, new object[] { 0, 3 });
+                inputs.Meshes[0].Measure(3);
+                type.GetField("pendingOutputIndex", Inst).SetValue(inspector, 0);
+                type.GetField("pendingOutputCount", Inst).SetValue(inspector, 7);
+                var serial = (int)type.GetField("outputEditSerial", Inst).GetValue(inspector);
+                var pending = (Task)type.GetMethod("ApplyOutputEditAsync", Inst).Invoke(inspector,
+                    new object[] { new VisualElement(), 0, 7, serial });
+                Assert.IsFalse(pending.IsCompleted);
+                Undo.PerformUndo();
+                Assert.AreEqual(-1, type.GetField("pendingOutputIndex", Inst).GetValue(inspector));
+                Assert.AreEqual(6, component.Entries[0].TargetTriangleCount);
+                Undo.PerformRedo();
+                Assert.AreEqual(3, component.Entries[0].TargetTriangleCount);
+                completion.SetResult(7);
+                await pending;
+                Assert.AreEqual(3, component.Entries[0].TargetTriangleCount, "An obsolete request must not overwrite Redo.");
+                Assert.IsFalse((bool)type.GetField("estimateRunning", Inst).GetValue(inspector));
+            });
+        }
+
+        [Test]
+        public void UndoOfProtectionOrGeometryStillInvalidatesMeasuredInputs()
+        {
+            WithInspector((component, inspector) =>
+            {
+                component.AutoAdjustEnabled = false;
+                Seed(inspector, 32, x => x + 2);
+                var type = inspector.GetType();
+                type.GetMethod("SetManualAllocation", Inst).Invoke(inspector, new object[] { 0, 3 });
+                Undo.RecordObject(component, "Change protection");
+                component.Entries[0].Options.PreserveBorderEdges = !component.Entries[0].Options.PreserveBorderEdges;
+                Undo.FlushUndoRecordObjects();
+                Seed(inspector, 32, x => x + 2);
+                var revision = (int)type.GetField("meshInputRevision", Stat).GetValue(null);
+                Undo.PerformUndo();
+                Assert.Greater((int)type.GetField("meshInputRevision", Stat).GetValue(null), revision);
+            });
+        }
+
         [Test]
         public void OutputEditPlateauKeepsOriginalRequest()
         {
@@ -748,6 +841,13 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
         }
 
         private static void WithInspector(Action<MeshiaCascadingAvatarMeshSimplifier, UnityEditor.Editor> run)
+            => WithInspectorAsync((component, inspector) =>
+            {
+                run(component, inspector);
+                return Task.CompletedTask;
+            }).GetAwaiter().GetResult();
+
+        private static async Task WithInspectorAsync(Func<MeshiaCascadingAvatarMeshSimplifier, UnityEditor.Editor, Task> run)
         {
             var locale = LocalizationProvider.CurrentLocale;
             LocalizationProvider.CurrentLocale = "en";
@@ -760,7 +860,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             var inspector = UnityEditor.Editor.CreateEditor(component);
             var type = inspector.GetType();
             var key = (string)type.GetMethod("GetBuildAnalysisResultKey", Stat).Invoke(null, new object[] { component });
-            try { run(component, inspector); }
+            try { await run(component, inspector); }
             finally
             {
                 EditorUtility.ClearProgressBar();

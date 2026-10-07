@@ -1167,6 +1167,9 @@ msgstr "Source mesh triangles before preview or build processing."
 msgid "Extreme"
 msgstr "Extreme"
 
+msgid "Change mesh triangle count"
+msgstr "Change mesh triangle count"
+
 msgid "Apply Extreme Preset"
 msgstr "Apply Extreme Preset"
 

@@ -1162,6 +1162,9 @@ msgstr "プレビューやビルド処理を行う前の元のメッシュの三
 msgid "Extreme"
 msgstr "強力"
 
+msgid "Change mesh triangle count"
+msgstr "メッシュの三角形数を変更"
+
 msgid "Apply Extreme Preset"
 msgstr "強力プリセットを適用"
 

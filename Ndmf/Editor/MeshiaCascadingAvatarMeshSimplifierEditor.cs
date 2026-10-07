@@ -80,6 +80,11 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private int[]? fitStartingOutputs;
         private readonly Dictionary<int, int> fitCutBudgetReferences = new();
         private static int meshInputRevision;
+        // Only our isolated allocation operations may retain measured inputs on
+        // Undo. Other operations can change geometry, cuts or protection settings.
+        private static readonly Dictionary<int, string> allocationUndoGroups = new();
+        private static event Action? undoRedoApplied;
+        private VisualElement? inspectorRoot;
         private bool estimateScheduled;
         private bool estimateRunning;
         private readonly Dictionary<int, double> finalResponseScales = new();
@@ -114,8 +119,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         {
             Undo.postprocessModifications -= OnPostprocessModifications;
             Undo.postprocessModifications += OnPostprocessModifications;
-            Undo.undoRedoPerformed -= OnUndoRedo;
-            Undo.undoRedoPerformed += OnUndoRedo;
+            Undo.undoRedoEvent -= OnUndoRedo;
+            Undo.undoRedoEvent += OnUndoRedo;
             EditorApplication.projectChanged -= InvalidateMeshInputs;
             EditorApplication.projectChanged += InvalidateMeshInputs;
         }
@@ -126,15 +131,43 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 m.currentValue.target is not MeshiaCascadingAvatarMeshSimplifier ||
                 !(m.currentValue.propertyPath.EndsWith("TargetTriangleCount", StringComparison.Ordinal) ||
                   m.currentValue.propertyPath == "BuildTriangleReserve" || m.currentValue.propertyPath == "AutoAdjustEnabled")))
+            {
                 meshInputRevision++;
+                allocationUndoGroups.Remove(Undo.GetCurrentGroup());
+            }
             InvalidateTriangleAnalysis();
             return modifications;
         }
 
         private static void InvalidateMeshInputs() { if (!s_analysisInProgress) meshInputRevision++; }
-        private static void OnUndoRedo() { InvalidateMeshInputs(); InvalidateTriangleAnalysis(); }
+        private static void OnUndoRedo(in UndoRedoInfo undo)
+        {
+            if (!allocationUndoGroups.TryGetValue(undo.undoGroup, out var name) || name != undo.undoName)
+                InvalidateMeshInputs();
+            InvalidateTriangleAnalysis();
+            undoRedoApplied?.Invoke();
+        }
+
+        private void RefreshAfterUndoRedo()
+        {
+            // An async drag request must never reapply itself after Undo, even if
+            // a later Redo happens to restore the same starting allocation.
+            outputEditSerial++;
+            pendingOutputIndex = -1;
+            outputFeedbackIndex = -1;
+            failedEstimate = string.Empty;
+            if (this == null || target == null) return;
+            serializedObject.Update();
+            if (inspectorRoot?.panel == null) return;
+            inspectorRoot.Query<TemplateContainer>().ForEach(RefreshJointBoneSelection);
+            inspectorRoot.Query<TemplateContainer>().ForEach(UpdateAlgorithmOptionAvailability);
+            RefreshBudgetGuidance(inspectorRoot);
+        }
+
         private void OnDisable()
         {
+            undoRedoApplied -= RefreshAfterUndoRedo;
+            inspectorRoot = null;
             outputEditSerial++;
             pendingOutputIndex = -1;
             measuredMeshes?.Dispose();
@@ -167,6 +200,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         }
         private void OnEnable()
         {
+            undoRedoApplied -= RefreshAfterUndoRedo;
+            undoRedoApplied += RefreshAfterUndoRedo;
             if (target is MeshiaCascadingAvatarMeshSimplifier)
             {
                 RefreshEntries();
@@ -207,6 +242,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
 
             VisualElement root = new();
+            inspectorRoot = root;
             editorVisualTreeAsset.CloneTree(root);
             root.RegisterCallback<DetachFromPanelEvent>(_ =>
             {
@@ -715,8 +751,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 root.Query<TemplateContainer>().ForEach(UpdateAlgorithmOptionAvailability);
                 root.Query<TemplateContainer>().ForEach(RefreshAllocationFields);
             }
-            root.RegisterCallback<AttachToPanelEvent>(_ => Undo.undoRedoPerformed += RefreshJointBoneSelections);
-            root.RegisterCallback<DetachFromPanelEvent>(_ => Undo.undoRedoPerformed -= RefreshJointBoneSelections);
 
             IVisualElementScheduledItem? scheduledUvPreviewRefresh = null;
             root.TrackSerializedObjectValue(serializedObject, _ =>
@@ -1766,6 +1800,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             Undo.IncrementCurrentGroup();
             var undoGroup = Undo.GetCurrentGroup();
+            var undoName = Tr("Change mesh triangle count");
+            Undo.SetCurrentGroupName(undoName);
 
             // Handle both controls explicitly: serialized binding refreshes must never
             // masquerade as another user edit and recursively redistribute the budget.
@@ -1779,6 +1815,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
             Undo.FlushUndoRecordObjects();
             Undo.CollapseUndoOperations(undoGroup);
+            allocationUndoGroups[undoGroup] = undoName;
+            // Seal this group so a subsequent geometry edit cannot share it.
+            Undo.IncrementCurrentGroup();
             InvalidateTriangleAnalysis();
         }
 
