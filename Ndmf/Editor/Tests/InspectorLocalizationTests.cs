@@ -957,6 +957,9 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 SessionState.EraseString(analysisKey);
                 var root = inspector.CreateInspectorGUI();
                 var refresh = type.GetMethod("RefreshPreviewShortfalls", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                Assert.IsTrue(root.Q<Foldout>("EstimatesAndBuildDetails").value);
+                Assert.IsFalse(root.Q<Foldout>("CalculationDetails").value);
+                root.Q<Foldout>("CalculationDetails").SetValueWithoutNotify(true);
                 refresh.Invoke(inspector, new object[] { root });
                 Assert.AreEqual(DisplayStyle.Flex, root.Q("PreviewShortfalls").style.display.value);
                 Assert.AreEqual(1, root.Q("PreviewShortfalls").Query<HelpBox>().ToList().Count);
@@ -981,8 +984,6 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     .Invoke(inspector, new object[] { root });
                 var summary = root.Q<Label>("BudgetSummary");
                 var resultLabel = root.Q<Label>("BuildResultSummary");
-                Assert.IsTrue(root.Q<Foldout>("EstimatesAndBuildDetails").value);
-                Assert.IsFalse(root.Q<Foldout>("CalculationDetails").value);
                 Assert.AreEqual(language == "ja" ? "三角形数の予算" : "Triangle budget", root.Q<Foldout>("EstimatesAndBuildDetails").text);
                 Assert.AreEqual(language == "ja" ? "計算の詳細" : "Calculation details", root.Q<Foldout>("CalculationDetails").text);
                 Assert.AreEqual(2, root.Q<Foldout>("EstimatesAndBuildDetails").Query<Button>().ToList().Count(b => b.name == "AnalyzeNdmfBuildButton" || b.name == "FindBudgetReductionsButton"));

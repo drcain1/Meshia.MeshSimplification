@@ -285,7 +285,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 RefreshBudgetGuidance(root);
             };
             root.Q<Foldout>("BudgetBreakdown").RegisterValueChangedCallback(_ => RefreshBudgetGuidance(root));
-            root.Q<Foldout>("CalculationDetails").RegisterValueChangedCallback(_ => RefreshBudgetGuidance(root));
+            void RefreshBudgetPanels(ChangeEvent<bool> evt)
+            {
+                // Nested foldout/toggle changes bubble to the budget foldout too.
+                if (evt.target != evt.currentTarget) return;
+                RefreshPreviewShortfalls(root);
+                RefreshBudgetGuidance(root);
+            }
+            root.Q<Foldout>("CalculationDetails").RegisterValueChangedCallback(RefreshBudgetPanels);
+            root.Q<Foldout>("EstimatesAndBuildDetails").RegisterValueChangedCallback(RefreshBudgetPanels);
             root.Q<Button>("AaoRemovalGuideButton").clicked += () => Application.OpenURL(
                 "https://vpm.anatawa12.com/avatar-optimizer/" + (CurrentLocale == "ja" ? "ja" : "en") + "/docs/reference/remove-mesh-by-blendshape/");
             root.Q<Button>("ShapeChangerGuideButton").clicked += () => Application.OpenURL(
@@ -815,6 +823,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
         private void RefreshPreviewShortfalls(VisualElement root)
         {
+            if (!AreCalculationDetailsVisible(root)) return;
             var panel = root.Q<VisualElement>("PreviewShortfalls");
             // A complete, current build supersedes per-mesh preview estimates, even
             // when the final avatar is over budget. The analyzed count reports that.
@@ -825,27 +834,35 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 return;
             }
 
-            var details = new List<string>();
+            var shortfalls = 0;
             foreach (var entry in Target.Entries)
             {
                 if (!entry.Enabled || !entry.IsValid(Target) || entry.GetTargetRenderer(Target) is not { } renderer ||
                     !MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.TryGetValue(renderer, out var count) ||
                     count.simplified <= entry.TargetTriangleCount + 1) continue;
-                details.Add(Format("{0}: {1:N0} triangles in last preview; requested {2:N0}.",
-                    renderer.name, count.simplified, entry.TargetTriangleCount));
+                shortfalls++;
             }
 
-            panel.style.display = details.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            if (details.Count == 0) return;
+            panel.style.display = shortfalls > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            if (shortfalls == 0) return;
             root.Q<HelpBox>("PreviewShortfallSummary").text = Format(
-                "{0} meshes exceeded their allocations in the last preview. This does not confirm the final avatar is over budget. Analyze NDMF Build to check the current total.", details.Count);
+                "{0} meshes exceeded their allocations in the last preview. This does not confirm the final avatar is over budget. Analyze NDMF Build to check the current total.", shortfalls);
         }
+
+        private static bool AreCalculationDetailsVisible(VisualElement root) =>
+            root.Q<Foldout>("EstimatesAndBuildDetails").value && root.Q<Foldout>("CalculationDetails").value;
 
         private bool HasCompletePreviewCounts()
         {
-            var entries = Target.Entries.Where(e => e.Enabled && e.IsValid(Target)).ToList();
-            return entries.Count > 0 && entries.All(e => e.GetTargetRenderer(Target) is { } renderer &&
-                MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.ContainsKey(renderer));
+            var any = false;
+            foreach (var entry in Target.Entries)
+            {
+                if (!entry.Enabled || !entry.IsValid(Target)) continue;
+                any = true;
+                if (entry.GetTargetRenderer(Target) is not { } renderer ||
+                    !MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache.ContainsKey(renderer)) return false;
+            }
+            return any;
         }
 
         private void RefreshBudgetGuidance(VisualElement root)
@@ -857,22 +874,16 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var runSummary = root.Q<Label>("AnalysisRunSummary");
             runSummary.text = lastAnalysisRunRevision == CurrentAnalysisRevision ? lastAnalysisRunMessage : string.Empty;
             runSummary.style.display = string.IsNullOrEmpty(runSummary.text) ? DisplayStyle.None : DisplayStyle.Flex;
-            root.Q<Label>("AllocationSummary").text = Tr("Estimated output: analyze to update");
-            var reserve = Target.BuildTriangleReserve;
-            root.Q<VisualElement>("BuildReserveRow").style.display = reserve != 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            root.Q<Button>("ClearBuildReserveButton").style.display = reserve != 0 ? DisplayStyle.Flex : DisplayStyle.None;
-            root.Q<Label>("BuildReserveSummary").text = reserve < 0
-                ? Format("Build allocation boost: {0:N0} triangles", -(long)reserve)
-                : Format("Allocation allowance: {0:N0} triangles", reserve);
+            string? allocationSummary = null;
             var result = root.Q<Label>("BuildResultSummary");
-            result.style.display = DisplayStyle.Flex;
             var summary = root.Q<Label>("BudgetSummary");
             summary.tooltip = Format("Auto Adjust accepts results up to {0:N0} triangles below this limit to avoid repeated builds for tiny differences.", Math.Max(1, budget / 1000));
             var warning = false;
             var failed = false;
             var outOfDate = false;
             root.Q<Label>("AllocationSummary").tooltip = Tr("Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result.");
-            if (TryGetBuildAnalysisResult(Target, out var analysis))
+            var hasAnalysis = TryGetBuildAnalysisResult(Target, out var analysis);
+            if (hasAnalysis)
             {
                 failed = !string.IsNullOrEmpty(analysis.Error);
                 outOfDate = analysis.Revision != CurrentAnalysisRevision;
@@ -884,7 +895,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         analysis.EstimatedBeforeDownstreamTriangleCount, analysis.Revision, analysis.Error, currentAllocations);
                     StoreBuildAnalysisResult(Target, analysis);
                 }
-                if (!failed) RefreshAllocationProjection(root, analysis, currentAllocations);
+                if (!failed) allocationSummary = GetAllocationProjectionText(root, analysis, currentAllocations);
                 if (failed)
                 {
                     result.text = Tr("Build result: unavailable");
@@ -902,7 +913,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 else
                 {
                     result.text = Format("Build result: {0:N0}", analysis.TriangleCount);
-                    result.style.display = DisplayStyle.None;
                     warning = analysis.TriangleCount > budget;
                     summary.text = warning
                         ? Format("{0:N0} triangles over budget", analysis.TriangleCount - budget)
@@ -929,6 +939,9 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     summary.text = Tr("Analyze to check the final triangle count.");
                 }
             }
+            root.Q<Label>("AllocationSummary").text = allocationSummary ?? Tr("Estimated output: analyze to update");
+            result.style.display = hasAnalysis && !failed && !outOfDate
+                ? DisplayStyle.None : DisplayStyle.Flex;
             RefreshBackgroundCalculationIndicator(root);
             summary.EnableInClassList("budget-warning", warning);
             summary.EnableInClassList("budget-error", failed);
@@ -941,17 +954,24 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     : new StyleColor(StyleKeyword.Null);
 
             RefreshAllocationRows(root, currentAllocations);
-            if (root.Q<Foldout>("CalculationDetails").value)
+            if (AreCalculationDetailsVisible(root))
             {
+                var reserve = Target.BuildTriangleReserve;
+                root.Q<VisualElement>("BuildReserveRow").style.display = reserve != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                root.Q<Button>("ClearBuildReserveButton").style.display = reserve != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                root.Q<Label>("BuildReserveSummary").text = reserve < 0
+                    ? Format("Build allocation boost: {0:N0} triangles", -(long)reserve)
+                    : Format("Allocation allowance: {0:N0} triangles", reserve);
+                var hasPreview = HasCompletePreviewCounts();
                 var details = new List<string> { Format("Allocated: {0:N0} / {1:N0}", GetTotalSimplifiedTriangleCount(false), budget),
                     Format("Original triangles: {0:N0}", GetTotalOriginalTriangleCount()),
-                    HasCompletePreviewCounts()
+                    hasPreview
                         ? Format("Meshia output (last preview): {0:N0}", GetTotalSimplifiedTriangleCount(true))
                         : Tr("Preview counts are not available for every mesh.") };
-                var estimatedFinal = GetTotalEstimatedFinalTriangleCount(true);
-                if (DownstreamTriangleEstimator.IsAaoAvailable && HasCompletePreviewCounts())
+                var estimatedFinal = hasPreview ? GetTotalEstimatedFinalTriangleCount(true) : 0;
+                if (DownstreamTriangleEstimator.IsAaoAvailable && hasPreview)
                     details.Add(Format("AAO estimate: {0:N0}", estimatedFinal));
-                if (HasCompletePreviewCounts() && TryGetAnalyzedCalibration(Target, out var calibration, out var calibrationStale))
+                if (hasPreview && TryGetAnalyzedCalibration(Target, out var calibration, out var calibrationStale))
                 {
                     var calibratedFinal = DownstreamTriangleEstimator.ApplyAnalyzedDelta(estimatedFinal,
                         calibration.EstimatedBeforeDownstreamTriangleCount, calibration.TriangleCount);
@@ -1273,27 +1293,25 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             };
         }
 
-        private void RefreshAllocationProjection(VisualElement root, BuildAnalysisResult analysis, AllocationSnapshot current)
+        private string? GetAllocationProjectionText(VisualElement root, BuildAnalysisResult analysis, AllocationSnapshot current)
         {
-            var label = root.Q<Label>("AllocationSummary");
-            if (analysis.Allocations is not { } baseline) return;
-            if (current.Settings != baseline.Settings || current.Counts.Length != baseline.Counts.Length) return;
+            if (analysis.Allocations is not { } baseline) return null;
+            if (current.Settings != baseline.Settings || current.Counts.Length != baseline.Counts.Length) return null;
             var changed = Enumerable.Range(0, current.Counts.Length)
                 .Where(i => current.Counts[i] != baseline.Counts[i]).ToArray();
             if (changed.Length == 0)
             {
-                if (analysis.Revision == CurrentAnalysisRevision)
-                    label.text = Format("Measured output: {0:N0} / {1:N0}", analysis.TriangleCount, Target.TargetTriangleCount);
-                return;
+                return analysis.Revision == CurrentAnalysisRevision
+                    ? Format("Measured output: {0:N0} / {1:N0}", analysis.TriangleCount, Target.TargetTriangleCount)
+                    : null;
             }
             if (!HasMeasuredInputs(current.Settings) || baseline.Outputs.Length != current.Counts.Length ||
-                changed.Any(i => baseline.Outputs[i] < 0 || !measuredMeshes!.Meshes.ContainsKey(i))) return;
+                changed.Any(i => baseline.Outputs[i] < 0 || !measuredMeshes!.Meshes.ContainsKey(i))) return null;
             var missing = changed.Where(i => !measuredMeshes!.Meshes[i].TryGetOutput(current.Counts[i], out _)).ToArray();
             if (missing.Length > 0)
             {
                 var key = string.Join(",", current.Counts);
-                if (failedEstimate == key) return;
-                label.text = Tr("Estimated output: measuring changed meshes...");
+                if (failedEstimate == key) return null;
                 if (!estimateScheduled && !estimateRunning && !s_analysisInProgress)
                 {
                     estimateScheduled = true;
@@ -1305,14 +1323,13 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         _ = MeasureAllocationProjectionAsync(root, current, missing, key);
                     }).StartingIn(250);
                 }
-                return;
+                return Tr("Estimated output: measuring changed meshes...");
             }
             var projected = Math.Max(0L, analysis.TriangleCount + changed.Sum(i =>
                 (long)measuredMeshes!.Meshes[i].Outputs[current.Counts[i]] - baseline.Outputs[i]));
-            label.text = projected > Target.TargetTriangleCount
+            return projected > Target.TargetTriangleCount
                 ? Format("Estimated output: ~{0:N0} / {1:N0} ({2:N0} over)", projected, Target.TargetTriangleCount, projected - Target.TargetTriangleCount)
                 : Format("Estimated output: ~{0:N0} / {1:N0} ({2:N0} spare)", projected, Target.TargetTriangleCount, Target.TargetTriangleCount - projected);
-            label.tooltip = Tr("Uses measured changes from individual meshes and the last complete build. Later build steps may respond differently. Analyze Build verifies the final result.");
         }
 
         private async System.Threading.Tasks.Task MeasureAllocationProjectionAsync(
@@ -1497,12 +1514,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var canEdit = false;
             var pending = pendingOutputIndex == index;
             var tooltip = Tr("Analyze Build to measure this mesh before editing its output.");
-            if (hint != null)
-            {
-                hint.style.display = DisplayStyle.None;
-                hint.text = string.Empty;
-                SetMarkerColor(hint, EditorGUIUtility.isProSkin ? new Color(.35f, .68f, 1f) : new Color(.08f, .35f, .65f));
-            }
+            var markerColor = EditorGUIUtility.isProSkin ? new Color(.35f, .68f, 1f) : new Color(.08f, .35f, .65f);
             if (entry.Enabled && TryGetBuildAnalysisResult(Target, out var result) &&
                 string.IsNullOrEmpty(result.Error) && result.Allocations is { } baseline &&
                 index < baseline.Outputs.Length && index < baseline.Counts.Length && baseline.Outputs[index] >= 0)
@@ -1530,18 +1542,23 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             }
             var feedback = measured && !pending && outputFeedbackIndex == index && outputFeedbackValue == output &&
                 EditorApplication.timeSinceStartup < outputFeedbackUntil;
-            if (entry.Enabled && hint != null && (pending || !measured || feedback))
+            var showHint = entry.Enabled && (pending || !measured || feedback);
+            if (hint != null)
             {
-                hint.style.display = DisplayStyle.Flex;
-                hint.text = pending ? "…" : feedback ? "!" : "?";
+                hint.style.display = showHint ? DisplayStyle.Flex : DisplayStyle.None;
+                hint.text = !showHint ? string.Empty : pending ? "…" : feedback ? "!" : "?";
+            }
+            if (showHint && hint != null)
+            {
                 if (pending) tooltip = Tr("Measuring the requested output. The count will update when ready.");
                 else if (feedback)
                 {
                     tooltip += "\n" + outputFeedback;
-                    SetMarkerColor(hint, EditorGUIUtility.isProSkin ? new Color(1f, .72f, .3f) : new Color(.6f, .32f, .02f));
+                    markerColor = EditorGUIUtility.isProSkin ? new Color(1f, .72f, .3f) : new Color(.6f, .32f, .02f);
                 }
-                else SetMarkerColor(hint, EditorGUIUtility.isProSkin ? new Color(.7f, .7f, .7f) : new Color(.4f, .4f, .4f));
+                else markerColor = EditorGUIUtility.isProSkin ? new Color(.7f, .7f, .7f) : new Color(.4f, .4f, .4f);
             }
+            if (hint != null) SetMarkerColor(hint, markerColor);
             var displayed = pendingOutputIndex == index ? pendingOutputCount : output;
             if (displayed >= 0)
             {

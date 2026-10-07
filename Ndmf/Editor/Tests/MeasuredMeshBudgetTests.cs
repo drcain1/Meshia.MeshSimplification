@@ -16,6 +16,8 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
 {
     public class MeasuredMeshBudgetTests
     {
+        private class TestWindow : EditorWindow { }
+
         [Test]
         public async Task ConcurrentRequestsShareOneCountProfileAndRetainSourceUntilComplete()
         {
@@ -808,6 +810,52 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Assert.AreEqual("Within budget · 44 below limit", summary.text);
                 StringAssert.Contains("70 triangles below", summary.tooltip);
                 Assert.AreEqual("Auto Adjust", root.Q<Toggle>("AutoAdjustEnabledToggle").label);
+            });
+        }
+
+        [TestCase(true, false)]
+        [TestCase(false, true)]
+        public void HiddenCalculationDetailsWaitUntilOpenedAndThenRefreshImmediately(bool budgetOpen, bool detailsOpen)
+        {
+            WithInspector((component, inspector) =>
+            {
+                var window = ScriptableObject.CreateInstance<TestWindow>();
+                var root = inspector.CreateInspectorGUI();
+                var budget = root.Q<Foldout>("EstimatesAndBuildDetails");
+                var details = root.Q<Foldout>("CalculationDetails");
+                budget.SetValueWithoutNotify(budgetOpen);
+                details.SetValueWithoutNotify(detailsOpen);
+                var totals = root.Q<Label>("TriangleCountLabel");
+                var shortfalls = root.Q<HelpBox>("PreviewShortfallSummary");
+                var reserve = root.Q<Label>("BuildReserveSummary");
+                totals.text = shortfalls.text = reserve.text = "not refreshed";
+                component.BuildTriangleReserve = 5;
+                var cache = Editor.Preview.MeshiaCascadingAvatarMeshSimplifierPreview.TriangleCountCache;
+                var renderers = component.transform.parent.GetComponentsInChildren<Renderer>(true);
+                try
+                {
+                    window.rootVisualElement.Add(root);
+                    window.Show();
+                    foreach (var renderer in renderers) cache[renderer] = (12, 10);
+                    var type = inspector.GetType();
+                    type.GetMethod("RefreshPreviewShortfalls", Inst).Invoke(inspector, new object[] { root });
+                    type.GetMethod("RefreshBudgetGuidance", Inst).Invoke(inspector, new object[] { root });
+                    Assert.AreEqual("not refreshed", totals.text);
+                    Assert.AreEqual("not refreshed", shortfalls.text);
+                    Assert.AreEqual("not refreshed", reserve.text);
+                    // Exercise the foldout callback, without waiting for the periodic refresh.
+                    var opened = budgetOpen ? details : budget;
+                    opened.value = true;
+                    StringAssert.Contains("Original triangles: 48", totals.text);
+                    StringAssert.Contains("4 meshes exceeded", shortfalls.text);
+                    StringAssert.Contains("5 triangles", reserve.text);
+                    Assert.AreEqual(DisplayStyle.Flex, root.Q<VisualElement>("PreviewShortfalls").style.display.value);
+                }
+                finally
+                {
+                    window.Close();
+                    foreach (var renderer in renderers) cache.Remove(renderer);
+                }
             });
         }
 
