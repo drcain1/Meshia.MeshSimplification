@@ -119,6 +119,19 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.2.0-beta.1` also extends FA-QEM's per-mesh Auto policy to resolve humanoid knee/elbow pairs,
+including separate clothing rigs through stock MA Merge Armature mappings. The
+reduction kernel preserves only connected dominant-weight transitions for those
+pairs and one source support ring. Mapping dependencies invalidate preview caches;
+slider replay reuses the prepared result. Manual policies, legacy Auto, and No
+protection do not gain this automatic guard. Unmapped custom rigs retain the
+existing weight checks. English/Japanese cogwheel explanations and documentation
+describe the independent automatic and manual protection. Saved avatar settings
+are not rewritten. Validation passed 388 Unity EditMode tests, followed by 79
+focused integration/inspector tests after the final mapping and tooltip changes,
+and 12 distribution tests. Live editor inspection detected the knee support bands
+on both sampled tights meshes. A new in-game bending check remains pending.
+
 Version `1.2.0-beta.1` starts the 1.2.0 release series, incorporating the published
 `1.1.3-beta.1` through `1.1.3-beta.7` changes and the interactive preview work
 previously prepared as an unpublished `1.1.3-beta.8` draft. Since stable `1.1.2`,
@@ -141,7 +154,7 @@ avatar. Undo and Redo restore measured slider values and cancel obsolete edits.
 The calculating indicator remains active until the preview is displayed. Inspector
 refreshes share settings snapshots and skip hidden calculation details.
 
-Validation: Unity 2022.3.22f1 passed **385 EditMode tests**, including replay/fresh
+Before the automatic joint support addition, Unity 2022.3.22f1 passed **385 EditMode tests**, including replay/fresh
 output parity, protection cycling, rapid pending edits, Undo/Redo, deferred count
 preparation, concurrent measurements, and disposal during measurement. Local
 comparison runs matched all 19 sampled output mesh fingerprints before and after
