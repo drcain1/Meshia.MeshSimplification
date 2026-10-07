@@ -482,7 +482,9 @@ namespace Meshia.MeshSimplification
 
         void InitializeFaQemJointTransitions(NativeArray<byte> flags)
         {
-            if (!Options.SkinningProtection.PreserveJointTransitions || VertexBlendIndicesBuffer.Length == 0) return;
+            var protection = Options.SkinningProtection;
+            if ((!protection.PreserveJointTransitions && protection.AutomaticJointBonePairs.Length == 0) ||
+                Options.AllowUnsafeGeometry || VertexBlendIndicesBuffer.Length == 0) return;
             var dimension = VertexBlendIndicesBuffer.Length / VertexPositionBuffer.Length;
             if (dimension == 0 || VertexBlendWeightBuffer.Length != VertexBlendIndicesBuffer.Length) return;
             using var dominant = new NativeArray<int>(flags.Length, Allocator.Temp);
@@ -501,8 +503,13 @@ namespace Meshia.MeshSimplification
                     var a = triangle[edge];
                     var b = triangle[(edge + 1) % 3];
                     if (dominant[a] < 0 || dominant[b] < 0 || dominant[a] == dominant[b]) continue;
-                    var selected = Options.SkinningProtection.JointProtectionBoneIndices;
-                    if (selected.Length > 0 && !selected.Contains(dominant[a]) && !selected.Contains(dominant[b])) continue;
+                    var selected = protection.JointProtectionBoneIndices;
+                    var preserve = protection.PreserveJointTransitions &&
+                        (selected.Length == 0 || selected.Contains(dominant[a]) || selected.Contains(dominant[b]));
+                    foreach (var pair in protection.AutomaticJointBonePairs)
+                        preserve |= (pair.x == dominant[a] && pair.y == dominant[b]) ||
+                                    (pair.y == dominant[a] && pair.x == dominant[b]);
+                    if (!preserve) continue;
                     flags.ElementAt(a) |= FaQemJointTransitionVertex;
                     flags.ElementAt(b) |= FaQemJointTransitionVertex;
                 }

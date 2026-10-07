@@ -94,6 +94,7 @@ namespace Meshia.MeshSimplification
             options.SkinningProtection.Enabled = false;
             options.SkinningProtection.PreserveJointTransitions = false;
             options.SkinningProtection.JointProtectionBoneIndices.Clear();
+            options.SkinningProtection.AutomaticJointBonePairs.Clear();
             options.FaQem = options.FaQem.Effective;
             options.FaQem.PreserveAttributeSeams = false;
             options.FaQem.MaxSurfaceDeviation = 0f;

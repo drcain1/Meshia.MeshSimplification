@@ -88,6 +88,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         var options = component.options;
                         options.SkinningProtection = options.SkinningProtection.Resolve(options.SkinningProtection.Policy == SkinningProtectionPolicy.AutoDeforming
                             ? HasDeformingSkinning(renderer as SkinnedMeshRenderer) : autoProtectedRenderers.Contains(renderer));
+                        options = AutomaticJointProtection.Resolve(context.AvatarRootObject, renderer, options);
                         var work = new Work(renderer, source, component.target, options, null);
                         works.Add(work);
                     }
@@ -103,6 +104,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                             var options = MeshiaCascadingAvatarMeshSimplifier.GetJointProtectionOptions(context.AvatarRootObject, component, entry);
                             options.SkinningProtection = options.SkinningProtection.Resolve(options.SkinningProtection.Policy == SkinningProtectionPolicy.AutoDeforming
                                 ? HasDeformingSkinning(renderer as SkinnedMeshRenderer) : autoProtectedRenderers.Contains(renderer));
+                            options = AutomaticJointProtection.Resolve(context.AvatarRootObject, renderer, options);
                             var work = new Work(renderer, source, target,
                                 options,
                                 MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(context.AvatarRootObject, component, entry));
@@ -184,7 +186,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 : options.SkinningProtection.Policy == SkinningProtectionPolicy.Auto && avatarRoot != null &&
                   SelectAutomaticSkinningProtection(avatarRoot).Contains(renderer);
             options.SkinningProtection = options.SkinningProtection.Resolve(automatic);
-            return options;
+            return AutomaticJointProtection.Resolve(avatarRoot, renderer, options);
         }
 
         internal static MeshSimplifierOptions ResolvePreviewOptions(ComputeContext context,
@@ -204,7 +206,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             else if (options.SkinningProtection.Policy == SkinningProtectionPolicy.Auto && avatarRoot != null)
                 autoSelected = SelectAutomaticSkinningProtection(avatarRoot, context).Contains(renderer);
             options.SkinningProtection = options.SkinningProtection.Resolve(autoSelected);
-            return options;
+            return AutomaticJointProtection.Resolve(avatarRoot, renderer, options, context);
         }
 
         // Bone influences, not renderer names or a unique body classification, determine eligibility.

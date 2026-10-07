@@ -9,6 +9,73 @@ namespace Meshia.MeshSimplification.Tests
 {
     public class FaQemReplayTests
     {
+        [TestCase(true, false)]
+        [TestCase(false, false)]
+        [TestCase(true, true)]
+        public async Task AutomaticJointSupportRequiresTheConnectedPairAndMatchesReplay(bool matchingPair, bool disconnected)
+        {
+            var source = Fixture(true);
+            var baseline = new Mesh(); var actual = new Mesh(); var expected = new Mesh();
+            try
+            {
+                source.ClearBlendShapes();
+                source.bindposes = new[] { Matrix4x4.identity, Matrix4x4.identity, Matrix4x4.identity };
+                var weights = new BoneWeight[source.vertexCount];
+                for (var i = 0; i < weights.Length; i++)
+                    weights[i] = new BoneWeight { boneIndex0 = i / 11 < 5 ? 0 : 1, weight0 = 1 };
+                source.boneWeights = weights;
+                if (disconnected)
+                {
+                    var kept = new List<int>(); var triangles = source.triangles;
+                    for (var i = 0; i < triangles.Length; i += 3)
+                        if (weights[triangles[i]].boneIndex0 == weights[triangles[i + 1]].boneIndex0 &&
+                            weights[triangles[i]].boneIndex0 == weights[triangles[i + 2]].boneIndex0)
+                            kept.AddRange(new[] { triangles[i], triangles[i + 1], triangles[i + 2] });
+                    source.triangles = kept.ToArray();
+                }
+                var options = MeshSimplifierOptions.Default;
+                options.PreserveBorderEdges = false; options.FaQem.PreserveAttributeSeams = false;
+                options.FaQem.MaxSurfaceDeviation = 0;
+                var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 1 };
+                MeshSimplifier.Simplify(source, target, options, baseline);
+                options.SkinningProtection.AutomaticJointBonePairs.Add(new Unity.Mathematics.int2(0, matchingPair ? 1 : 2));
+                MeshSimplifier.Simplify(source, target, options, expected);
+                if (matchingPair && !disconnected)
+                {
+                    Assert.Greater(expected.triangles.Length, baseline.triangles.Length);
+                    // Preserve the actual transition and exactly one original support ring.
+                    for (var y = 3; y <= 6; y++) for (var x = 1; x < 10; x++)
+                        CollectionAssert.Contains(expected.vertices, source.vertices[y * 11 + x]);
+                    Assert.Less(expected.triangles.Length, source.triangles.Length, "The whole limb must not be frozen.");
+                }
+                else
+                {
+                    CollectionAssert.AreEqual(baseline.vertices, expected.vertices, "Unrelated pairs and disconnected islands must not trigger joint support.");
+                    CollectionAssert.AreEqual(baseline.triangles, expected.triangles);
+                }
+                await MeshSimplifier.SimplifyAsync(source, target, options, actual);
+                CollectionAssert.AreEqual(expected.vertices, actual.vertices);
+                CollectionAssert.AreEqual(expected.triangles, actual.triangles);
+                var plan = await MeshSimplifier.PrepareFaQemReplayAsync(source, options);
+                foreach (var count in new[] { 1, 150, 60 })
+                {
+                    target.Value = count;
+                    MeshSimplifier.Simplify(source, target, options, expected);
+                    await plan.WriteAsync(count, actual);
+                    CollectionAssert.AreEqual(expected.vertices, actual.vertices);
+                    CollectionAssert.AreEqual(expected.triangles, actual.triangles);
+                }
+                Assert.Zero(options.WithoutProtections().SkinningProtection.AutomaticJointBonePairs.Length);
+                MeshSimplifier.Simplify(source, new MeshSimplificationTarget { Kind = target.Kind, Value = 1 }, options.WithoutProtections(), actual);
+                Assert.LessOrEqual(actual.triangles.Length, baseline.triangles.Length);
+            }
+            finally
+            {
+                Object.DestroyImmediate(source); Object.DestroyImmediate(baseline);
+                Object.DestroyImmediate(actual); Object.DestroyImmediate(expected);
+            }
+        }
+
         static Mesh Fixture(bool flat = false, bool mirrored = false)
         {
             const int size = 10;

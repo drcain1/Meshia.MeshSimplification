@@ -35,8 +35,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
             }
         }
 
-        [Test]
-        public void JointSelectionResolvesHumanoidSlotsIndependentlyOfBorderSelection()
+        [UnityEngine.TestTools.UnityTest]
+        public System.Collections.IEnumerator JointSelectionResolvesHumanoidSlotsIndependentlyOfBorderSelection()
         {
             var root = new GameObject("Joint selection fixture");
             root.AddComponent<nadena.dev.ndmf.runtime.components.NDMFAvatarRoot>();
@@ -94,6 +94,80 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Tests
                 Assert.That(resolved.SkinningProtection.JointProtectionBoneIndices[0], Is.EqualTo(0));
                 Assert.That(resolved.SkinningProtection.JointProtectionBoneIndices[1], Is.EqualTo(2));
                 Assert.That(e.Options.SkinningProtection.JointProtectionBoneIndices.Length, Is.Zero, "Resolution must not change serialized options.");
+                var originalPalette = renderer.bones;
+                renderer.bones = new[] { animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg),
+                    animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg), hips,
+                    animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg),
+                    animator.GetBoneTransform(HumanBodyBones.LeftUpperArm),
+                    animator.GetBoneTransform(HumanBodyBones.LeftLowerArm) };
+                var automatic = MeshSimplifierOptions.Default;
+                automatic.SkinningProtection.Policy = SkinningProtectionPolicy.AutoDeforming;
+                var automaticResolved = Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolveOptions(root, renderer, automatic);
+                var pairs = automaticResolved.SkinningProtection.AutomaticJointBonePairs;
+                Assert.AreEqual(3, pairs.Length, "Both duplicate shin slots and the elbow must resolve; hips must not.");
+                Assert.AreEqual(new Unity.Mathematics.int2(0, 1), pairs[0]);
+                Assert.AreEqual(new Unity.Mathematics.int2(0, 3), pairs[1]);
+                Assert.AreEqual(new Unity.Mathematics.int2(4, 5), pairs[2]);
+                Assert.IsFalse(automaticResolved.SkinningProtection.PreserveJointTransitions, "Automatic support does not rewrite the manual switch.");
+                Assert.Zero(automatic.SkinningProtection.AutomaticJointBonePairs.Length);
+                Assert.AreNotEqual(automatic, automaticResolved, "Preview replay caches must distinguish automatic joint selections.");
+                var automaticContext = new ComputeContext("Automatic joint parity");
+                try
+                {
+                    var previewResolved = Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolvePreviewOptions(automaticContext, root, renderer, automatic);
+                    Assert.AreEqual(automaticResolved, previewResolved);
+                }
+                finally { automaticContext.Invalidate(); }
+                foreach (var policy in new[] { SkinningProtectionPolicy.Off, SkinningProtectionPolicy.On,
+                    SkinningProtectionPolicy.Auto, SkinningProtectionPolicy.Legacy })
+                {
+                    var manual = automaticResolved; manual.SkinningProtection.Policy = policy;
+                    Assert.Zero(Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolveOptions(root, renderer, manual)
+                        .SkinningProtection.AutomaticJointBonePairs.Length, "Explicit/manual and legacy policies must not inherit new automatic support.");
+                }
+                Assert.Zero(Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolveOptions(root, renderer,
+                    automaticResolved.WithoutProtections()).SkinningProtection.AutomaticJointBonePairs.Length);
+                var clothing = new GameObject("Separate clothing rig"); clothing.transform.SetParent(root.transform);
+                var clothThigh = new GameObject("LeftUpperLeg").transform; clothThigh.SetParent(clothing.transform);
+                var clothShin = new GameObject("LeftLowerLeg").transform; clothShin.SetParent(clothThigh);
+                var merge = clothing.AddComponent<nadena.dev.modular_avatar.core.ModularAvatarMergeArmature>();
+                merge.LockMode = nadena.dev.modular_avatar.core.ArmatureLockMode.NotLocked;
+                merge.mergeTarget.Set(hips.gameObject);
+                renderer.bones = new[] { clothThigh, clothShin };
+                var clothingResolved = Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolveOptions(root, renderer, automatic);
+                Assert.AreEqual(1, clothingResolved.SkinningProtection.AutomaticJointBonePairs.Length,
+                    "MA's public mapping must recognize a separate clothing rig before it is merged.");
+                var clothingContext = new ComputeContext("Separate clothing joint parity");
+                try
+                {
+                    Assert.AreEqual(clothingResolved, Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolvePreviewOptions(
+                        clothingContext, root, renderer, automatic));
+                    var mergeProperties = new UnityEditor.SerializedObject(merge);
+                    mergeProperties.FindProperty("prefix").stringValue = "unmapped_";
+                    mergeProperties.ApplyModifiedProperties();
+                    for (var tick = 0; tick < 10; tick++) yield return null;
+                    Assert.IsTrue(clothingContext.IsInvalidated, "Editing MA mapping settings must invalidate the preview.");
+                    var changedContext = new ComputeContext("Changed clothing mapping");
+                    try
+                    {
+                        Assert.Zero(Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolvePreviewOptions(
+                            changedContext, root, renderer, automatic).SkinningProtection.AutomaticJointBonePairs.Length,
+                            "A fresh preview must not reuse stale clothing mappings.");
+                    }
+                    finally { changedContext.Invalidate(); }
+                    // This is the same palette after MA remaps the clothing bones in a build.
+                    renderer.bones = new[] { animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg),
+                        animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg) };
+                    Assert.AreEqual(clothingResolved, Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolveOptions(root, renderer, automatic));
+                }
+                finally { clothingContext.Invalidate(); }
+                renderer.bones = new[] { clothThigh, clothShin }; merge.enabled = false;
+                Assert.Zero(Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolveOptions(root, renderer, automatic)
+                    .SkinningProtection.AutomaticJointBonePairs.Length, "A disabled merge must not invent humanoid correspondence.");
+                renderer.bones = new[] { hips, hips };
+                Assert.Zero(Meshia.MeshSimplification.Ndmf.Editor.NdmfPlugin.ResolveOptions(root, renderer, automaticResolved)
+                    .SkinningProtection.AutomaticJointBonePairs.Length, "Changing the palette must clear old automatic pairs.");
+                renderer.bones = originalPalette;
                 e.PreserveJointTransitionsBones = 0;
                 Assert.That(MeshiaCascadingAvatarMeshSimplifier.GetJointProtectionOptions(root, c, e).SkinningProtection.PreserveJointTransitions, Is.False);
                 e.PreserveJointTransitionsBones = 1ul << (int)HumanBodyBones.Head;

@@ -9,7 +9,8 @@
         "Unity.Mathematics",
         "Unity.Collections",
         "nadena.dev.ndmf",
-        "nadena.dev.ndmf.runtime"
+        "nadena.dev.ndmf.runtime",
+        "nadena.dev.modular-avatar.core"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

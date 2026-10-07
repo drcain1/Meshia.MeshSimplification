@@ -1175,3 +1175,12 @@ msgstr "Apply Extreme Preset"
 
 msgid "Allow the most reduction on other meshes while keeping tighter limits on meshes selected for deformation protection. Check shapes and clothing edges after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
 msgstr "Allow the most reduction on other meshes while keeping tighter limits on meshes selected for deformation protection. Check shapes and clothing edges after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
+
+msgid "Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction. Auto can independently preserve mapped knees and elbows; turn Auto off to use only your manual selection."
+msgstr "Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction. Auto can independently preserve mapped knees and elbows; turn Auto off to use only your manual selection."
+
+msgid "Auto also preserves knee and elbow support on mapped humanoid joints where this mesh crosses the bend. Manual joint selection adds protection."
+msgstr "Auto also preserves knee and elbow support on mapped humanoid joints where this mesh crosses the bend. Manual joint selection adds protection."
+
+msgid "Select bones for manual joint preservation. An empty selection adds no manual protection. Automatic knee/elbow support and cut-contact protection are independent."
+msgstr "Select bones for manual joint preservation. An empty selection adds no manual protection. Automatic knee/elbow support and cut-contact protection are independent."

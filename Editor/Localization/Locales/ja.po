@@ -1170,3 +1170,12 @@ msgstr "強力プリセットを適用"
 
 msgid "Allow the most reduction on other meshes while keeping tighter limits on meshes selected for deformation protection. Check shapes and clothing edges after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
 msgstr "変形保護の対象メッシュには厳しめの上限を残し、それ以外を最も大きく削減します。適用後は形状と服の縁を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
+
+msgid "Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction. Auto can independently preserve mapped knees and elbows; turn Auto off to use only your manual selection."
+msgstr "最も強いボーンの影響が切り替わる頂点と隣接頂点を保持し、関節を曲げた際の形状を保護します。削減できる三角形数が制限される場合があります。自動設定は対応する膝と肘を別途保護します。手動選択のみを使う場合は自動設定をオフにしてください。"
+
+msgid "Auto also preserves knee and elbow support on mapped humanoid joints where this mesh crosses the bend. Manual joint selection adds protection."
+msgstr "自動設定では、対応するヒューマノイドの膝・肘をメッシュがまたぐ場合、曲げ部分の頂点も保持します。手動のボーン選択で保護を追加できます。"
+
+msgid "Select bones for manual joint preservation. An empty selection adds no manual protection. Automatic knee/elbow support and cut-contact protection are independent."
+msgstr "手動で関節を保護するボーンを選択します。未選択の場合、手動の保護は追加しません。膝・肘の自動保護とカット接触部の保護は別に適用されます。"

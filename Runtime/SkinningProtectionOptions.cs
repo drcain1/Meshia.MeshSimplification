@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Meshia.MeshSimplification
 {
@@ -15,6 +16,8 @@ namespace Meshia.MeshSimplification
         public bool PreserveJointTransitions;
         /// <summary>Optional mesh bone indices for joint-transition protection. Empty means all bones. Resolved by NDMF from its humanoid selection; not serialized.</summary>
         [NonSerialized] public FixedList512Bytes<int> JointProtectionBoneIndices;
+        /// <summary>NDMF-resolved anatomical bone pairs. Only connected dominant-weight transitions between these pairs receive automatic FA-QEM joint support.</summary>
+        [NonSerialized] public FixedList512Bytes<int2> AutomaticJointBonePairs;
         /// <summary>Build-resolved bones whose nonzero membership controls mesh visibility. Independent of deformation guards; not serialized.</summary>
         [NonSerialized] public FixedList4096Bytes<int> VisibilityBoneIndices;
         /// <summary>Conservative fallback when the visibility-bone list exceeds capacity; not serialized.</summary>
@@ -57,11 +60,12 @@ namespace Meshia.MeshSimplification
 
         public readonly bool Equals(SkinningProtectionOptions other)
             => Enabled == other.Enabled && Policy == other.Policy && PreserveJointTransitions == other.PreserveJointTransitions &&
+               AutomaticJointBonePairs.Equals(other.AutomaticJointBonePairs) &&
                JointProtectionBoneIndices.Equals(other.JointProtectionBoneIndices) &&
                VisibilityBoneIndices.Equals(other.VisibilityBoneIndices) && PreserveAllBoneMembership == other.PreserveAllBoneMembership && Strength == other.Strength &&
                MaxWeightDistance == other.MaxWeightDistance && MaxDiscardedWeight == other.MaxDiscardedWeight;
         public override readonly bool Equals(object? obj) => obj is SkinningProtectionOptions other && Equals(other);
-        public override readonly int GetHashCode() => HashCode.Combine(HashCode.Combine(Enabled, Policy, PreserveJointTransitions, JointProtectionBoneIndices, Strength, MaxWeightDistance, MaxDiscardedWeight), VisibilityBoneIndices, PreserveAllBoneMembership);
+        public override readonly int GetHashCode() => HashCode.Combine(HashCode.Combine(Enabled, Policy, PreserveJointTransitions, JointProtectionBoneIndices, Strength, MaxWeightDistance, MaxDiscardedWeight), VisibilityBoneIndices, PreserveAllBoneMembership, AutomaticJointBonePairs);
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
     }
 }

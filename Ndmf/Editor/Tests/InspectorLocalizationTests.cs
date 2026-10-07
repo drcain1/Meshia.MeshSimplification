@@ -1313,6 +1313,10 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     AssertOption<bool>(root, "FaQem.PreserveAttributeSeams", "Lock Coincident Split Vertices", "同じ位置にある分離頂点の固定", language);
                     Assert.AreEqual(language == "ja" ? "テクスチャの歪みを抑える" : "Preserve texture mapping", root.Q<Toggle>("ExperimentalUvToggle").label);
                     Assert.IsNull(root.Q<DropdownField>("UvMethodField"));
+                    Assert.AreEqual(language == "ja"
+                        ? "自動設定では、対応するヒューマノイドの膝・肘をメッシュがまたぐ場合、曲げ部分の頂点も保持します。手動のボーン選択で保護を追加できます。"
+                        : "Auto also preserves knee and elbow support on mapped humanoid joints where this mesh crosses the bend. Manual joint selection adds protection.",
+                        root.Q<Label>("AutomaticJointProtectionHelp").text);
                     Assert.AreEqual(language == "ja" ? "中" : "Medium", root.Q<DropdownField>("UvStrengthPreset").formatSelectedValueCallback("Medium"));
                     Assert.AreEqual(5000, root.Q<FloatField>("ExperimentalUvWeightField").value);
                     AssertOption<bool>(root, "PreserveBorderEdges", "Preserve Border Edges", "境界エッジを保持", language);

@@ -205,6 +205,7 @@ namespace Meshia.MeshSimplification.Editor
                 var policy = (SkinningProtectionPolicy)skinningProtectionPolicy.enumValueIndex;
                 var automatic = policy == SkinningProtectionPolicy.Auto || policy == SkinningProtectionPolicy.AutoDeforming;
                 root.Q<HelpBox>("LegacyAutomaticProtectionHelp").style.display = policy == SkinningProtectionPolicy.Auto ? DisplayStyle.Flex : DisplayStyle.None;
+                root.Q<Label>("AutomaticJointProtectionHelp").style.display = policy == SkinningProtectionPolicy.AutoDeforming ? DisplayStyle.Flex : DisplayStyle.None;
                 skinningProtectionAuto.SetValueWithoutNotify(automatic);
                 skinningProtectionEnabled.SetValueWithoutNotify(policy == SkinningProtectionPolicy.On ||
                     (policy == SkinningProtectionPolicy.Legacy &&

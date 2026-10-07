@@ -35,7 +35,8 @@
                 <ui:FloatField name="ExperimentalUvWeightField" binding-path="FaQem.ExperimentalUvWeight" is-delayed="true" tooltip="Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation." />
             </ui:VisualElement>
         </ui:VisualElement>
-        <ui:Toggle label="Preserve Vertices Near Joints" name="PreserveJointTransitionsToggle" binding-path="SkinningProtection.PreserveJointTransitions" tooltip="Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction." />
+        <ui:Label name="AutomaticJointProtectionHelp" text="Auto also preserves knee and elbow support on mapped humanoid joints where this mesh crosses the bend. Manual joint selection adds protection." style="display: none; white-space: normal;" />
+        <ui:Toggle label="Preserve Vertices Near Joints" name="PreserveJointTransitionsToggle" binding-path="SkinningProtection.PreserveJointTransitions" tooltip="Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction. Auto can independently preserve mapped knees and elbows; turn Auto off to use only your manual selection." />
         <ui:FloatField label="Plane Area Divisor" tooltip="Positive divisor applied to source triangle areas in the plane metric." binding-path="FaQem.PlaneAreaWeight" />
         <ui:FloatField label="Boundary Weight" tooltip="Weight of boundary curvature constraints." binding-path="FaQem.BoundaryWeight" />
         <ui:FloatField label="Normal Weight" tooltip="Weight of tangent planes derived from the original normals." binding-path="FaQem.NormalWeight" />
