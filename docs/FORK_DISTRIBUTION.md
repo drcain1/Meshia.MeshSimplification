@@ -119,6 +119,15 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.2.1` is a wording-only maintenance patch. The inspector group is
+now **Preset** / **プリセット**, and the Japanese choices are **弱・中・強**
+for Conservative / Aggressive / Extreme. Japanese tooltips explain reduction
+strength; related Undo labels and English/Japanese README references are updated.
+The Japanese triangle labels are **目標三角形数** and **三角形数予算**.
+Algorithms, preset values, protection behavior, and saved settings are unchanged.
+Validation passed 63 Unity inspector EditMode tests in Unity 2022.3.22f1 with
+zero failures or skips, plus 12 distribution tests.
+
 Version `1.2.0` promotes the `1.2.0-beta.1` implementation to stable without
 changing simplification behavior, protection defaults, or saved avatar settings.
 It includes FA-QEM texture-mapping preservation, supported cut/contact protection,
