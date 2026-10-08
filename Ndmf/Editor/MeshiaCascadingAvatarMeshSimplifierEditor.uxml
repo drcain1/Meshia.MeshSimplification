@@ -4,7 +4,7 @@
     <ui:VisualElement name="MainElement" style="flex-grow: 1;">
         <ui:DropdownField label="Algorithm for All Meshes" name="AllMeshesAlgorithmField" tooltip="Choose an algorithm to apply to every mesh entry. Individual mesh options and triangle targets are retained." />
         <ui:VisualElement name="ProtectionPresetRow" style="flex-direction: row; flex-wrap: wrap;">
-            <ui:Label text="Protection preset" style="align-self: center;" />
+            <ui:Label text="Preset" style="align-self: center;" />
             <ui:Button text="Conservative" name="ConservativeDefaultsButton" tooltip="Apply conservative protection to all meshes. Keeps algorithms, targets, exclusions, and locks. Supports Undo." style="flex-grow: 1; flex-basis: 0;" />
             <ui:Button text="Aggressive" name="AggressiveDefaultsButton" tooltip="Reduce more while keeping extra protection on detected hands, hair, and face meshes. Check bent poses and clothing after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo." style="flex-grow: 1; flex-basis: 0;" />
             <ui:Button text="Extreme" name="ExtremeDefaultsButton" tooltip="Allow the most reduction on other meshes while keeping tighter limits on meshes selected for deformation protection. Check shapes and clothing edges after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo." style="flex-grow: 1; flex-basis: 0;" />

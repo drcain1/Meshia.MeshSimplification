@@ -984,7 +984,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                     .Invoke(inspector, new object[] { root });
                 var summary = root.Q<Label>("BudgetSummary");
                 var resultLabel = root.Q<Label>("BuildResultSummary");
-                Assert.AreEqual(language == "ja" ? "三角形数の予算" : "Triangle budget", root.Q<Foldout>("EstimatesAndBuildDetails").text);
+                Assert.AreEqual(language == "ja" ? "三角形数予算" : "Triangle budget", root.Q<Foldout>("EstimatesAndBuildDetails").text);
                 Assert.AreEqual(language == "ja" ? "計算の詳細" : "Calculation details", root.Q<Foldout>("CalculationDetails").text);
                 Assert.AreEqual(2, root.Q<Foldout>("EstimatesAndBuildDetails").Query<Button>().ToList().Count(b => b.name == "AnalyzeNdmfBuildButton" || b.name == "FindBudgetReductionsButton"));
                 Assert.AreEqual(analyzed && error == null && !stale && triangles > component.TargetTriangleCount,
@@ -1369,7 +1369,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 var root = inspector.CreateInspectorGUI(); window.rootVisualElement.Add(root); window.Show();
                 for (var i = 0; i < 10; i++) yield return null;
                 var button = root.Q<Button>("ConservativeDefaultsButton");
-                Assert.That(button.text, Is.EqualTo("保守的"));
+                Assert.That(button.text, Is.EqualTo("弱"));
                 var before = EditorJsonUtility.ToJson(component);
                 typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(button.clickable, new object[] { null, 0 });
@@ -1434,7 +1434,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 var all = root.Q<DropdownField>("AllMeshesAlgorithmField");
                 Assert.AreEqual("全メッシュのアルゴリズム", all.label);
                 Assert.AreEqual("ビルド解析", root.Q<Button>("AnalyzeNdmfBuildButton").text);
-                Assert.AreEqual("三角形数の予算", root.Q<Foldout>("EstimatesAndBuildDetails").text);
+                Assert.AreEqual("三角形数予算", root.Q<Foldout>("EstimatesAndBuildDetails").text);
                 Assert.IsFalse(root.Q<Foldout>("CalculationDetails").value);
                 root.Q<Foldout>("CalculationDetails").value = true;
                 StringAssert.Contains("元の三角形数:", root.Q<Label>("TriangleCountLabel").text);

@@ -755,8 +755,8 @@ msgstr "Automatic bone-weight selection is enabled."
 msgid "Shows your settings. Individual options are in the cog menu."
 msgstr "Shows your settings. Individual options are in the cog menu."
 
-msgid "Protection preset"
-msgstr "Protection preset"
+msgid "Preset"
+msgstr "Preset"
 
 msgid "Conservative"
 msgstr "Conservative"

@@ -75,15 +75,15 @@ Updating the package does not change existing initialized settings, including sa
 
 Texture preservation remains experimental in this stable release. Check textures and shading while the avatar moves, then use **Analyze Build** to verify the final triangle count. If thin strips such as clothing straps develop gaps at their ends, enable **Preserve Border Edges**. If simplification creates holes or excessive shape changes elsewhere, set **Maximum Surface Deviation** to a smaller positive value and compare against the original mesh (0 disables that limit). These shape protections are separate from texture strength; raising the strength alone is not a hole-repair setting.
 
-##### Initial settings and protection presets
+##### Initial settings and presets
 
 New entries whose renderer GameObject is named **Body** (case-insensitive) start **excluded from simplification**, because many avatars use that name for the face. This is a naming convention, not face detection: `Body_base` is not excluded by this rule, and differently named faces must be excluded manually. You can explicitly enable a `Body` entry if desired. Refreshing entries preserves existing choices; the allocation **Reset** button restores this name-based default.
 
-Each mesh row has a **protection icon beside the lock and cog**. Click to cycle **green → yellow → gray → green**. Green enables geometry and deformation protection; yellow keeps geometry protection only (or indicates a partial custom selection); gray means **No protection**. Gray bypasses boundary and selected-bone locks, coincident seams, FA-QEM material-boundary and joint guards, bone-weight limits, surface-deviation limits, and face-flip checks. It can create holes, distort shapes or textures, and damage deformation. Basic connectivity and finite-number checks remain, so an exact requested count is not guaranteed. UV Loop Dissolve uses its Blender fallback directly in this state. Saved geometry options and selected bones are retained, with their controls disabled while bypassed. Returning to green restores those settings and explicitly enables deformation protection. Undo restores each change. The control works on skinned and static meshes; excluded meshes are disabled. With FA-QEM and NDMF Preview enabled, output sliders stay editable after protection changes: the latest requested count waits for fresh preview measurements. Analyze Build still verifies the final avatar count. Without this live-preview path, Analyze Build refreshes the measurements before further output edits. Auto Adjust never changes this state, and applying a protection preset clears the bypass. Existing entries retain their saved protections; the formerly dim deformation-off state now appears yellow when geometry protections remain.
+Each mesh row has a **protection icon beside the lock and cog**. Click to cycle **green → yellow → gray → green**. Green enables geometry and deformation protection; yellow keeps geometry protection only (or indicates a partial custom selection); gray means **No protection**. Gray bypasses boundary and selected-bone locks, coincident seams, FA-QEM material-boundary and joint guards, bone-weight limits, surface-deviation limits, and face-flip checks. It can create holes, distort shapes or textures, and damage deformation. Basic connectivity and finite-number checks remain, so an exact requested count is not guaranteed. UV Loop Dissolve uses its Blender fallback directly in this state. Saved geometry options and selected bones are retained, with their controls disabled while bypassed. Returning to green restores those settings and explicitly enables deformation protection. Undo restores each change. The control works on skinned and static meshes; excluded meshes are disabled. With FA-QEM and NDMF Preview enabled, output sliders stay editable after protection changes: the latest requested count waits for fresh preview measurements. Analyze Build still verifies the final avatar count. Without this live-preview path, Analyze Build refreshes the measurements before further output edits. Auto Adjust never changes this state, and applying a preset clears the bypass. Existing entries retain their saved protections; the formerly dim deformation-off state now appears yellow when geometry protections remain.
 
-New avatar entries and standalone components start with **deformation protection off** (`MeshSimplifierOptions.AvatarInitial`). Border and seam preservation remain on, and maximum surface deviation remains **0.0005** (0.05% of each mesh's bounds diagonal). Choose a protection preset explicitly, or use each row's protection icon.
+New avatar entries and standalone components start with **deformation protection off** (`MeshSimplifierOptions.AvatarInitial`). Border and seam preservation remain on, and maximum surface deviation remains **0.0005** (0.05% of each mesh's bounds diagonal). Choose a preset explicitly, or use each row's protection icon.
 
-- **Conservative** applies the previous full protection preset to every entry: per-mesh automatic bone-weight protection, strength **2**, maximum weight distance **0.10**, maximum discarded weight **0.02**, and joint-transition preservation with the default limb/hand selection.
+- **Conservative** applies the previous full preset to every entry: per-mesh automatic bone-weight protection, strength **2**, maximum weight distance **0.10**, maximum discarded weight **0.02**, and joint-transition preservation with the default limb/hand selection.
 - **Aggressive** uses the previous Extreme settings for substantial reduction: bone-weight strength **0.25**, maximum weight distance **0.25**, maximum discarded weight **0.10**, and maximum surface deviation **0.001**. It keeps bone-weight and default limb/hand joint-vertex protection on detected hand/finger and hair meshes, plus meshes named `Body` or `Face`, and turns deformation protection off on other meshes. Border, seam, face-flip and texture-mapping guards remain enabled.
 - **Extreme** uses the same mesh selection and joint protection as Aggressive. It increases maximum surface deviation to **0.002** only on meshes outside that deformation-protected selection; protected meshes keep **0.001**. This allows more reduction on other clothing and accessories while retaining border, seam, face-flip and texture-mapping guards. Check shapes, clothing edges and animated poses before upload. No preset guarantees the requested triangle count.
 
@@ -195,7 +195,7 @@ The labels below match the Unity inspector. C# property names are included for A
 
 | Inspector label | C# property | Default | Effect |
 | --- | --- | --- | --- |
-| Preserve Vertices Near Joints | `options.SkinningProtection.PreserveJointTransitions` | Off for new entries; enabled by applicable protection presets | Retains vertices at dominant-bone transitions and one neighboring ring. Separate from coincident split-vertex protection. |
+| Preserve Vertices Near Joints | `options.SkinningProtection.PreserveJointTransitions` | Off for new entries; enabled by applicable presets | Retains vertices at dominant-bone transitions and one neighboring ring. Separate from coincident split-vertex protection. |
 | Plane Area Divisor | `options.FaQem.PlaneAreaWeight` | `1` | With inverse area weighting on, divides the source-plane weight by this value times triangle area. With it off, this value is the source-plane weight directly. Must be positive. |
 | Boundary Weight | `options.FaQem.BoundaryWeight` | `500` | Strength of source boundary-curvature constraints. A soft penalty, not a border lock. |
 | Normal Weight | `options.FaQem.NormalWeight` | `0.01` | Strength of tangent-plane constraints from original normals, with geometric normal fallback where needed. |
@@ -322,17 +322,19 @@ NDMF が導入されたプロジェクトでは、モデルに `MeshiaMeshSimpli
 
 レンダラーの GameObject 名が **Body** の新規項目は、大文字・小文字を区別せず、初期状態で **軽量化対象外** になります。多くのアバターで顔に使われる名前に基づく初期設定であり、顔の自動検出ではありません。`Body_base` はこの規則では除外しません。別の名前の顔メッシュは手動で除外してください。必要なら `Body` も手動で有効にできます。項目の更新は保存済みの選択を維持し、配分の **リセット（Reset）** はこの名前に基づく初期状態に戻します。
 
-各メッシュ行の鍵と歯車の隣に **保護アイコン** があります。クリックするたびに **緑 → 黄 → 灰 → 緑** と切り替わります。緑は形状と変形の保護、黄は形状のみの保護（または一部だけ有効な設定）、灰は **保護なし** です。灰では、境界・選択ボーンの固定、同じ位置の分離頂点、FA-QEM のマテリアル境界・関節、ボーンウェイト、表面からのずれ、面の反転に関する保護を無効にします。穴、形状やテクスチャの歪み、変形の崩れが生じることがあります。基本的な接続と数値の整合性チェックは維持されるため、任意の三角形数への到達を保証するものではありません。この状態の UV Loop Dissolve は Blender フォールバックを直接使用します。保存済みの形状設定と選択ボーンは保持され、無効化中は該当する設定欄を操作できません。緑に戻すと保存済みの形状設定を復元し、変形の保護を明示的に有効にします。Undo で変更を戻せます。スキンメッシュと通常のメッシュの両方で使用でき、対象外のメッシュでは操作できません。FA-QEM と NDMF プレビューが有効な場合、保護を変更した後も出力数のスライダーを操作できます。新しい計測が完了すると、最後に指定した数を反映します。アバター全体の最終数は引き続き「ビルドを解析」で確認してください。このプレビュー経路を使用しない場合は、解析で計測を更新してから出力数を編集してください。自動調整は保護状態を変更しません。保護プリセットを適用すると無効化を解除します。既存の設定は維持され、従来は薄い表示だった変形保護オフの項目も、形状の保護が残っている場合は黄で表示されます。
+各メッシュ行の鍵と歯車の隣に **保護アイコン** があります。クリックするたびに **緑 → 黄 → 灰 → 緑** と切り替わります。緑は形状と変形の保護、黄は形状のみの保護（または一部だけ有効な設定）、灰は **保護なし** です。灰では、境界・選択ボーンの固定、同じ位置の分離頂点、FA-QEM のマテリアル境界・関節、ボーンウェイト、表面からのずれ、面の反転に関する保護を無効にします。穴、形状やテクスチャの歪み、変形の崩れが生じることがあります。基本的な接続と数値の整合性チェックは維持されるため、任意の三角形数への到達を保証するものではありません。この状態の UV Loop Dissolve は Blender フォールバックを直接使用します。保存済みの形状設定と選択ボーンは保持され、無効化中は該当する設定欄を操作できません。緑に戻すと保存済みの形状設定を復元し、変形の保護を明示的に有効にします。Undo で変更を戻せます。スキンメッシュと通常のメッシュの両方で使用でき、対象外のメッシュでは操作できません。FA-QEM と NDMF プレビューが有効な場合、保護を変更した後も出力数のスライダーを操作できます。新しい計測が完了すると、最後に指定した数を反映します。アバター全体の最終数は引き続き「ビルドを解析」で確認してください。このプレビュー経路を使用しない場合は、解析で計測を更新してから出力数を編集してください。自動調整は保護状態を変更しません。プリセットを適用すると無効化を解除します。既存の設定は維持され、従来は薄い表示だった変形保護オフの項目も、形状の保護が残っている場合は黄で表示されます。
 
 アバター直下の子オブジェクトに **Meshia Cascading Avatar Mesh Simplifier** を追加すると、対象レンダラー全体で共有する三角形数の目標を設定できます。**Adjust** は現在の目標数を各レンダラーに手動で配分し、**Auto Adjust** は各レンダラーの目標数を自動更新します。
 
-**初期設定と保護プリセット：** 新規メッシュ項目と単体コンポーネントでは、**変形の保護はオフ** で開始します（`MeshSimplifierOptions.AvatarInitial`）。境界・属性シームの保持と、元の表面からのずれの上限 **0.0005**（境界ボックスの対角線の 0.05%）は有効です。保護プリセットか各行のアイコンから明示的に有効にしてください。
+**初期設定とプリセット：** 新規メッシュ項目と単体コンポーネントでは、**変形の保護はオフ** で開始します（`MeshSimplifierOptions.AvatarInitial`）。境界・属性シームの保持と、元の表面からのずれの上限 **0.0005**（境界ボックスの対角線の 0.05%）は有効です。プリセットか各行のアイコンから明示的に有効にしてください。
 
-- **保守的（Conservative）**：従来の保護設定を全項目に適用します。メッシュごとのボーンウェイト自動保護、強さ **2**、ウェイト差の上限 **0.10**、破棄するウェイトの上限 **0.02**、手足の既定ボーン選択による関節付近の頂点保持が有効です。
-- **積極的（Aggressive）**：従来の「強力」の設定で大きく削減します。ボーンウェイト保護の強さは **0.25**、ウェイト差の上限は **0.25**、破棄するウェイトの上限は **0.10**、表面からのずれの上限は **0.001** です。検出した手・指・髪のメッシュと、名前が `Body` または `Face` のメッシュではボーンウェイトと既定の手足の関節付近の頂点を保護し、それ以外では変形保護をオフにします。境界・継ぎ目・面の反転・テクスチャの保護は維持します。
-- **強力（Extreme）**：積極的と同じメッシュ判定と関節保護を使います。変形保護の対象外メッシュだけ、表面からのずれの上限を **0.002** に緩めます。保護対象のメッシュは **0.001** を維持します。境界・継ぎ目・面の反転・テクスチャの保護を残しつつ、それ以外の服や小物をさらに削減します。アップロード前に形状・服の縁・動かしたときの見た目を確認してください。どのプリセットも目標三角形数への到達を保証するものではありません。
+プリセットの **弱・中・強** は、削減の強さを表します。「弱」は見た目の保持を、「強」は削減量を優先します。
 
-判定には正のボーンウェイト、ヒューマノイドの手・指の対応、別の衣装リグの同名ボーン、一般的な英語・日本語の手や髪の名前を使用します。未使用のボーン枠は対象にしません。特殊な名前は見落とす場合があります。メッシュを取得・読み取りできない場合やウェイトが不正な場合はボーンウェイト保護を有効にします。適用時にメッシュ単位で判定するため、手を含む身体メッシュ全体では、積極的・強力のどちらも関節保護と厳しめの表面上限を維持します。新しい値を使うにはプリセットを再適用してください。パッケージの更新だけでは保存済み設定は変えません。服・肘・膝にも追加の保護が必要な場合があります。各行のアイコンとアニメーション中の見た目を確認し、メッシュやリグの変更後は必要に応じて再適用してください。
+- **弱（Conservative）**：見た目の保持を優先する設定を全項目に適用します。メッシュごとのボーンウェイト自動保護、強さ **2**、ウェイト差の上限 **0.10**、破棄するウェイトの上限 **0.02**、手足の既定ボーン選択による関節付近の頂点保持が有効です。
+- **中（Aggressive）**：見た目の保持と削減量のバランスを取ります。ボーンウェイト保護の強さは **0.25**、ウェイト差の上限は **0.25**、破棄するウェイトの上限は **0.10**、表面からのずれの上限は **0.001** です。検出した手・指・髪のメッシュと、名前が `Body` または `Face` のメッシュではボーンウェイトと既定の手足の関節付近の頂点を保護し、それ以外では変形保護をオフにします。境界・継ぎ目・面の反転・テクスチャの保護は維持します。
+- **強（Extreme）**：「中」と同じメッシュ判定と関節保護を使います。変形保護の対象外メッシュだけ、表面からのずれの上限を **0.002** に緩めます。保護対象のメッシュは **0.001** を維持します。境界・継ぎ目・面の反転・テクスチャの保護を残しつつ、それ以外の服や小物をさらに削減します。アップロード前に形状・服の縁・動かしたときの見た目を確認してください。どのプリセットも目標三角形数への到達を保証するものではありません。
+
+判定には正のボーンウェイト、ヒューマノイドの手・指の対応、別の衣装リグの同名ボーン、一般的な英語・日本語の手や髪の名前を使用します。未使用のボーン枠は対象にしません。特殊な名前は見落とす場合があります。メッシュを取得・読み取りできない場合やウェイトが不正な場合はボーンウェイト保護を有効にします。適用時にメッシュ単位で判定するため、手を含む身体メッシュ全体では、「中」・「強」のどちらも関節保護と厳しめの表面上限を維持します。新しい値を使うにはプリセットを再適用してください。パッケージの更新だけでは保存済み設定は変えません。服・肘・膝にも追加の保護が必要な場合があります。各行のアイコンとアニメーション中の見た目を確認し、メッシュやリグの変更後は必要に応じて再適用してください。
 
 Prefabulous Generate Twist Bones を Optimizing フェーズで実行する設定では、Meshia → Generate Twist Bones → Avatar Optimizer の順に処理します。それより前のフェーズで実行する設定には影響しません。この対応は処理順のみを調整するもので、生成したツイストボーンと既存のリグとの相性を保証するものではありません。
 
@@ -341,7 +343,7 @@ Prefabulous Generate Twist Bones を Optimizing フェーズで実行する設�
 **7万三角形の目標より保護を優先します。** 自動調整は配分のみを変更し、保護を自動解除しません。直近のプレビューで目標を超えたメッシュをインスペクターに表示し、ビルド時にも FA-QEM の実際の出力数と目標数を警告します。プレビューが古い場合があるため、**NDMFビルド解析（Analyze NDMF Build）** で最終的な数を確認してください。目標に届かない場合は配分か品質上の妥協点を明示的に見直し、アップロード前にポーズ・表情・重なった服を確認してください。
 
 
-ボーンの動きに合わせて変形するメッシュには、実験的な **ボーンによる変形の保護（Skinning Protection）** があります。**関節を動かしたときの形状を保護（Protect joint deformation）** で有効にできます。ボーンウェイトは、各ボーンが頂点の動きに与える影響の強さです。コア API の初期値はオフです。新規 NDMF コンポーネントとメッシュ項目では保護はオフです。保護プリセットまたは歯車から **変形するメッシュを自動保護** を有効にできます。複数の有効なボーンに正のウェイトを持つ各メッシュを個別に判定し、服、分割された身体、独自のボーン構成も対象にします。単一ボーンで動く剛体メッシュは対象外です。保存済みの従来の Auto は身体候補を一つに絞る以前の判定を維持し、インスペクターにその旨を表示します。既存の明示的な設定は保持されます。有効時は Blender 方式と FA-QEM の両方で、エッジの両端にあるボーンウェイトの差と、統合時に失われるボーン影響量を確認します。`Strength` は評価コストへの重み、`Max Weight Distance` は両端のウェイト分布の差の上限、`Max Discarded Weight` は出力のボーン影響数制限によって失われるウェイト量の上限です。保護により削減が途中で止まる場合があり、すべてのポーズで同じ見た目になることを保証する機能ではありません。代表的な関節ポーズで確認してください。
+ボーンの動きに合わせて変形するメッシュには、実験的な **ボーンによる変形の保護（Skinning Protection）** があります。**関節を動かしたときの形状を保護（Protect joint deformation）** で有効にできます。ボーンウェイトは、各ボーンが頂点の動きに与える影響の強さです。コア API の初期値はオフです。新規 NDMF コンポーネントとメッシュ項目では保護はオフです。プリセットまたは歯車から **変形するメッシュを自動保護** を有効にできます。複数の有効なボーンに正のウェイトを持つ各メッシュを個別に判定し、服、分割された身体、独自のボーン構成も対象にします。単一ボーンで動く剛体メッシュは対象外です。保存済みの従来の Auto は身体候補を一つに絞る以前の判定を維持し、インスペクターにその旨を表示します。既存の明示的な設定は保持されます。有効時は Blender 方式と FA-QEM の両方で、エッジの両端にあるボーンウェイトの差と、統合時に失われるボーン影響量を確認します。`Strength` は評価コストへの重み、`Max Weight Distance` は両端のウェイト分布の差の上限、`Max Discarded Weight` は出力のボーン影響数制限によって失われるウェイト量の上限です。保護により削減が途中で止まる場合があり、すべてのポーズで同じ見た目になることを保証する機能ではありません。代表的な関節ポーズで確認してください。
 
 各レンダラーの歯車メニューでアルゴリズムを選択できます。
 
@@ -371,7 +373,7 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 - **トポロジーと面の検査：** エッジ統合の局所的なリンク条件を確認し、危険な非多様体構造、残る面の退化、過度な面法線の変化を拒否します。局所的な安全策であり、メッシュ全体の自己交差防止や修復を保証するものではありません。
 - **アニメーションで開く面の保護：** 頂点インデックスが互いに異なる三角形は、初期状態では面積がゼロでも、変形によって面が開く場合があります。ブレンドシェイプまたはボーンウェイトを持つメッシュでは、FA-QEM はその面を保持し、境界・シーム保護が無効でも頂点を固定します。変形データのないメッシュの面積ゼロの面は引き続き削除できます。この安全策により、該当する面の周辺では削減が制限される場合があります。
 - **境界の固定：** **Preserve Border Edges** で、トポロジー上の開いた境界の頂点を固定できます。スキンメッシュでは、特定の領域だけを保護するために選択したボーンに基づく境界保護も利用できます。
-- **実験的なボーンによる変形の保護：** **関節を動かしたときの形状を保護（Protect joint deformation）** でウェイト差の評価コストと制限を追加します。コア API と新規 NDMF 項目の初期値はオフで、保護プリセットから上記の Auto を適用できます。軽量化後の代表的なポーズとブレンドシェイプを確認してください。
+- **実験的なボーンによる変形の保護：** **関節を動かしたときの形状を保護（Protect joint deformation）** でウェイト差の評価コストと制限を追加します。コア API と新規 NDMF 項目の初期値はオフで、プリセットから上記の Auto を適用できます。軽量化後の代表的なポーズとブレンドシェイプを確認してください。
 - **エディターとビルドの連携：** レンダラーごとの目標数、アバター全体への配分、NDMF プレビュー／ビルド、**Preview UVs** の比較表示に対応します。
 - **実行・診断 API：** 同期、非同期、バッチ軽量化、結果レポート、元のインデックスとの対応を含むオプションの統合履歴に対応します。
 
@@ -399,17 +401,17 @@ FA-QEM は、元の面の平面、境界の曲率、元の法線に基づく接�
 
 ##### 目標数の確認と、さらに削減する方法
 
-**目標三角形数（配分用）** は配分の目標であり、最終的な数の上限を保証するものではありません。インスペクターには現在の正常なNDMF解析結果と、超過数または残りの数を表示します。古い結果はその旨を表示し、失敗した解析は確定した数として扱いません。**削減方法を確認** では、出力数が多い順の一覧、軽量化対象外のメッシュ、未計測のメッシュを別々に表示します。プレビューの数値や古い実測値にはその旨を表示します。**メッシュ設定を開く** で対象の項目へ移動できます。プレビューや元のメッシュの数は、ビルド後の各メッシュの最終的な数ではありません。プレビューがない場合も削減量を計測済みとは表示しません。解析後も一覧は開けますが、現在の正常なビルド結果があればプレビューの案内は非表示になります。
+**目標三角形数** は配分の目標であり、最終的な数の上限を保証するものではありません。インスペクターには現在の正常なNDMF解析結果と、超過数または残りの数を表示します。古い結果はその旨を表示し、失敗した解析は確定した数として扱いません。**削減方法を確認** では、出力数が多い順の一覧、軽量化対象外のメッシュ、未計測のメッシュを別々に表示します。プレビューの数値や古い実測値にはその旨を表示します。**メッシュ設定を開く** で対象の項目へ移動できます。プレビューや元のメッシュの数は、ビルド後の各メッシュの最終的な数ではありません。プレビューがない場合も削減量を計測済みとは表示しません。解析後も一覧は開けますが、現在の正常なビルド結果があればプレビューの案内は非表示になります。
 
 見える部分の削減を強める前に、常に衣装で隠れている部分を見直してください。[AAO Remove Mesh By BlendShape](https://vpm.anatawa12.com/avatar-optimizer/ja/docs/reference/remove-mesh-by-blendshape/) では、素体を隠す適切なブレンドシェイプを指定してポリゴンを削除できます。[Modular Avatar Shape Changer](https://modular-avatar.nadena.dev/ja/docs/reference/reaction/shape-changer) の **Delete** モードでも削除できます。単に縮小したりシェーダーで隠したりするだけでは、ポリゴンは削除されません。Shape Changer の削除をアニメーションで切り替える場合、見えなくなっても報告されるポリゴン数は減りません。衣装の切り替えで必要になる部分は残してください。ポーズと衣装を変えて削除範囲を確認し、ビルド全体を再解析します。これらのツールは任意であり、案内からコンポーネントや依存パッケージを自動追加することはありません。
 
 まだ超過する場合は、大きい項目から、対象外メッシュの軽量化、使わないアクセサリー、固定配分を見直してください。保護を緩める場合はメッシュごとに明示的に変更し、動かした状態を比較します。**自動調整は配分を増減の両方向に再配分します。** スライダーと数値入力は同じ動作です。目標数を下げると他の固定されていないメッシュへ配分を戻し、上げるとそれらのメッシュから配分を移します。編集中の目標、固定配分、対象外メッシュは維持し、再配分先は元の三角形数を超えません。スライダーの編集ではビルド実測による補正を維持し、新たな余裕を追加しません。Undo は編集と再配分をまとめて戻します。形状の保護により配分と実際の出力数は異なるため、非同期の推定は各メッシュの実測変化を使い、最終的な数はビルド解析で確認します。**Adjust** は手動で予算を再配分します。固定・対象外の設定は維持されます。変形の保護がオフでも境界・シーム・表面からのずれの制限は残るため、実際の出力数が目標を超える場合があります。**自動調整は目標の配分を変更します。** メッシュごとの試行で出力変化を実測し、最大4回のビルドで補正を自動検証します。保護は自動解除しません。目標数が結果より少ないからといって、安全にさらに削減できるとは限りません。
 
-**三角形数の予算** は最初から開き、現在の正常なビルドでのアバター全体の実測値を表示します。メッシュ行は **出力 / 元の三角形数** を表示します。出力は AAO などの後続ツールで処理する前の Meshia の実測値です。内部目標値は行のポップアップの **計算の詳細** にだけ表示し、出力が内部目標を上回るだけでは警告しません。
+**三角形数予算** は最初から開き、現在の正常なビルドでのアバター全体の実測値を表示します。メッシュ行は **出力 / 元の三角形数** を表示します。出力は AAO などの後続ツールで処理する前の Meshia の実測値です。内部目標値は行のポップアップの **計算の詳細** にだけ表示し、出力が内部目標を上回るだけでは警告しません。
 
 出力数を編集する前に **ビルドを解析** を実行してください。スライダーや数値欄で希望する出力数を指定すると、最大8つの内部目標候補を非同期で測定し、達成できた出力数を表示します。数値欄は Enter で確定します。測定中は青の **…**、希望どおり変更できなかった場合は実測値に戻し、黄橙色の **!** で理由を一時表示します。指定量を超える削減や増加は適用しません。自動調整が有効なら、変更後の内部配分を他の固定されていないメッシュに再配分します。新しい編集が来た場合は古い測定を適用せず、「元に戻す」で編集と再配分を復元できます。保護を自動で緩めることはありません。
 
-**三角形数の予算** の横にあるスピナーは、編集や三角形数の処理中に **計算中...**、新しいメッシュの表示準備ができるまで **プレビューを更新中...** と表示します。セクションを折りたたんでいても確認できます。
+**三角形数予算** の横にあるスピナーは、編集や三角形数の処理中に **計算中...**、新しいメッシュの表示準備ができるまで **プレビューを更新中...** と表示します。セクションを折りたたんでいても確認できます。
 
 元の三角形数を維持しているメッシュは、削減を指定するまで削減手順の計算を行いません。最初の削減には準備時間がかかる場合がありますが、それ以降の調整では結果を再利用します。Undo／Redo は計測済みのスライダー値を復元し、古い未反映の編集を破棄します。
 
@@ -431,7 +433,7 @@ FA-QEM は解析時に通常の統合処理に沿って三角形数を記録し�
 
 FA-QEM の **関節付近の頂点を保持（Preserve Vertices Near Joints）**（`options.SkinningProtection.PreserveJointTransitions`）は、最も強く影響するボーンが切り替わる部分と、そのすぐ周囲の頂点を元の状態で保持します。他の部分は引き続き軽量化できるため、手や指の全体を固定する機能ではありません。
 
-新規アバター設定とコア API の初期値は **オフ** です。保守的プリセットでは全項目、積極的プリセットでは検出した項目で有効にします。**関節を動かしたときの形状を保護** や自動・手動の設定とは独立しています。アバター全体の軽量化では、各メッシュの **FA-QEM設定** で有効にし、下の **関節を保護するボーン（Joint Protection Bones）** で対象を選びます。新規項目では両手と全指、両腕の上腕・前腕、両脚の太もも・すね、足を選択し、使用されているヒューマノイドボーンの手首・肘・膝・足首付近を保護します。保存済みの選択は自動で拡張しません。**境界エッジを保持するボーン** とは別の選択で、閉じた指の表面なども保護します。何も選択しなければ、その項目には関節保護を適用しません。存在しないヒューマノイドボーンは無視します。単体の軽量化では、すべてのボーンの切り替わり部分を対象にします。
+新規アバター設定とコア API の初期値は **オフ** です。プリセット「弱」では全項目、「中」では検出した項目で有効にします。**関節を動かしたときの形状を保護** や自動・手動の設定とは独立しています。アバター全体の軽量化では、各メッシュの **FA-QEM設定** で有効にし、下の **関節を保護するボーン（Joint Protection Bones）** で対象を選びます。新規項目では両手と全指、両腕の上腕・前腕、両脚の太もも・すね、足を選択し、使用されているヒューマノイドボーンの手首・肘・膝・足首付近を保護します。保存済みの選択は自動で拡張しません。**境界エッジを保持するボーン** とは別の選択で、閉じた指の表面なども保護します。何も選択しなければ、その項目には関節保護を適用しません。存在しないヒューマノイドボーンは無視します。単体の軽量化では、すべてのボーンの切り替わり部分を対象にします。
 
 保護した頂点の位置と属性を保持するため、目標三角形数より多い状態で止まる場合があります。すべてのポーズを検査する機能ではなく、体と服のめり込みや、保護範囲外の変形を完全に防ぐものではありません。手を開いた状態、途中まで曲げた状態、握った状態で比較し、ビルド後のアバター全体の三角形数を確認してください。現在は FA-QEM のみが対応しています。
 
@@ -488,7 +490,7 @@ FA-QEM で軽量化した後に穴、鋭いへこみ、引き伸ばされた三�
 
 | Unity の表示名（英語表示名） | C# プロパティ | 初期値 | 効果 |
 | --- | --- | --- | --- |
-| 関節付近の頂点を保持（Preserve Vertices Near Joints） | `options.SkinningProtection.PreserveJointTransitions` | 新規項目ではオフ。対象の保護プリセットでオン | 最も強く影響するボーンが切り替わる部分と、そのすぐ周囲の頂点を保持します。同じ位置にある分離頂点の固定とは別の設定です。 |
+| 関節付近の頂点を保持（Preserve Vertices Near Joints） | `options.SkinningProtection.PreserveJointTransitions` | 新規項目ではオフ。対象のプリセットでオン | 最も強く影響するボーンが切り替わる部分と、そのすぐ周囲の頂点を保持します。同じ位置にある分離頂点の固定とは別の設定です。 |
 | 平面評価の面積除数（Plane Area Divisor） | `options.FaQem.PlaneAreaWeight` | `1` | 逆面積重み付けがオンの場合、この値と三角形面積の積で元の面の平面重みを割ります。オフの場合は、この値を平面重みとして直接使います。正の値が必要です。 |
 | 境界の重み（Boundary Weight） | `options.FaQem.BoundaryWeight` | `500` | 元の境界曲率に基づく制約の強さです。境界の固定ではなく、移動へのペナルティです。 |
 | 法線の重み（Normal Weight） | `options.FaQem.NormalWeight` | `0.01` | 元の法線に基づく接平面制約の強さです。必要に応じて形状から求めた法線を使います。 |

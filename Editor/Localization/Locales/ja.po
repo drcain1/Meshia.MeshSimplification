@@ -616,10 +616,10 @@ msgid "Protects each mesh using multiple bones, including clothing and custom ri
 msgstr "服や独自のボーン構成を含め、複数のボーンで動く各メッシュを保護します。身体メッシュを一つに特定する必要はありません。 手動で保護を選ぶには、この項目をオフにしてください。"
 
 msgid "This saved mesh uses legacy body-only Auto. Toggle Auto off and on to use per-mesh detection, or apply conservative defaults to update all protections."
-msgstr "この保存済みメッシュは、身体のみを対象とする従来の自動保護を使用しています。自動保護を一度オフにしてからオンにするとメッシュごとの判定に切り替わります。保護設定全体を更新するには、保守的な初期設定を適用してください。"
+msgstr "この保存済みメッシュは、身体のみを対象とする従来の自動保護を使用しています。自動保護を一度オフにしてからオンにするとメッシュごとの判定に切り替わります。保護設定全体を更新するには、プリセット「弱」を適用してください。"
 
 msgid "Apply Conservative Defaults to All Meshes"
-msgstr "全メッシュに保守的な初期設定を適用"
+msgstr "全メッシュにプリセット「弱」を適用"
 
 msgid "Replaces mesh protection options and joint-bone selections with conservative defaults. Keeps algorithms, triangle targets, and enabled/fixed choices. Undo is supported."
 msgstr "各メッシュの保護設定と関節を保護するボーンの選択を、保守的な初期設定に置き換えます。アルゴリズム、目標三角形数、有効・固定の選択は維持されます。元に戻す操作に対応しています。"
@@ -640,7 +640,7 @@ msgid "Meshia: '{0}' retained {1:N0} triangles (requested {2:N0}). Protection an
 msgstr "Meshia:「{0}」は目標 {2:N0} に対して {1:N0} 三角形を保持しました。保護と接続構造の制約を目標より優先します。他のメッシュの配分か、このメッシュの保護設定を見直してください。保護を自動で解除することはありません。"
 
 msgid "Requested Triangle Budget"
-msgstr "目標三角形数（配分用）"
+msgstr "目標三角形数"
 
 msgid "An allocation goal, not a hard cap. Protection can stop reduction above the requested budget."
 msgstr "配分の目標であり、最終的な数の上限を保証するものではありません。保護によって目標数より多い状態で削減が止まる場合があります。"
@@ -750,29 +750,29 @@ msgstr "ボーンウェイト保護の自動判定が有効です。"
 msgid "Shows your settings. Individual options are in the cog menu."
 msgstr "設定の状態を表示しています。個別の設定は歯車メニューで変更できます。"
 
-msgid "Protection preset"
-msgstr "保護プリセット"
+msgid "Preset"
+msgstr "プリセット"
 
 msgid "Conservative"
-msgstr "保守的"
+msgstr "弱"
 
 msgid "Aggressive"
-msgstr "積極的"
+msgstr "中"
 
 msgid "Apply Aggressive Preset"
-msgstr "積極的プリセットを適用"
+msgstr "プリセット「中」を適用"
 
 msgid "Apply conservative protection to all meshes. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
-msgstr "全メッシュに保守的な保護設定を適用します。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
+msgstr "見た目の保持を優先して削減します。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
 
 msgid "Reduce more while keeping extra protection on detected hands, hair, and face meshes. Check bent poses and clothing after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
-msgstr "検出した手・髪・顔のメッシュの追加保護を維持しながら、さらに削減します。適用後は曲げたポーズと服の見た目を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
+msgstr "見た目の保持と削減量のバランスを取ります。検出した手・髪・顔のメッシュの追加保護を維持します。適用後は曲げたポーズと服の見た目を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
 
 msgid "Allocated triangles (including excluded meshes): {0:N0} / {1:N0}"
 msgstr "配分三角形数（対象外メッシュを含む）: {0:N0} / {1:N0}"
 
 msgid "Triangle budget"
-msgstr "三角形数の予算"
+msgstr "三角形数予算"
 
 msgid "Calculation details"
 msgstr "計算の詳細"
@@ -1160,16 +1160,16 @@ msgid "Source mesh triangles before preview or build processing."
 msgstr "プレビューやビルド処理を行う前の元のメッシュの三角形数です。"
 
 msgid "Extreme"
-msgstr "強力"
+msgstr "強"
 
 msgid "Change mesh triangle count"
 msgstr "メッシュの三角形数を変更"
 
 msgid "Apply Extreme Preset"
-msgstr "強力プリセットを適用"
+msgstr "プリセット「強」を適用"
 
 msgid "Allow the most reduction on other meshes while keeping tighter limits on meshes selected for deformation protection. Check shapes and clothing edges after applying. Keeps algorithms, targets, exclusions, and locks. Supports Undo."
-msgstr "変形保護の対象メッシュには厳しめの上限を残し、それ以外を最も大きく削減します。適用後は形状と服の縁を確認してください。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
+msgstr "削減量を優先します。形状や動かしたときの見た目を確認してください。変形保護の対象メッシュには厳しめの上限を維持します。アルゴリズム・目標数・対象外の設定・固定を維持します。元に戻せます。"
 
 msgid "Preserves vertices where the strongest bone influence changes, plus their immediate neighbors, to help retain shape when joints bend. This can limit triangle reduction. Auto can independently preserve mapped knees and elbows; turn Auto off to use only your manual selection."
 msgstr "最も強いボーンの影響が切り替わる頂点と隣接頂点を保持し、関節を曲げた際の形状を保護します。削減できる三角形数が制限される場合があります。自動設定は対応する膝と肘を別途保護します。手動選択のみを使う場合は自動設定をオフにしてください。"
