@@ -73,7 +73,7 @@ Choose a preset with the slider or dropdown, or edit the number beside it. Press
 
 Updating the package does not change existing initialized settings, including saved strengths and opt-outs. Opening the inspector, changing language, or editing strength retains the saved optimization method. Turning **Preserve texture mapping** off and back on selects the current joint shape-and-UV method; **Reset Options** restores the full option preset, including texture preservation at Medium. The gray **No protection** state bypasses texture preservation.
 
-Texture preservation remains experimental during this beta. Check textures and shading while the avatar moves, then use **Analyze Build** to verify the final triangle count. If thin strips such as clothing straps develop gaps at their ends, enable **Preserve Border Edges**. If simplification creates holes or excessive shape changes elsewhere, set **Maximum Surface Deviation** to a smaller positive value and compare against the original mesh (0 disables that limit). These shape protections are separate from texture strength; raising the strength alone is not a hole-repair setting.
+Texture preservation remains experimental in this stable release. Check textures and shading while the avatar moves, then use **Analyze Build** to verify the final triangle count. If thin strips such as clothing straps develop gaps at their ends, enable **Preserve Border Edges**. If simplification creates holes or excessive shape changes elsewhere, set **Maximum Surface Deviation** to a smaller positive value and compare against the original mesh (0 disables that limit). These shape protections are separate from texture strength; raising the strength alone is not a hole-repair setting.
 
 ##### Initial settings and protection presets
 
@@ -480,7 +480,7 @@ FA-QEM で軽量化した後に穴、鋭いへこみ、引き伸ばされた三�
 
 パッケージを更新しても、保存済みの強さや無効化の選択など、初期化済みの設定は変更しません。設定を開く、言語を切り替える、強さを編集するといった操作でも、保存済みの最適化方式は維持します。**テクスチャの歪みを抑える** をオフにしてからオンにすると、現在の形状と UV の同時最適化に切り替わります。**設定をリセット** はほかのオプションも含めてプリセットに戻し、テクスチャ保護をオン・中にします。灰色の **保護なし** ではテクスチャ保護も無効になります。
 
-このベータ版では、テクスチャ保護は引き続き実験的な機能です。変更後はアバターを動かして模様や陰影を確認し、**ビルドを解析** で最終的な三角形数を確認してください。ストラップなど細い部分の端に隙間ができる場合は、**境界エッジを保持** を有効にしてください。それ以外の部分で軽量化による穴や大きな形状の崩れが生じる場合は、**元の表面からのずれの上限（Maximum Surface Deviation）** を 0 より大きい、より小さな値に設定し、元のメッシュと比較してください（0 は制限を無効にします）。これらの形状保護はテクスチャの強さとは別の設定です。強さを上げるだけで穴を修復する機能ではありません。
+この安定版でも、テクスチャ保護は引き続き実験的な機能です。変更後はアバターを動かして模様や陰影を確認し、**ビルドを解析** で最終的な三角形数を確認してください。ストラップなど細い部分の端に隙間ができる場合は、**境界エッジを保持** を有効にしてください。それ以外の部分で軽量化による穴や大きな形状の崩れが生じる場合は、**元の表面からのずれの上限（Maximum Surface Deviation）** を 0 より大きい、より小さな値に設定し、元のメッシュと比較してください（0 は制限を無効にします）。これらの形状保護はテクスチャの強さとは別の設定です。強さを上げるだけで穴を修復する機能ではありません。
 
 ##### FA-QEM の設定
 

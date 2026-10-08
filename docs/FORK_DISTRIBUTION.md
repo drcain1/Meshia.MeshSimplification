@@ -119,6 +119,22 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.2.0` promotes the `1.2.0-beta.1` implementation to stable without
+changing simplification behavior, protection defaults, or saved avatar settings.
+It includes FA-QEM texture-mapping preservation, supported cut/contact protection,
+automatic humanoid knee/elbow support, revised reduction presets, and faster
+interactive previews with corrected Undo/Redo behavior. Texture-mapping and
+contact protection retain their documented experimental limitations.
+
+Release validation on 2026-10-08 passed all **388 Unity EditMode tests** in Unity
+2022.3.22f1: 167 runtime tests and 221 NDMF/editor tests, with zero failures or
+skips. The tested checkout matches the beta implementation. This automated run
+does not constitute a new in-game bending check. Existing per-mesh settings are
+preserved on upgrade; enabling protection restores those settings rather than
+resetting their limits. For thin folded clothing, a loose surface-deviation limit
+can still allow visible intersections. Check representative poses and use Analyze
+Build to verify the complete output and budget after tuning protections.
+
 Version `1.2.0-beta.1` also extends FA-QEM's per-mesh Auto policy to resolve humanoid knee/elbow pairs,
 including separate clothing rigs through stock MA Merge Armature mappings. The
 reduction kernel preserves only connected dominant-weight transitions for those
