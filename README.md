@@ -36,6 +36,10 @@ You can preview the result in EditMode.
 
 Add `Meshia Cascading Avatar Mesh Simplifier` to a child object beneath the avatar. It assigns a shared triangle budget across the avatar's eligible renderers. Use **Adjust** to distribute the current target manually, or enable **Auto Adjust** to update renderer targets automatically.
 
+![Cascading avatar simplifier inspector showing the triangle budget, measured output, and per-mesh sliders](https://raw.githubusercontent.com/drcain1/Meshia.MeshSimplification/main/.github/images/cascading-avatar-inspector.png)
+
+*The cascading inspector after analysis, showing the measured total and per-mesh output controls. The “Protection preset” label shown here is called “Preset” in current versions.*
+
 For skinned meshes, the options include an experimental **Protect joint deformation** setting. The core API keeps it disabled by default. New NDMF components also start with deformation protection off. When explicitly enabled, **Automatically protect deforming meshes** works per mesh: each mesh with positive weights on multiple valid bone transforms is protected independently, including clothing, separate limbs, and custom rigs. Rigid one-bone meshes do not need this guard. Saved legacy Auto settings keep the earlier single-body detection; the inspector identifies that mode. Explicit On/Off settings are retained. When enabled, the native Blender-style and FA-QEM candidate jobs compare endpoint skin-weight variation and the simulated discarded influence weight before accepting a collapse. `Strength` controls the graduated cost, `Max Weight Distance` limits endpoint total variation, and `Max Discarded Weight` limits influence loss caused by the fixed output influence width. The protection can reduce the achievable triangle count; the settings do not provide a pose-equivalence guarantee and should be evaluated with representative joint poses.
 
 With **FA-QEM** and **Automatically protect deforming meshes** enabled, NDMF also resolves humanoid knee and elbow bone pairs. Connected edges crossing between the upper/lower leg or upper/lower arm retain their source transition vertices and one neighboring support ring. Merely referencing those bones or having disconnected pieces does not activate the guard. Stock Modular Avatar Merge Armature mappings are used for separate clothing rigs in previews. Detection is part of reduction preparation and is reused during slider replay. The cogwheel explains this automatic support; manual joint selection can add protection. Manual Off, legacy Auto, and gray No protection do not enable this new automatic guard. Custom rigs without a humanoid mapping retain the existing bone-weight checks. Extra support may increase output counts; verify bending and run Analyze Build again.
@@ -317,6 +321,10 @@ Unity Package Manager で Git URL から導入する場合は、依存パッケ�
 NDMF が導入されたプロジェクトでは、モデルに `MeshiaMeshSimplifier` を追加して使用できます。Edit Mode で軽量化結果をプレビューしながら設定を調整できます。
 
 #### アバター全体の三角形数を配分する
+
+![三角形数の予算とメッシュごとの出力数・スライダーを表示したアバター全体の軽量化インスペクター](https://raw.githubusercontent.com/drcain1/Meshia.MeshSimplification/main/.github/images/cascading-avatar-inspector-ja.png)
+
+*日本語表示のインスペクター例です。画像は旧表記で、現在は「プリセット（弱・中・強）」「目標三角形数」「三角形数予算」と表示されます。*
 
 **FA-QEM** と **変形するメッシュを自動で保護** が有効な場合、NDMF はヒューマノイドの膝・肘に対応するボーンの組も検出します。接続された辺で太ももとすね、または上腕と前腕の主な影響が切り替わる部分と、その隣の一周分の頂点を保持します。ボーン一覧に含まれるだけの場合や、離れた部品には適用しません。プレビューでは通常版 Modular Avatar の Merge Armature の対応情報を使い、服専用のボーンにも対応します。削減手順の準備時に判定し、スライダー操作では結果を再利用します。歯車内に説明が表示され、手動の関節選択で保護を追加できます。手動オフ、従来の Auto、灰色の「保護なし」には、この自動保護を追加しません。ヒューマノイド対応のない独自リグは従来のボーンウェイト保護を使用します。出力数が増える場合があるため、曲げた状態の確認とビルド解析を行ってください。
 
