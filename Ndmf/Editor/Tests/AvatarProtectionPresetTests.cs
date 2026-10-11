@@ -41,9 +41,9 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             finally { Object.DestroyImmediate(root); Object.DestroyImmediate(mesh); }
         }
 
-        [TestCase(false, "ja", "積極的")]
+        [TestCase(false, "ja", "中")]
         [TestCase(false, "en", "Aggressive")]
-        [TestCase(true, "ja", "強力")]
+        [TestCase(true, "ja", "強")]
         [TestCase(true, "en", "Extreme")]
         public void ReductionPresetPreservesAllocationsAndSupportsUndo(bool extreme, string language, string label)
         {

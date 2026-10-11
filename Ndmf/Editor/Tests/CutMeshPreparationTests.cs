@@ -6,6 +6,8 @@ using System.Reflection;
 using Meshia.MeshSimplification.Ndmf.Editor;
 using nadena.dev.ndmf.preview;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEngine.UIElements;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
@@ -166,6 +168,89 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 Assert.Greater(source.triangles.Length, 0);
             }
             finally { Object.DestroyImmediate(output); }
+        }
+
+        private sealed class CountWindow : EditorWindow { }
+
+        [UnityTest]
+        public IEnumerator ShouldRefreshOriginalAndSliderRangeWhenAaoSelectionChangesAndIsUndone()
+        {
+            source.AddBlendShapeFrame("All", 100,
+                Enumerable.Repeat(Vector3.forward * .02f, source.vertexCount).ToArray(), null, null);
+            var cutter = Cutter("Missing");
+            var avatar = new GameObject("AAO slider test", typeof(nadena.dev.ndmf.runtime.components.NDMFAvatarRoot));
+            owner.transform.SetParent(avatar.transform);
+            var settingsObject = new GameObject("Meshia settings");
+            settingsObject.transform.SetParent(avatar.transform);
+            var component = settingsObject.AddComponent<MeshiaCascadingAvatarMeshSimplifier>();
+            component.AutoAdjustEnabled = false;
+            component.RefreshEntries();
+            var entry = component.Entries.Single();
+            entry.Algorithm = MeshiaCascadingSimplificationAlgorithm.FaQem;
+            entry.TargetTriangleCount = (source.triangles.Length / 3);
+            var inspector = UnityEditor.Editor.CreateEditor(component);
+            var window = ScriptableObject.CreateInstance<CountWindow>();
+            try
+            {
+                var root = inspector.CreateInspectorGUI();
+                window.rootVisualElement.Add(root); window.Show();
+                for (var i = 0; i < 10; i++) yield return null;
+                var row = root.Q<ListView>("EntriesListView").Query<TemplateContainer>().ToList()
+                    .Single(r => r.userData is int index && index == 0);
+                var slider = row.Q<SliderInt>("TargetTriangleCountSlider");
+                var original = row.Q<IntegerField>("OriginalTriangleCountField");
+                var refresh = inspector.GetType().GetMethod("RefreshBudgetGuidance", BindingFlags.Instance | BindingFlags.NonPublic);
+                var before = EditorJsonUtility.ToJson(component);
+                var changes = 0;
+                slider.RegisterValueChangedCallback(_ => changes++);
+                Assert.AreEqual((source.triangles.Length / 3), original.value);
+                slider.SetValueWithoutNotify((source.triangles.Length / 3));
+
+                void AssertRange(int expected)
+                {
+                    refresh.Invoke(inspector, new object[] { root });
+                    Assert.AreEqual(expected, original.value, "Original must reflect the current supported cut.");
+                    Assert.AreEqual(expected, slider.highValue, "The slider must end at the available input count.");
+                    Assert.LessOrEqual(slider.value, slider.highValue);
+                    Assert.AreEqual(0, changes, "Changing a range must not dispatch a slider edit.");
+                    Assert.AreEqual(before, EditorJsonUtility.ToJson(component), "Refreshing cuts must not rewrite allocations or protections.");
+                }
+                void SelectShape(string name)
+                {
+                    Undo.IncrementCurrentGroup();
+                    Undo.RecordObject(cutter, "Change AAO selection");
+                    var shapes = (ICollection<string>)cutterType.GetProperty("ShapeKeys").GetValue(cutter);
+                    shapes.Clear(); shapes.Add(name);
+                    EditorUtility.SetDirty(cutter);
+                    Undo.FlushUndoRecordObjects();
+                    Undo.IncrementCurrentGroup();
+                }
+
+                SelectShape("Cut");
+                yield return null;
+                int cutCount;
+                using (var cut = CutMeshPreparation.Prepare(renderer, source, Target, entry.Options))
+                    cutCount = (cut.Mesh.triangles.Length / 3);
+                Assert.Less(cutCount, (source.triangles.Length / 3));
+                Assert.Greater(cutCount, 0);
+                AssertRange(cutCount);
+                Assert.AreEqual(cutCount, slider.value, "A full-detail slider must reach the new end without an edit.");
+
+                Undo.PerformUndo(); yield return null;
+                AssertRange((source.triangles.Length / 3));
+                Undo.PerformRedo(); yield return null;
+                AssertRange(cutCount);
+                SelectShape("All"); yield return null;
+                AssertRange(0);
+                SelectShape("Missing"); yield return null;
+                AssertRange((source.triangles.Length / 3));
+            }
+            finally
+            {
+                Undo.ClearUndo(cutter); Undo.ClearUndo(component);
+                window.Close(); Object.DestroyImmediate(inspector);
+                Object.DestroyImmediate(avatar);
+            }
         }
 
         internal static HashSet<Vector3> BoundaryPositions(Mesh mesh)

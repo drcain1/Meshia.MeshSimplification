@@ -520,8 +520,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var targetPathField = itemRoot.Q<TextField>("TargetPathField");
                 var targetTriangleCountSlider = itemRoot.Q<SliderInt>("TargetTriangleCountSlider");
                 var targetTriangleCountField = itemRoot.Q<IntegerField>("TargetTriangleCountField");
-                var originalTriangleCountField = itemRoot.Q<IntegerField>("OriginalTriangleCountField");
-                var unknownOriginalTriangleCountField = itemRoot.Q<TextField>("UnknownOriginalTriangleCountField");
                 var preserveBorderEdgesBonesFoldout = itemRoot.Q<Foldout>("PreserveBorderEdgesBonesFoldout");
                 var previewUvsButton = itemRoot.Q<Button>("PreviewUvsButton");
                 itemRoot.BindProperty(entryProperty);
@@ -553,29 +551,6 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     previewUvsButton.SetEnabled(false);
                 }
 
-
-                // Output is measured during the build. A preview proxy can already
-                // have triangles removed by other tools, so it is not the original.
-                originalTriangleCountField.tooltip = Tr("Source mesh triangles before preview or build processing.");
-                if(TryGetOriginalTriangleCount(entry, false, out var originalTriangleCount))
-                {
-                    targetTriangleCountSlider.highValue = originalTriangleCount;
-
-                    originalTriangleCountField.style.display = DisplayStyle.Flex;
-                    originalTriangleCountField.value = originalTriangleCount;
-
-                    unknownOriginalTriangleCountField.style.display = DisplayStyle.None;
-                }
-                else
-                {
-                    targetTriangleCountSlider.visible = false;
-
-                    unknownOriginalTriangleCountField.style.display = DisplayStyle.Flex;
-
-
-                    originalTriangleCountField.style.display = DisplayStyle.None;
-
-                }
 
                 RefreshJointBoneSelection(itemRoot);
                 var humanBodyBoneIndex = 0;
@@ -1512,9 +1487,52 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             root.Query<TemplateContainer>().ForEach(row => RefreshAllocationFieldsFromSnapshot(row, current));
         }
 
+        private bool TryGetAvailableTriangleCount(MeshiaCascadingAvatarMeshSimplifierRendererEntry entry, out int count)
+        {
+            count = -1;
+            if (entry.GetTargetRenderer(Target) is not { } renderer || RendererUtility.GetMesh(renderer) is not { } source)
+                return false;
+            count = CutMeshPreparation.PreparedTriangleCount(renderer, source,
+                entry.CreateTarget(source.GetTriangleCount()), entry.Options);
+            return true;
+        }
+
+        private void RefreshSourceTriangleCount(TemplateContainer row, int index, AllocationSnapshot current)
+        {
+            var entry = Target.Entries[index];
+            // Use the same input stage as output editing. An unvalidated proxy count
+            // can belong to another pipeline stage or an obsolete preview node.
+            int maximum;
+            bool known;
+            if (entry.Enabled && TryGetEditableMesh(index, current.Settings, out var response))
+            {
+                maximum = response.SourceCount;
+                known = true;
+            }
+            else known = TryGetAvailableTriangleCount(entry, out maximum);
+            var original = row.Q<IntegerField>("OriginalTriangleCountField");
+            var unknown = row.Q<TextField>("UnknownOriginalTriangleCountField");
+            var slider = row.Q<SliderInt>("TargetTriangleCountSlider");
+            if (original != null)
+            {
+                original.style.display = known ? DisplayStyle.Flex : DisplayStyle.None;
+                original.tooltip = Tr("Triangles available before Meshia simplification, after supported cuts. Later build tools may change the final count.");
+                if (known) original.SetValueWithoutNotify(maximum);
+            }
+            if (unknown != null) unknown.style.display = known ? DisplayStyle.None : DisplayStyle.Flex;
+            if (slider == null) return;
+            slider.visible = entry.Enabled && known;
+            if (!known || slider.highValue == maximum) return;
+            // highValue can clamp through Slider.value and dispatch a user edit.
+            // Clamp silently first so a cutter toggle cannot change allocations.
+            slider.SetValueWithoutNotify(Math.Min(slider.value, maximum));
+            slider.highValue = maximum;
+        }
+
         private void RefreshAllocationFieldsFromSnapshot(TemplateContainer itemRoot, AllocationSnapshot current)
         {
             if (itemRoot.userData is not int index || index < 0 || index >= Target.Entries.Count) return;
+            RefreshSourceTriangleCount(itemRoot, index, current);
             var entry = Target.Entries[index];
             var count = entry.TargetTriangleCount;
             var slider = itemRoot.Q<SliderInt>("TargetTriangleCountSlider");
@@ -1619,7 +1637,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var hasMeasurement = TryGetEditableMesh(index, current.Settings, out var mesh);
             if (!hasMeasurement && !CanRequestPreviewOutput(index)) return;
             var sourceCount = hasMeasurement ? mesh.SourceCount
-                : RendererUtility.GetRequiredMesh(Target.Entries[index].GetTargetRenderer(Target)!).GetTriangleCount();
+                : TryGetAvailableTriangleCount(Target.Entries[index], out var available) ? available : 0;
             ++outputEditSerial;
             pendingOutputIndex = index;
             pendingOutputCount = Math.Max(0, Math.Min(sourceCount, desired));

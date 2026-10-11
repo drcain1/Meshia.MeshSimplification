@@ -1161,8 +1161,8 @@ msgstr "Choose a strength preset, or enter a custom value beside it."
 msgid "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
 msgstr "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
 
-msgid "Source mesh triangles before preview or build processing."
-msgstr "Source mesh triangles before preview or build processing."
+msgid "Triangles available before Meshia simplification, after supported cuts. Later build tools may change the final count."
+msgstr "Triangles available before Meshia simplification, after supported cuts. Later build tools may change the final count."
 
 msgid "Extreme"
 msgstr "Extreme"

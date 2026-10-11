@@ -1156,8 +1156,8 @@ msgstr "強さのプリセットを選ぶか、隣の数値欄に任意の値を
 msgid "Low = 1000, Medium = 5000, High = 10000. Enter another value for Custom. Zero disables the extra UV calculation."
 msgstr "弱 = 1000、中 = 5000、強 = 10000。それ以外の値はカスタムになります。0 にすると追加の UV 計算を無効にします。"
 
-msgid "Source mesh triangles before preview or build processing."
-msgstr "プレビューやビルド処理を行う前の元のメッシュの三角形数です。"
+msgid "Triangles available before Meshia simplification, after supported cuts. Later build tools may change the final count."
+msgstr "対応するカットを反映した、Meshia による軽量化前の三角形数です。後続のビルド処理で最終的な数が変わる場合があります。"
 
 msgid "Extreme"
 msgstr "強"
