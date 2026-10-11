@@ -119,6 +119,18 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.2.2` fixes stale input counts and slider ranges after supported AAO
+Remove by BlendShape cuts. **Original** now shows the triangles available before
+Meshia simplification, after supported cuts, and refreshes together with the slider
+range when cut selections change or are undone/redone. These display updates do
+not change saved allocations or protection settings. English/Japanese tooltips
+and usage documentation clarify which input stage the count represents; later
+build tools can still change the final output.
+Validation passed all **389 Unity EditMode tests** in Unity 2022.3.22f1 with zero
+failures or skips, including a regression covering live selection changes,
+Undo/Redo, complete removal, and settings preservation, plus **12 distribution
+tests**. The maintainer also confirmed the fix in the live inspector.
+
 Version `1.2.1` is a wording-only maintenance patch. The inspector group is
 now **Preset** / **プリセット**, and the Japanese choices are **弱・中・強**
 for Conservative / Aggressive / Extreme. Japanese tooltips explain reduction
