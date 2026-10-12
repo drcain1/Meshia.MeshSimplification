@@ -119,6 +119,30 @@ budget implications; exact appearance preservation is not guaranteed.
 
 ### Release history
 
+Version `1.3.0-beta.1` adds experimental painted protection masks for FA-QEM.
+Under each mesh's cogwheel, **Protected areas (experimental)** selects a material
+slot and a saved UV0 mask. White keeps geometry and its vertex/blendshape data;
+black permits reduction subject to the usual settings. Optional MaskTextureEditor
+integration provides Create/Edit controls. Imported masks also work without it.
+Save paint before checking preview or building. English and Japanese instructions
+cover the workflow and conservative protection around seams and painted edges.
+
+Masks remain active independently of presets and the ordinary protection icon.
+If mask data or source correspondence cannot be resolved, Meshia retains the
+whole affected mesh with a warning. Non-FA-QEM algorithms also retain meshes
+with selected protection. This beta does not modify AAO or Modular Avatar and
+cannot guarantee preservation by later plugins.
+
+Validation: Unity 2022.3.22f1 with Burst enabled; 22 focused EditMode checks passed,
+covering mask retention, checkbox Undo, inactive builds, and installed AAO/MA cut
+compatibility. An additional prefab save/reload and texture-reimport check passed
+when invoked directly in the Editor. Representative full NDMF builds and the
+maintainer's Play Mode/upload checks passed. The earlier broader run passed
+396/400; its four joint-selection and preview invalidation/cancellation failures
+also reproduced on unchanged main in a focused managed-job comparison. They are
+not reported as passing. Distribution validation and all 12 packaging tests
+passed. Published archive and feed verification are separate release gates.
+
 Version `1.2.2` fixes stale input counts and slider ranges after supported AAO
 Remove by BlendShape cuts. **Original** now shows the triangles available before
 Meshia simplification, after supported cuts, and refreshes together with the slider
