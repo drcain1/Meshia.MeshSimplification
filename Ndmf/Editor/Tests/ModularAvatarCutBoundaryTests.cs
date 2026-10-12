@@ -12,9 +12,11 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
 {
     public class ModularAvatarCutBoundaryTests
     {
-        [TestCase(1)]
-        [TestCase(2)]
-        public void ShouldPreserveBothStatesOfStockMaToggleableCuts(int influences)
+        [TestCase(1, false)]
+        [TestCase(2, false)]
+        [TestCase(1, true)]
+        [TestCase(2, true)]
+        public void ShouldPreserveBothStatesOfStockMaToggleableCuts(int influences, bool paintedMask)
         {
             // Exercise MA's installed implementation without a production dependency
             // on its internal types. Meshia itself only consumes the resulting mesh.
@@ -26,6 +28,7 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             var renderer = owner.AddComponent<SkinnedMeshRenderer>();
             var source = CutMeshPreparationTests.Grid();
             Mesh cut = null; var output = new Mesh();
+            Texture2D texture = null;
             try
             {
                 renderer.sharedMesh = source;
@@ -61,9 +64,38 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 }
                 renderer.bones = bones;
                 var options = VisibilityCutProtection.Resolve(renderer, MeshSimplifierOptions.AvatarInitial);
-                MeshSimplifier.Simplify(cut, new MeshSimplificationTarget
-                    { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 1 }, options, output);
-                Assert.Less(output.triangles.Length, cut.triangles.Length);
+                ProtectedVertexSelection protection = null;
+                if (paintedMask)
+                {
+                    texture = new Texture2D(16, 16);
+                    texture.wrapMode = TextureWrapMode.Clamp;
+                    texture.SetPixels(Enumerable.Range(0, 256).Select(i => i % 16 < 4 ? Color.white : Color.black).ToArray());
+                    texture.Apply();
+                    owner.AddComponent<MeshiaMeshSimplifier>().ProtectedAreas.Add(new DecimationMask
+                        { Texture = texture, SourceMesh = source });
+                    if (cut.vertexCount != source.vertexCount || !cut.uv.SequenceEqual(source.uv))
+                        UnityEngine.TestTools.LogAssert.Expect(LogType.Warning,
+                            new System.Text.RegularExpressions.Regex("kept unchanged.*changed this mesh"));
+                    protection = DecimationMasks.Resolve(renderer, cut);
+                    Assert.Greater(protection.Count, 0);
+                }
+                var history = MeshSimplifier.SimplifyWithHistory(cut, new MeshSimplificationTarget
+                    { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = 1 }, options, null, output, protection);
+                if (protection != null && protection.Count == cut.vertexCount)
+                    Assert.AreEqual(cut.triangles.Length, output.triangles.Length);
+                else
+                    Assert.Less(output.triangles.Length, cut.triangles.Length);
+                if (protection != null)
+                {
+                    var positions = output.vertices;
+                    var inputPositions = cut.vertices;
+                    foreach (var vertex in cut.triangles.Distinct().Where(i => protection[i]))
+                    {
+                        var outputIndex = Array.IndexOf(history.OutputVertexToSourceVertex, vertex);
+                        Assert.GreaterOrEqual(outputIndex, 0);
+                        Assert.AreEqual(inputPositions[vertex], positions[outputIndex]);
+                    }
+                }
                 foreach (var hidden in new[] { false, true })
                 {
                     var before = Visible(cut, hidden, influences); var after = Visible(output, hidden, influences);
@@ -79,6 +111,8 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             finally
             {
                 Object.DestroyImmediate(output);
+                if (texture != null) Object.DestroyImmediate(texture);
+                DecimationMasks.Clear();
                 if (cut != null && cut != source) Object.DestroyImmediate(cut);
                 Object.DestroyImmediate(source); Object.DestroyImmediate(owner);
             }

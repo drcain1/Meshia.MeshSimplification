@@ -81,7 +81,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             var groups = new List<RenderGroup>();
             foreach (var root in context.GetAvatarRoots())
             {
-                if (context.ActiveInHierarchy(root) is false) continue;
+                if (root == null || context.ActiveInHierarchy(root) is false) continue;
                 var components = context.GetComponentsInChildren<MeshiaCascadingAvatarMeshSimplifier>(root, true)
                     .Where(c => context.Observe(c.gameObject, g => g.activeInHierarchy)).ToArray();
                 var renderers = context.GetComponentsInChildren<Renderer>(root, true)

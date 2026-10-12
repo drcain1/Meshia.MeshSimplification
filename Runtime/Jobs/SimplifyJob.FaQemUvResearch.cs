@@ -88,7 +88,7 @@ namespace Meshia.MeshSimplification
             }
             for (var i = 0; i < VertexPositionBuffer.Length; i++)
             {
-                if (IsDiscardedVertex(i)) continue;
+                if (IsDiscardedVertex(i) || IsExplicitlyProtected(i)) continue;
                 var normal = (double3)VertexNormalBuffer[i].xyz;
                 if (deformed) normal += (double3)frame.DeltaNormals[i];
                 normal = math.normalizesafe(normal);

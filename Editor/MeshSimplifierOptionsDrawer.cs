@@ -71,9 +71,17 @@ namespace Meshia.MeshSimplification.Editor
             root.TrackPropertyValue(deviation, _ => RefreshDeviation());
             void RefreshDeviationAfterUndo()
             {
-                property.serializedObject.UpdateIfRequiredOrScript();
-                RefreshDeviation();
-                RefreshUvControls();
+                try
+                {
+                    property.serializedObject.UpdateIfRequiredOrScript();
+                    RefreshDeviation();
+                    RefreshUvControls();
+                }
+                catch (System.ObjectDisposedException)
+                {
+                    // Undo may remove a virtualized entry before its drawer detaches.
+                    Undo.undoRedoPerformed -= RefreshDeviationAfterUndo;
+                }
             }
             RefreshDeviation();
 

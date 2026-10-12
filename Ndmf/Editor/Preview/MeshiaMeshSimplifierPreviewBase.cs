@@ -69,6 +69,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                 {
                     if (!settings[i].Selected) continue;
                     var setting = settings[i];
+                    setting.Protection = DecimationMasks.Resolve(renderers[i], prepared.Inputs[i].Mesh, context);
+                    setting.Target = DecimationMasks.SupportedTarget(setting.Target, prepared.Inputs[i].Mesh, setting.Protection);
                     if (setting.Target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount)
                         setting.Options = CutOverlapProtection.ApplyResolved(setting.Options, prepared.Protections[i]);
                     settings[i] = setting;
@@ -98,7 +100,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
                             await replay.WriteAsync((int)setting.Target.Value, output.Mesh, cancellation.Token);
                         }
                         else await MeshSimplifier.SimplifyAsync(prepared.Inputs[i].Mesh, setting.Target,
-                            setting.Options, setting.Bones, output.Mesh, cancellation.Token);
+                            setting.Options, setting.Bones, output.Mesh, setting.Protection, cancellation.Token);
                     }
                 }
                 await Task.WhenAll(Worker(), Worker());
@@ -147,16 +149,17 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
         private struct Settings
         {
             internal readonly bool Selected;
-            internal readonly MeshSimplificationTarget Target;
+            internal MeshSimplificationTarget Target;
+            internal ProtectedVertexSelection? Protection;
             internal MeshSimplifierOptions Options;
             internal readonly BitArray? Bones;
             internal Settings(bool selected, MeshSimplificationTarget target, MeshSimplifierOptions options, BitArray? bones)
             {
-                Selected = selected; Target = target; Options = options;
+                Selected = selected; Target = target; Options = options; Protection = null;
                 Bones = bones == null ? null : (BitArray)bones.Clone();
             }
             internal bool Same(Settings other) => Selected == other.Selected && Target == other.Target && SameOptions(other);
-            internal bool SameOptions(Settings other) => Options == other.Options && (Bones == null ? other.Bones == null : other.Bones != null &&
+            internal bool SameOptions(Settings other) => Equals(Protection, other.Protection) && Options == other.Options && (Bones == null ? other.Bones == null : other.Bones != null &&
                     Bones.Cast<bool>().SequenceEqual(other.Bones.Cast<bool>()));
         }
 
@@ -223,7 +226,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor.Preview
             {
                 if (replays.TryGetValue(index, out var entry) && entry.settings.SameOptions(settings) && !entry.task.IsFaulted)
                     return entry.task;
-                var task = MeshSimplifier.PrepareFaQemReplayAsync(Inputs[index].Mesh, settings.Options, settings.Bones);
+                var task = MeshSimplifier.PrepareFaQemReplayAsync(Inputs[index].Mesh, settings.Options, settings.Bones, settings.Protection);
                 replays[index] = (settings, task);
                 return task;
             }

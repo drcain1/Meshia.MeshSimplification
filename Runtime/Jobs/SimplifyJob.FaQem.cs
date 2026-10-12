@@ -14,6 +14,9 @@ namespace Meshia.MeshSimplification
         public NativeList<FaQemReplayStep> FaQemReplaySteps;
         public bool RecordFaQemReplay, ReplayFaQem;
 
+        [ReadOnly] public NativeArray<byte> ProtectedVertices;
+        readonly bool IsExplicitlyProtected(int vertex) => ProtectedVertices.Length != 0 && ProtectedVertices[vertex] != 0;
+
         const byte FaQemDeformableDegenerateVertex = 2;
         const byte FaQemJointTransitionVertex = 4;
         const byte FaQemCutOverlapVertex = 16;
@@ -55,6 +58,8 @@ namespace Meshia.MeshSimplification
                 foreach (var step in FaQemReplaySteps)
                 {
                     if (TriangleCount <= targetTriangleCount) break;
+                    if (IsExplicitlyProtected(step.A) || IsExplicitlyProtected(step.B))
+                        throw new InvalidOperationException("Cached reduction conflicts with protected areas.");
                     ApplyMerge(new VertexMerge
                     {
                         VertexAIndex = step.A, VertexBIndex = step.B,
@@ -173,6 +178,7 @@ namespace Meshia.MeshSimplification
                 if (!IsDiscardedTriangle(ti) && !FaQemTopology.IsGeometricallyValid(Triangles[ti], VertexPositionBuffer))
                 {
                     var degenerate = Triangles[ti];
+                    if (IsExplicitlyProtected(degenerate.x) || IsExplicitlyProtected(degenerate.y) || IsExplicitlyProtected(degenerate.z)) continue;
                     // A flat rest-pose face can open under a blend shape or skinning.
                     // Keep its vertices fixed even when optional seam/border guards are off.
                     if (hasDeformation && degenerate.x != degenerate.y &&
@@ -530,6 +536,7 @@ namespace Meshia.MeshSimplification
 
         readonly bool IsFaQemProtected(int a, int b, NativeArray<byte> seamFlags, FaQemOptions settings)
         {
+            if (IsExplicitlyProtected(a) || IsExplicitlyProtected(b)) return true;
             if (((seamFlags[a] | seamFlags[b]) & FaQemVisibilityBoundaryVertex) != 0) return true;
             if (Options.AllowUnsafeGeometry) return false;
             // Contact faces use a tighter local envelope, allowing safe in-surface reduction.

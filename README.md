@@ -89,6 +89,21 @@ Green does not mean every setting is equally strict. A loose surface limit still
 
 ### Keeping texture details and shape
 
+#### Painted protection masks (experimental beta)
+
+Use a mask when one mesh contains both an area you want to reduce and an area you want Meshia to leave unchanged, such as a face with tracking blendshapes.
+
+1. Use **FA-QEM** and open the mesh's **cogwheel → Protected areas (experimental)**. Add an entry and enable **Protect painted area**.
+2. Choose the **Material slot** and assign a mask texture. **Create** and **Edit** use the optional [MaskTextureEditor](https://github.com/nekobako/MaskTextureEditor); imported masks also work without the painter installed.
+3. Paint **white to keep geometry unchanged** and **black to allow reduction**, then **Save** in the painter. Unsaved brush strokes do not affect Meshia's preview or build.
+4. Use **Show area** to inspect the protected triangles. Adjust the triangle slider, check expressions and movement, and run **Analyze Build** before uploading.
+
+Masks use **UV0** and apply per material slot. Add entries for additional slots. Meshia keeps the selected vertices and their blendshape data; triangles touching white paint and coincident seam vertices can expand the protected boundary. Overlapping UV islands share the painted selection. Gray paint is a threshold, not a gradual protection strength.
+
+**Black does not force removal:** border, shape, texture-mapping, and deformation protections can still retain geometry. Painted protection remains active even with Extreme or the gray protection icon; disable the mask entry to release it. A heavily protected mesh may not reach its target.
+
+This beta supports masks with FA-QEM. A nonempty mask on another algorithm keeps the mesh unchanged. Missing mask data or an incompatible upstream UV/vertex/material layout also keeps the mesh unchanged with a Console warning. Masks do not prevent another tool from cutting geometry or modifying the result later in the build.
+
 #### Texture mapping
 
 Under **cogwheel → FA-QEM Options**, leave **Preserve texture mapping** on and start at **Medium (5000)**. This is the default for new settings.
@@ -227,6 +242,21 @@ Git / UPM から導入する場合、VPM の依存パッケージは別途イン
 緑でも、すべての設定が厳しいとは限りません。表面のずれの上限が大きければ、その分だけ形状の変化を許容します。新規項目は形状保護がオン、変形保護がオフで始まります。プリセットを選ぶか、メッシュごとに有効にしてください。パッケージ更新では保存済みの設定を維持します。
 
 ### テクスチャの細部と形状を保つ
+
+#### マスクで領域を保護（実験的ベータ）
+
+フェイストラッキング用の顔など、同じメッシュの中で軽量化する部分と変更したくない部分を分けたい場合に使います。
+
+1. **FA-QEM** を選び、メッシュの **歯車 → 保護する領域（実験的）** に項目を追加して、**塗った領域を保護** をオンにします。
+2. **マテリアルスロット** とマスク画像を指定します。作成・編集には任意の [MaskTextureEditor](https://github.com/nekobako/MaskTextureEditor) を使います。導入していなくても、用意したマスク画像を指定できます。
+3. **白は変更せず保持、黒は軽量化を許可**する領域です。塗り終えたらペイント画面で **Save** を押してください。未保存の描画は Meshia のプレビューやビルドに反映されません。
+4. 領域表示で保護される三角形を確認し、スライダーで調整します。表情や動きを確認して、アップロード前に **ビルド解析** を実行してください。
+
+マスクは **UV0** を使い、マテリアルスロットごとに適用されます。複数のスロットを保護する場合は項目を追加してください。選択された頂点とブレンドシェイプのデータを保持します。白に触れる三角形全体や同じ位置のシーム頂点も保護するため、塗った範囲より境界が広がる場合があります。UV が重なる部分は同時に選択されます。灰色はしきい値で判定し、保護の強さを連続的に変えるものではありません。
+
+**黒に塗っても必ず削減されるわけではありません。** 境界・形状・テクスチャ・変形の保護は引き続き適用されます。プリセット「強」や灰色の保護アイコンでも、マスクの保護は維持します。解除する場合はマスク項目をオフにしてください。保護する範囲が広いと目標数まで減らせない場合があります。
+
+このベータのマスクは FA-QEM 向けです。他のアルゴリズムで保護対象がある場合は、そのメッシュを変更しません。画像などの情報が不足している場合や、先行する処理で UV・頂点・マテリアル構成が対応しなくなった場合も、メッシュを保持して Console に警告を表示します。マスクは、他のツールによるカットや後続の変更を防ぐものではありません。
 
 #### テクスチャ
 

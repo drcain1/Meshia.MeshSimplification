@@ -16,6 +16,7 @@ namespace Meshia.MeshSimplification.Ndmf
             Kind = MeshSimplificationTargetKind.RelativeVertexCount,
             Value = 0.5f,
         };
+        public System.Collections.Generic.List<DecimationMask> ProtectedAreas = new();
         public MeshSimplifierOptions options = MeshSimplifierOptions.Default;
 
         void Reset()

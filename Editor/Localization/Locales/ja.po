@@ -1179,3 +1179,39 @@ msgstr "自動設定では、対応するヒューマノイドの膝・肘をメ
 
 msgid "Select bones for manual joint preservation. An empty selection adds no manual protection. Automatic knee/elbow support and cut-contact protection are independent."
 msgstr "手動で関節を保護するボーンを選択します。未選択の場合、手動の保護は追加しません。膝・肘の自動保護とカット接触部の保護は別に適用されます。"
+
+msgid "Protected areas (experimental)"
+msgstr "保護する領域（実験的）"
+
+msgid "Protect painted area"
+msgstr "塗った領域を保護"
+
+msgid "Material slot"
+msgstr "マテリアルスロット"
+
+msgid "Mask texture"
+msgstr "マスクテクスチャ"
+
+msgid "Create"
+msgstr "作成"
+
+msgid "Edit"
+msgstr "編集"
+
+msgid "Show area"
+msgstr "領域を表示"
+
+msgid "White: keep unchanged. Black: allow reduction."
+msgstr "白：そのまま保持。黒：ポリゴン削減を許可。"
+
+msgid "Save the mask in the painter to update Meshia."
+msgstr "編集画面でマスクを保存するとMeshiaに反映されます。"
+
+msgid "Install MaskTextureEditor for painting, or assign a texture."
+msgstr "MaskTextureEditorを導入するか、マスク画像を指定してください。"
+
+msgid "FA-QEM only. Other algorithms keep this mesh unchanged."
+msgstr "FA-QEM専用。他のアルゴリズムではこのメッシュを削減しません。"
+
+msgid "Assign a mask or remove this entry. This mesh is kept unchanged."
+msgstr "マスクを指定するか、この項目を削除してください。メッシュは削減されません。"

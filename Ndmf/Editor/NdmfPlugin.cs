@@ -18,11 +18,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
     {
         // Analysis subscribes only while building its own transient avatar clone.
         internal static event System.Action<GameObject, Renderer, Mesh, MeshSimplificationTarget,
-            MeshSimplifierOptions, BitArray?, Mesh, FaQemCountProfile?>? MeshMeasured;
+            MeshSimplifierOptions, BitArray?, Mesh, FaQemCountProfile?, ProtectedVertexSelection?>? MeshMeasured;
         private sealed class Work
         {
             internal readonly Renderer Renderer;
             internal readonly Mesh Source;
+            internal readonly ProtectedVertexSelection? Protection;
             internal readonly Mesh OriginalSource;
             internal readonly CutMeshPreparation Prepared;
             internal readonly MeshSimplificationTarget Target;
@@ -37,6 +38,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 Renderer = renderer; OriginalSource = source; Target = target; Options = options; PreserveBones = preserveBones;
                 Prepared = CutMeshPreparation.Prepare(renderer, source, target, options);
                 Source = Prepared.Mesh;
+                Protection = DecimationMasks.Resolve(renderer, Source);
+                Target = DecimationMasks.SupportedTarget(target, Source, Protection);
                 Simplified = new Mesh();
             }
         }
@@ -151,7 +154,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         // Only analysis needs the small count trace; normal builds
                         // and previews retain their existing simplification path.
                         var profiles = MeshMeasured == null ? null : new List<FaQemCountProfile?>();
-                        MeshSimplifier.SimplifyBatch(batch, profiles);
+                        MeshSimplifier.SimplifyBatch(batch, profiles, works.ConvertAll(w => w.Protection));
                         if (profiles != null)
                             for (var i = 0; i < works.Count; i++) works[i].CountProfile = profiles[i];
                     }
@@ -323,7 +326,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
         private static void Commit(BuildContext context, Work work)
         {
             MeshMeasured?.Invoke(context.AvatarRootObject, work.Renderer, work.Source,
-                work.Target, work.Options, work.PreserveBones, work.Simplified, work.CountProfile);
+                work.Target, work.Options, work.PreserveBones, work.Simplified, work.CountProfile, work.Protection);
             if (work.Target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount &&
                 work.Simplified.GetTriangleCount() > work.Target.Value + 1)
                 Debug.LogWarning(Meshia.MeshSimplification.Editor.Localization.LocalizationProvider.Format(

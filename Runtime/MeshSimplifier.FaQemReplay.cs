@@ -22,14 +22,16 @@ namespace Meshia.MeshSimplification
         internal sealed class FaQemReplay
         {
             private readonly Mesh source;
+            private readonly ProtectedVertexSelection? protection;
             private readonly MeshSimplifierOptions options;
             private readonly BitArray? bones;
             private readonly FaQemReplayStep[] steps;
             internal readonly FaQemCountProfile Counts;
 
-            internal FaQemReplay(Mesh source, MeshSimplifierOptions options, BitArray? bones, FaQemReplayStep[] steps, FaQemCountProfile counts)
+            internal FaQemReplay(Mesh source, MeshSimplifierOptions options, BitArray? bones, FaQemReplayStep[] steps, FaQemCountProfile counts, ProtectedVertexSelection? protection)
             {
                 this.source = source;
+                this.protection = protection;
                 this.options = options;
                 this.bones = bones;
                 this.steps = steps;
@@ -42,16 +44,16 @@ namespace Meshia.MeshSimplification
                 => SimplifyAsync(source, new MeshSimplificationTarget
                 {
                     Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = target
-                }, options, bones, destination, steps, cancellationToken);
+                }, options, bones, destination, steps, cancellationToken, protection);
         }
 
         internal static async Task<FaQemReplay> PrepareFaQemReplayAsync(Mesh source,
-            MeshSimplifierOptions options, BitArray? bones = null)
+            MeshSimplifierOptions options, BitArray? bones = null, ProtectedVertexSelection? protection = null)
         {
             var preserved = bones == null ? null : (BitArray)bones.Clone();
-            using var measurement = new FaQemCountMeasurement(source, 0, options, preserved, true);
+            using var measurement = new FaQemCountMeasurement(source, 0, options, preserved, true, protection);
             while (!measurement.Pending.IsCompleted) await Task.Yield();
-            return new FaQemReplay(source, options, preserved, measurement.CompleteReplay(), measurement.Complete());
+            return new FaQemReplay(source, options, preserved, measurement.CompleteReplay(), measurement.Complete(), protection);
         }
     }
 }

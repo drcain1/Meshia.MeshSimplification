@@ -1370,6 +1370,8 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
                 for (var i = 0; i < 10; i++) yield return null;
                 var button = root.Q<Button>("ConservativeDefaultsButton");
                 Assert.That(button.text, Is.EqualTo("弱"));
+                // Simulate a new user gesture, separate from the inspector's initial entry refresh.
+                Undo.FlushUndoRecordObjects(); Undo.IncrementCurrentGroup();
                 var before = EditorJsonUtility.ToJson(component);
                 typeof(Clickable).GetMethod("SimulateSingleClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(button.clickable, new object[] { null, 0 });

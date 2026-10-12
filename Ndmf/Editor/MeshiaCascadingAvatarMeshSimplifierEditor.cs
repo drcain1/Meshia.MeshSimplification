@@ -1178,7 +1178,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             var simplifiedMesh = new Mesh { name = $"{sourceMesh.name}-UV-Preview" };
             try
             {
-                var simplificationTarget = entry.CreateTarget(sourceMesh.GetTriangleCount());
+                var protection = DecimationMasks.Resolve(entry.GetTargetRenderer(Target)!, sourceMesh);
+                var simplificationTarget = DecimationMasks.SupportedTarget(entry.CreateTarget(sourceMesh.GetTriangleCount()), sourceMesh, protection);
                 var avatarRoot = Target.transform.parent != null ? Target.transform.parent.gameObject : Target.gameObject;
                 var preserveBorderEdgesBoneIndices = MeshiaCascadingAvatarMeshSimplifier.GetPreserveBorderEdgesBoneIndices(
                     avatarRoot,
@@ -1190,7 +1191,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                     NdmfPlugin.ResolveOptions(avatarRoot, entry.GetTargetRenderer(Target)!,
                         MeshiaCascadingAvatarMeshSimplifier.GetJointProtectionOptions(avatarRoot, Target, entry)),
                     preserveBorderEdgesBoneIndices,
-                    simplifiedMesh);
+                    simplifiedMesh, protection);
                 return simplifiedMesh;
             }
             catch
@@ -1232,6 +1233,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
 
             itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout").style.display = usesFaQem && optionsToggle.value
                 ? DisplayStyle.Flex : DisplayStyle.None;
+            itemRoot.Q<PropertyField>("ProtectedAreasField").style.display = optionsToggle.value ? DisplayStyle.Flex : DisplayStyle.None;
             var protectionsEnabled = !Target.Entries[itemIndex].DisableProtections;
             optionsField.SetEnabled(protectionsEnabled);
             itemRoot.Q<Foldout>("PreserveJointTransitionsBonesFoldout").SetEnabled(protectionsEnabled);
@@ -1268,6 +1270,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             // Compare allocation edits separately from algorithm/protection/exclusion
             // edits. The latter cannot be estimated from a simple triangle delta.
             var settings = EditorJsonUtility.ToJson(Target);
+            settings += string.Join(";", Target.Entries.SelectMany(e => e.ProtectedAreas).Where(m => m != null && m.Enabled && m.Texture != null).Select(m => $"{m.Texture!.imageContentsHash}:{m.Texture.wrapModeU}:{m.Texture.wrapModeV}"));
             settings = System.Text.RegularExpressions.Regex.Replace(settings, "\"CutBudgetVersion\":-?\\d+", "\"CutBudgetVersion\":0");
             settings = System.Text.RegularExpressions.Regex.Replace(settings,
                 "\"(?:TargetTriangleCount|BuildTriangleReserve)\":-?\\d+", "\"allocation\":0");
@@ -2254,14 +2257,14 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             GameObject? clone = null;
             MeshiaCascadingAvatarMeshSimplifier? cloneComponent = null;
             void CaptureMesh(GameObject root, Renderer renderer, Mesh source, MeshSimplificationTarget targetValue,
-                MeshSimplifierOptions options, System.Collections.BitArray? preserve, Mesh output, FaQemCountProfile? profile)
+                MeshSimplifierOptions options, System.Collections.BitArray? preserve, Mesh output, FaQemCountProfile? profile, ProtectedVertexSelection? protection)
             {
                 if (root != clone || cloneComponent == null) return;
                 var index = cloneComponent.Entries.FindIndex(entry => entry.Enabled && entry.GetTargetRenderer(cloneComponent) == renderer);
                 if (index < 0) return;
                 var entry = Target.Entries[index];
                 var uncutSource = RendererUtility.GetMesh(renderer);
-                if (fitStartingTargets != null && entry.CutBudgetVersion == 0 && !entry.Fixed &&
+                if (protection == null && fitStartingTargets != null && entry.CutBudgetVersion == 0 && !entry.Fixed &&
                     !fitCutBudgetReferences.ContainsKey(index) && uncutSource != null &&
                     source.GetTriangleCount() < uncutSource.GetTriangleCount())
                 {
@@ -2290,7 +2293,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         var trial = targetValue;
                         trial.Value = trial.Kind == MeshSimplificationTargetKind.BlenderDecimateRatio
                             ? Mathf.Clamp01(count / (float)Math.Max(1, sourceCount)) : count;
-                        MeshSimplifier.SimplifyWithReport(sourceCopy, trial, options, bones, destination);
+                        MeshSimplifier.SimplifyWithReport(sourceCopy, trial, options, bones, destination, protection);
                         return destination.GetTriangleCount();
                     }
                     finally { DestroyImmediate(destination); }
@@ -2302,15 +2305,15 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                         var trial = targetValue;
                         trial.Value = trial.Kind == MeshSimplificationTargetKind.BlenderDecimateRatio
                             ? Mathf.Clamp01(count / (float)Math.Max(1, sourceCount)) : count;
-                        await MeshSimplifier.SimplifyAsync(sourceCopy, trial, options, bones, destination);
+                        await MeshSimplifier.SimplifyAsync(sourceCopy, trial, options, bones, destination, protection: protection);
                         return destination.GetTriangleCount();
                     }
                     finally { DestroyImmediate(destination); }
                 }, profile,
                     targetValue.Kind == MeshSimplificationTargetKind.FaQemTriangleCount
-                        ? () => MeshSimplifier.MeasureFaQemCounts(sourceCopy, 0, options, bones) : null,
+                        ? () => MeshSimplifier.MeasureFaQemCounts(sourceCopy, 0, options, bones, protection) : null,
                     targetValue.Kind == MeshSimplificationTargetKind.FaQemTriangleCount
-                        ? () => MeshSimplifier.MeasureFaQemCountsAsync(sourceCopy, 0, options, bones) : null);
+                        ? () => MeshSimplifier.MeasureFaQemCountsAsync(sourceCopy, 0, options, bones, protection: protection) : null);
             }
             var finalTriangleCount = 0;
             var estimate = GetTotalEstimatedFinalTriangleCount(true);

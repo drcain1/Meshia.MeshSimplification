@@ -222,6 +222,7 @@ namespace Meshia.MeshSimplification.Ndmf
     public record MeshiaCascadingAvatarMeshSimplifierRendererEntry
     {
         public AvatarObjectReference RendererObjectReference;
+        public List<DecimationMask> ProtectedAreas = new();
         public int TargetTriangleCount;
         // Records a successful conversion from allocations made before permanent cut preparation.
         [HideInInspector] public int CutBudgetVersion;

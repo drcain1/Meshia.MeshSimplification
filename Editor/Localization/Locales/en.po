@@ -1184,3 +1184,39 @@ msgstr "Auto also preserves knee and elbow support on mapped humanoid joints whe
 
 msgid "Select bones for manual joint preservation. An empty selection adds no manual protection. Automatic knee/elbow support and cut-contact protection are independent."
 msgstr "Select bones for manual joint preservation. An empty selection adds no manual protection. Automatic knee/elbow support and cut-contact protection are independent."
+
+msgid "Protected areas (experimental)"
+msgstr "Protected areas (experimental)"
+
+msgid "Protect painted area"
+msgstr "Protect painted area"
+
+msgid "Material slot"
+msgstr "Material slot"
+
+msgid "Mask texture"
+msgstr "Mask texture"
+
+msgid "Create"
+msgstr "Create"
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Show area"
+msgstr "Show area"
+
+msgid "White: keep unchanged. Black: allow reduction."
+msgstr "White: keep unchanged. Black: allow reduction."
+
+msgid "Save the mask in the painter to update Meshia."
+msgstr "Save the mask in the painter to update Meshia."
+
+msgid "Install MaskTextureEditor for painting, or assign a texture."
+msgstr "Install MaskTextureEditor for painting, or assign a texture."
+
+msgid "FA-QEM only. Other algorithms keep this mesh unchanged."
+msgstr "FA-QEM only. Other algorithms keep this mesh unchanged."
+
+msgid "Assign a mask or remove this entry. This mesh is kept unchanged."
+msgstr "Assign a mask or remove this entry. This mesh is kept unchanged."

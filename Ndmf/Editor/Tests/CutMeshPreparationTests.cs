@@ -85,6 +85,45 @@ namespace Meshia.MeshSimplification.Ndmf.Tests
             Assert.IsFalse(Resources.FindObjectsOfTypeAll<GameObject>().Any(g => g.name == "Meshia cut prediction"));
         }
 
+        [Test]
+        public void ShouldApplyPaintedProtectionAfterAaoBlendshapeCuts()
+        {
+            Cutter();
+            var component = owner.AddComponent<MeshiaMeshSimplifier>();
+            var texture = new Texture2D(16, 16);
+            var output = new Mesh();
+            try
+            {
+                texture.wrapMode = TextureWrapMode.Clamp;
+                texture.SetPixels(Enumerable.Range(0, 256).Select(i => i % 16 < 4 ? Color.white : Color.black).ToArray());
+                texture.Apply();
+                component.ProtectedAreas.Add(new DecimationMask { Texture = texture, SourceMesh = source });
+                using var prepared = CutMeshPreparation.Prepare(renderer, source, Target, MeshSimplifierOptions.Default);
+                Assert.IsTrue(prepared.Changed);
+                var selection = DecimationMasks.Resolve(renderer, prepared.Mesh);
+                Assert.Greater(selection.Count, 0);
+                Assert.Less(selection.Count, source.vertexCount, "Supported cuts must not force whole-mesh protection.");
+                var history = MeshSimplifier.SimplifyWithHistory(prepared.Mesh, Target,
+                    MeshSimplifierOptions.Default, null, output, selection);
+                Assert.Less(output.triangles.Length, prepared.Mesh.triangles.Length);
+                var inputPositions = prepared.Mesh.vertices;
+                var outputPositions = output.vertices;
+                var used = new HashSet<int>(prepared.Mesh.triangles);
+                foreach (var index in used.Where(i => selection[i]))
+                {
+                    var outputIndex = Array.IndexOf(history.OutputVertexToSourceVertex, index);
+                    Assert.GreaterOrEqual(outputIndex, 0);
+                    Assert.AreEqual(inputPositions[index], outputPositions[outputIndex]);
+                }
+                using var repeated = CutMeshPreparation.Prepare(renderer, output, Target, MeshSimplifierOptions.Default);
+                Assert.IsFalse(repeated.Changed, "The downstream AAO pass must not enlarge the cut.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture); Object.DestroyImmediate(output); DecimationMasks.Clear();
+            }
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void ShouldLeaveUnsupportedSelectionsAndAbsentShapesUnchanged(bool inverted)

@@ -19,6 +19,7 @@
     </ui:VisualElement>
     <ui:DropdownField label="Algorithm" name="AlgorithmField" style="display: none;" />
     <ui:Button text="Preview UVs" name="PreviewUvsButton" tooltip="Compare this renderer's original and simplified UV layout." style="display: none;" />
+    <uie:PropertyField label="Protected areas (experimental)" binding-path="ProtectedAreas" name="ProtectedAreasField" style="display: none;" />
     <uie:PropertyField label="Options" binding-path="Options" name="OptionsField" style="display: none;" />
     <ui:Foldout text="Preserve Border Edges Bones" name="PreserveBorderEdgesBonesFoldout" value="false" style="display: none;" />
     <ui:Foldout text="Joint Protection Bones" name="PreserveJointTransitionsBonesFoldout" value="false" style="display: none;" tooltip="Select bones for manual joint preservation. An empty selection adds no manual protection. Automatic knee/elbow support and cut-contact protection are independent." />

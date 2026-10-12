@@ -69,9 +69,17 @@ namespace Meshia.MeshSimplification
         bool BlenderTraceEnabled;
 
         MeshSimplifierOptions Options;
+        NativeList<byte> ProtectedVertices;
 
         AllocatorManager.AllocatorHandle Allocator;
         const int MaxUvLoopDissolvePasses = 16;
+
+        void SetProtection(ProtectedVertexSelection? protection)
+        {
+            if (protection == null || protection.Count == 0) return;
+            ProtectedVertices.ResizeUninitialized(protection.Length);
+            for (var i = 0; i < protection.Length; i++) ProtectedVertices[i] = protection[i] ? (byte)1 : (byte)0;
+        }
 
         static void ValidateFaQemTarget(MeshSimplificationTarget target, MeshSimplifierOptions options)
         {
@@ -128,14 +136,20 @@ namespace Meshia.MeshSimplification
         /// <param name="preserveBorderEdgesBoneIndices">Bones whose border vertices should be preserved.</param>
         /// <param name="destination">The destination mesh.</param>
         /// <returns>A report describing UV loop and Blender fallback usage.</returns>
+        public static MeshSimplificationReport SimplifyWithReport(Mesh mesh, MeshSimplificationTarget target,
+            MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination)
+            => SimplifyWithReport(mesh, target, options, preserveBorderEdgesBoneIndices, destination, null);
+
+        /// <summary>Simplifies a mesh while leaving explicitly selected source vertices unchanged.</summary>
         public static MeshSimplificationReport SimplifyWithReport(
             Mesh mesh,
             MeshSimplificationTarget target,
             MeshSimplifierOptions options,
             BitArray? preserveBorderEdgesBoneIndices,
-            Mesh destination)
+            Mesh destination, ProtectedVertexSelection? protection)
         {
             ValidateFaQemTarget(target, options);
+            protection?.Validate(target, mesh.vertexCount);
             Allocator allocator = Unity.Collections.Allocator.TempJob;
             var inputTriangleCount = mesh.GetTriangleCount();
             var originalMeshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
@@ -143,6 +157,7 @@ namespace Meshia.MeshSimplification
             var blendShapes = BlendShapeData.GetMeshBlendShapes(mesh, allocator);
 
             var meshSimplifier = new MeshSimplifier(allocator);
+            meshSimplifier.SetProtection(protection);
 
             NativeBitArray nativePreserveBorderEdgesBoneIndices = new(preserveBorderEdgesBoneIndices?.Length ?? 0, allocator, NativeArrayOptions.UninitializedMemory);
             if (preserveBorderEdgesBoneIndices is not null)
@@ -207,14 +222,21 @@ namespace Meshia.MeshSimplification
         /// <remarks>This method creates no materials or textures. Output identifiers reference the immutable input mesh.</remarks>
         public static FaQemHistory SimplifyWithHistory(Mesh mesh, MeshSimplificationTarget target,
             MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination)
+            => SimplifyWithHistory(mesh, target, options, preserveBorderEdgesBoneIndices, destination, null);
+
+        /// <summary>Simplifies with immutable vertex protection and records source-index correspondence.</summary>
+        public static FaQemHistory SimplifyWithHistory(Mesh mesh, MeshSimplificationTarget target,
+            MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination, ProtectedVertexSelection? protection)
         {
             if (target.Kind != MeshSimplificationTargetKind.FaQemTriangleCount)
                 throw new ArgumentException("Collapse history requires the FA-QEM target.", nameof(target));
             ValidateFaQemTarget(target, options);
+            protection?.Validate(target, mesh.vertexCount);
             const Allocator allocator = Unity.Collections.Allocator.TempJob;
             using var original = Mesh.AcquireReadOnlyMeshData(mesh);
             var blendShapes = BlendShapeData.GetMeshBlendShapes(mesh, allocator);
             var simplifier = new MeshSimplifier(allocator) { RecordFaQemHistory = true };
+            simplifier.SetProtection(protection);
             var preserve = new NativeBitArray(preserveBorderEdgesBoneIndices?.Length ?? 0, allocator, NativeArrayOptions.ClearMemory);
             var output = Mesh.AllocateWritableMeshData(1);
             var outputBlendShapes = new NativeList<BlendShapeData>(allocator);
@@ -344,7 +366,17 @@ namespace Meshia.MeshSimplification
         /// <summary>Simplifies meshes and optionally captures reusable FA-QEM count profiles, in input order.</summary>
         public static void SimplifyBatch(IReadOnlyList<(Mesh Mesh, MeshSimplificationTarget Target, MeshSimplifierOptions Options, BitArray? PreserveBorderEdgesBoneIndices, Mesh Destination)> parameters,
             IList<FaQemCountProfile?>? countProfiles)
+            => SimplifyBatch(parameters, countProfiles, null);
+
+        /// <summary>Simplifies a batch with one optional immutable vertex selection per input mesh.</summary>
+        public static void SimplifyBatch(IReadOnlyList<(Mesh Mesh, MeshSimplificationTarget Target, MeshSimplifierOptions Options, BitArray? PreserveBorderEdgesBoneIndices, Mesh Destination)> parameters,
+            IList<FaQemCountProfile?>? countProfiles, IReadOnlyList<ProtectedVertexSelection?>? protections)
         {
+            if (protections != null)
+            {
+                if (protections.Count != parameters.Count) throw new ArgumentException("Protection count does not match batch.");
+                for (var i = 0; i < parameters.Count; i++) protections[i]?.Validate(parameters[i].Target, parameters[i].Mesh.vertexCount);
+            }
             countProfiles?.Clear();
             foreach (var parameter in parameters) ValidateFaQemTarget(parameter.Target, parameter.Options);
             Allocator allocator = Unity.Collections.Allocator.TempJob;
@@ -372,6 +404,7 @@ namespace Meshia.MeshSimplification
                     var blendShapes = BlendShapeData.GetMeshBlendShapes(mesh, allocator);
                     blendShapesList[i] = blendShapes;
                     var meshSimplifier = new MeshSimplifier(allocator);
+                    meshSimplifier.SetProtection(protections?[i]);
                     meshSimplifier.RecordFaQemCounts = countProfiles != null && target.Kind == MeshSimplificationTargetKind.FaQemTriangleCount;
                     meshSimplifiers[i] = meshSimplifier;
                     NativeBitArray nativePreserveBorderEdgesBoneIndices = new(preserveBorderEdgesBoneIndices?.Length ?? 0, allocator, NativeArrayOptions.UninitializedMemory);
@@ -451,17 +484,23 @@ namespace Meshia.MeshSimplification
         public static Task SimplifyAsync(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination, CancellationToken cancellationToken = default)
             => SimplifyAsync(mesh, target, options, preserveBorderEdgesBoneIndices, destination, null, cancellationToken);
 
+        /// <summary>Asynchronously simplifies a mesh with immutable source vertex protection.</summary>
+        public static Task SimplifyAsync(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options, BitArray? preserveBorderEdgesBoneIndices, Mesh destination, ProtectedVertexSelection? protection, CancellationToken cancellationToken = default)
+            => SimplifyAsync(mesh, target, options, preserveBorderEdgesBoneIndices, destination, null, cancellationToken, protection);
+
         private static async Task SimplifyAsync(Mesh mesh, MeshSimplificationTarget target, MeshSimplifierOptions options,
-            BitArray? preserveBorderEdgesBoneIndices, Mesh destination, FaQemReplayStep[]? replay, CancellationToken cancellationToken)
+            BitArray? preserveBorderEdgesBoneIndices, Mesh destination, FaQemReplayStep[]? replay, CancellationToken cancellationToken, ProtectedVertexSelection? protection)
         {
             ValidateFaQemTarget(target, options);
             cancellationToken.ThrowIfCancellationRequested();
+            protection?.Validate(target, mesh.vertexCount);
             Allocator allocator = Unity.Collections.Allocator.Persistent;
             var originalMeshDataArray = Mesh.AcquireReadOnlyMeshData(mesh);
             var originalMeshData = originalMeshDataArray[0];
             var blendShapes = BlendShapeData.GetMeshBlendShapes(mesh, allocator);
 
             var meshSimplifier = new MeshSimplifier(allocator);
+            meshSimplifier.SetProtection(protection);
             if (replay != null)
             {
                 meshSimplifier.ReplayFaQem = true;
@@ -630,6 +669,7 @@ namespace Meshia.MeshSimplification
             BlenderTraceState = new(0, Unity.Collections.Allocator.Persistent);
             BlenderTraceEnabled = false;
             Options = default;
+            ProtectedVertices = new(allocator);
 
             Allocator = allocator;
 
@@ -954,6 +994,7 @@ namespace Meshia.MeshSimplification
                 DiscardedVertex = VertexIsDiscardedBits,
                 VertexIsBorderEdgeBits = VertexIsBorderEdgeBits,
                 Options = Options,
+                ProtectedVertices = ProtectedVertices.AsArray(),
                 VertexMerges = VertexMerges,
                 FaQemCollapseHistory = FaQemCollapseHistory,
                 FaQemAffectedFaces = FaQemAffectedFaces,
@@ -1061,6 +1102,7 @@ namespace Meshia.MeshSimplification
                 FaQemAffectedFaces.Dispose(inputDeps),
                 FaQemTriangleCounts.Dispose(inputDeps),
                 FaQemReplaySteps.Dispose(inputDeps),
+                ProtectedVertices.Dispose(inputDeps),
                 BlenderTraceLineage.IsCreated ? BlenderTraceLineage.Dispose(inputDeps) : inputDeps,
                 BlenderTraceRecords.IsCreated ? BlenderTraceRecords.Dispose(inputDeps) : inputDeps,
                 BlenderTraceState.IsCreated ? BlenderTraceState.Dispose(inputDeps) : inputDeps,
@@ -1106,6 +1148,7 @@ namespace Meshia.MeshSimplification
             FaQemAffectedFaces.Dispose();
             FaQemTriangleCounts.Dispose();
             FaQemReplaySteps.Dispose();
+            ProtectedVertices.Dispose();
             if (BlenderTraceLineage.IsCreated) BlenderTraceLineage.Dispose();
             if (BlenderTraceRecords.IsCreated) BlenderTraceRecords.Dispose();
             if (BlenderTraceState.IsCreated) BlenderTraceState.Dispose();

@@ -31,6 +31,7 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
             LocalizationProvider.Bind(root);
             LocalizationProvider.SetMinimum(root.Q<FloatField>("TargetValueField"), 0f);
             LocalizationProvider.BindEnum(root.Q<DropdownField>("TargetKindField"), serializedObject.FindProperty("target.Kind"));
+            root.Add(new PropertyField(serializedObject.FindProperty("ProtectedAreas"), "Protected areas (experimental)"));
             root.Bind(serializedObject);
             var targetKind = serializedObject.FindProperty("target.Kind");
             void RefreshAlgorithmOptions()
@@ -70,11 +71,12 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                 var simplifiedMesh = new Mesh { name = $"{sourceMesh.name}-UV-Preview" };
                 try
                 {
+                    var protection = DecimationMasks.Resolve(component.GetComponent<Renderer>(), sourceMesh);
                     var report = MeshSimplifier.SimplifyWithReport(
                         sourceMesh,
-                        component.target,
-                        component.options,
-                        simplifiedMesh);
+                        DecimationMasks.SupportedTarget(component.target, sourceMesh, protection),
+                        component.options, null,
+                        simplifiedMesh, protection);
                     MeshUvPreviewWindow.ShowComparison(sourceMesh, simplifiedMesh);
                     MeshUvPreviewWindow.ShowFallbackNotification(sourceMesh, report);
                 }
@@ -105,7 +107,8 @@ namespace Meshia.MeshSimplification.Ndmf.Editor
                             {
                                 Mesh simplifiedMesh = new();
 
-                                MeshSimplifier.Simplify(targetMesh, ndmfMeshSimplifier.target, ndmfMeshSimplifier.options, simplifiedMesh);
+                                var protection = DecimationMasks.Resolve(ndmfMeshSimplifier.GetComponent<Renderer>(), targetMesh);
+                                MeshSimplifier.SimplifyWithReport(targetMesh, DecimationMasks.SupportedTarget(ndmfMeshSimplifier.target, targetMesh, protection), ndmfMeshSimplifier.options, null, simplifiedMesh, protection);
 
                                 AssetDatabase.CreateAsset(simplifiedMesh, Path.Join("Assets/", Path.GetRelativePath(Application.dataPath, absolutePath)));
                             }

@@ -1,6 +1,6 @@
 # Decimation masks: exploratory design
 
-Status: source/API investigation, 2026-10-12. No mask feature is implemented yet.
+Status: experimental implementation, 2026-10-12. See the implementation notes below for current behavior and validation.
 Branch: `experiment/decimation-masks`, based on main `ed0a2f94728eb4e13d7984151b574a650edf7b32`.
 
 ## User problem
@@ -88,7 +88,7 @@ The number of selected triangles is a minimum retained amount, not necessarily t
 2. **Mask resolver:** slot-aware UV selection, triangle-interior coverage, seams, wrapping and immutable signatures. Prove that changing masks invalidates cached reductions.
 3. **Inspector integration:** per-mesh texture entries and overlay, then optional Create/Edit integration. Imported masks must work without MaskTextureEditor installed.
 4. **NDMF parity:** preview, Analyze Build, manual bake and upload-path processing on temporary copies. Cover AAO removal/merge and MA cut operations without modifying those packages.
-5. **Avatar validation:** reduce a body sharing a renderer with a protected face and compare facial tracking poses and combined blendshapes. Do not change the live Luchika setup during the core proof.
+5. **Avatar validation:** reduce a body sharing a renderer with a protected face and compare facial tracking poses and combined blendshapes. Use an isolated test copy during validation.
 
 Initially support FA-QEM explicitly. If a user selects another algorithm with an enabled mask, keep that renderer unsimplified and explain the incompatibility; never ignore the mask. Extend algorithms only after equivalent tests pass.
 
@@ -108,4 +108,28 @@ Initially support FA-QEM explicitly. If a user selects another algorithm with an
 
 The public painter API and existing FA-QEM hard exclusions make this feasible. The work is larger than adding a texture field: tangent rebuilding, cleanup, replay, cache invalidation and prepared-mesh correspondence must obey the same preservation contract.
 
-Validation so far is source/API inspection only. No Unity runtime tests, live project installation, or avatar modifications were performed for this exploration.
+The initial investigation was source/API inspection only. The prototype described below has since been installed and tested in a separate Unity project.
+
+## Prototype behavior
+
+Implemented: per-renderer material-slot masks, immutable source vertex selections, conservative triangle/texel coverage, preservation of coincident seam copies, and hard locks in FA-QEM. Protected base tangents and blendshape tangent deltas are excluded from rebuilding. Synchronous, asynchronous, batch, history, replay, count-only, NDMF preview, manual bake and build paths carry the same selection.
+
+Controls are under the cogwheel as **Protected areas (experimental)**. Imported masks work without MaskTextureEditor. When installed, its public Create/Edit APIs are called through an optional adapter without a package dependency. New masks are black, use UV0, and are saved as uncompressed data textures. Red-channel values at least 128 select protected texels; alpha is ignored. The pink scene overlay shows faces whose vertices are all locked.
+
+**Saved-mask workflow:** Meshia reads the saved texture asset. Save the image in MaskTextureEditor to update reduction. Unsaved painter edits do not affect either preview or builds. This deliberately replaces the proposed live-paint observation for the first prototype, avoiding a preview/upload mismatch without relying on an unverified dirty-state API.
+
+An enabled mask with missing data, an invalid slot, missing UV0, or an incompatible source layout keeps the affected renderer unchanged and emits a diagnostic. Other algorithms also retain the mesh when the mask selects vertices. Authoring mesh references are captured when masks are assigned or created in the inspector. UV and slot correspondence is checked against that source before applying the mask to prepared geometry.
+
+Repeat and mirrored tiling are supported within a bounded tile span. Clamp/MirrorOnce triangles outside 0–1, nonfinite UVs and extreme tile spans conservatively retain the affected triangle when the mask contains any white texels. This can protect more geometry than requested; exact clipped sampling for these cases remains follow-up work.
+
+Mask resolution is cached separately from slider targets. Cache identity includes texture content/update revision, dimensions, wrap mode, slot and authoring source; mesh observations, asset changes and Undo invalidate it. Replay retains an immutable managed selection and each simplification owns its native copy.
+
+### Validation status
+
+The initial mask suite passed in Unity 2022.3.22f1 with Burst enabled and MaskTextureEditor 1.3.0. Checks cover strict attribute/blendshape retention, sync/async/batch/replay parity, count profiles, material slots and seam copies, triangle-interior paint, repeated/mirrored UVs, texture reimport, safe fallback, and standalone/cascading NDMF integration. The checkbox click/Undo regression also passed.
+
+A representative full NDMF avatar build retained the intended reduction. The maintainer confirmed the painted-mask result in Play Mode and after uploading the correct test avatar to VRChat. This does not establish compatibility with every facial rig or downstream plugin.
+
+The earlier full suite passed 396/400 tests. Four failures involving joint selection and preview invalidation/cancellation also reproduced on unchanged main in a focused comparison. That comparison used managed jobs to avoid stale Burst code after switching checkouts. Track those separately; do not describe the full suite as passing.
+
+Final focused validation passed 22 EditMode checks, including inactive standalone/cascading builds, checkbox Undo, and installed AAO/MA cut compatibility. The additional prefab save/reload and texture-reimport check passed when invoked directly in the Editor; a private preview scene kept the working scene untouched. The initial scene-persistence fixture used unsupported EditMode scene APIs and was replaced by that prefab round trip. Private avatar assets and raw local reports are excluded from release content.

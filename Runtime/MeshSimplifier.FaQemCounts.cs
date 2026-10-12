@@ -15,17 +15,27 @@ namespace Meshia.MeshSimplification
         /// <summary>Measures an FA-QEM count sequence without constructing an output Unity mesh.</summary>
         public static FaQemCountProfile MeasureFaQemCounts(Mesh source, int minimumTarget,
             MeshSimplifierOptions options, BitArray? preserveBones = null)
+            => MeasureFaQemCounts(source, minimumTarget, options, preserveBones, null);
+
+        /// <summary>Measures a reduction sequence constrained by an immutable vertex selection.</summary>
+        public static FaQemCountProfile MeasureFaQemCounts(Mesh source, int minimumTarget,
+            MeshSimplifierOptions options, BitArray? preserveBones, ProtectedVertexSelection? protection)
         {
-            using var measurement = new FaQemCountMeasurement(source, minimumTarget, options, preserveBones);
+            using var measurement = new FaQemCountMeasurement(source, minimumTarget, options, preserveBones, protection: protection);
             return measurement.Complete();
         }
 
         /// <summary>Measures an FA-QEM count sequence while yielding to the editor during the job.</summary>
-        public static async Task<FaQemCountProfile> MeasureFaQemCountsAsync(Mesh source, int minimumTarget,
+        public static Task<FaQemCountProfile> MeasureFaQemCountsAsync(Mesh source, int minimumTarget,
             MeshSimplifierOptions options, BitArray? preserveBones = null, CancellationToken cancellationToken = default)
+            => MeasureFaQemCountsAsync(source, minimumTarget, options, preserveBones, null, cancellationToken);
+
+        /// <summary>Asynchronously measures a reduction sequence constrained by an immutable selection.</summary>
+        public static async Task<FaQemCountProfile> MeasureFaQemCountsAsync(Mesh source, int minimumTarget,
+            MeshSimplifierOptions options, BitArray? preserveBones, ProtectedVertexSelection? protection, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var measurement = new FaQemCountMeasurement(source, minimumTarget, options, preserveBones);
+            using var measurement = new FaQemCountMeasurement(source, minimumTarget, options, preserveBones, protection: protection);
             while (!measurement.Pending.IsCompleted) await Task.Yield();
             cancellationToken.ThrowIfCancellationRequested();
             return measurement.Complete();
@@ -41,11 +51,12 @@ namespace Meshia.MeshSimplification
             private readonly int requested;
             internal JobHandle Pending;
 
-            internal FaQemCountMeasurement(Mesh source, int minimumTarget, MeshSimplifierOptions options, BitArray? bones, bool recordReplay = false)
+            internal FaQemCountMeasurement(Mesh source, int minimumTarget, MeshSimplifierOptions options, BitArray? bones, bool recordReplay = false, ProtectedVertexSelection? protection = null)
             {
                 requested = Math.Max(0, minimumTarget);
                 var target = new MeshSimplificationTarget { Kind = MeshSimplificationTargetKind.FaQemTriangleCount, Value = requested };
                 ValidateFaQemTarget(target, options);
+                protection?.Validate(target, source.vertexCount);
                 try
                 {
                     original = Mesh.AcquireReadOnlyMeshData(source);
@@ -56,6 +67,7 @@ namespace Meshia.MeshSimplification
                         for (var i = 0; i < bones.Length; i++) preserve.Set(i, bones[i]);
                     simplifier = new MeshSimplifier(Unity.Collections.Allocator.Persistent) { RecordFaQemCounts = true, RecordFaQemReplay = recordReplay };
                     hasSimplifier = true;
+                    simplifier.SetProtection(protection);
                     Pending = simplifier.ScheduleLoadMeshData(original[0], options, preserve, false);
                     Pending = simplifier.ScheduleSimplify(original[0], blendShapes, target, preserve, Pending);
                     JobHandle.ScheduleBatchedJobs();
