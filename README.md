@@ -2,6 +2,12 @@
 
 [English](#english) · [日本語](#日本語) · [VPM repository](https://drcain1.github.io/Meshia.MeshSimplification/vpm/) · [Releases](https://github.com/drcain1/Meshia.MeshSimplification/releases) · [API documentation](https://drcain1.github.io/Meshia.MeshSimplification/)
 
+## Compatibility notice: d4rkAvatarOptimizer / 互換性について
+
+**Using this fork with d4rkAvatarOptimizer is not supported.** Its maintainer [stated that lilToon support is not planned](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer/issues/154#issuecomment-3092514365). If you encounter a problem with both tools enabled, disable d4rkAvatarOptimizer and check whether it still occurs before reporting it here. This notice does not apply to **anatawa12's Avatar Optimizer (AAO)**, which is a separate tool.
+
+**このフォークと d4rkAvatarOptimizer の併用はサポート対象外です。** 同ツールの開発者は、[lilToon への対応予定はないと述べています](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer/issues/154#issuecomment-3092514365)。併用時に問題が起きた場合は、d4rkAvatarOptimizer を無効にしても再現するか確認してから、このフォークへ報告してください。**anatawa12 氏の Avatar Optimizer（AAO）** は別のツールであり、この注意事項の対象ではありません。
+
 ## English
 
 [Install](#installation) · [Get started](#how-to-use) · [Tune the result](#keeping-texture-details-and-shape) · [Troubleshoot](#troubleshooting)
